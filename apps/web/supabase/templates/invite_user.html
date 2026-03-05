@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>You're Invited!</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+            background-color: #f2f2f2;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            text-align: center;
+            padding-bottom: 20px;
+        }
+        .header h1 {
+            color: #333;
+            margin: 0;
+        }
+        .content {
+            font-size: 16px;
+            line-height: 1.5;
+            color: #555;
+        }
+        .content p {
+            margin: 0 0 20px;
+        }
+        .button {
+            display: inline-block;
+            background-color: #007bff;
+            color: #ffffff;
+            padding: 12px 24px;
+            text-align: center;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .footer {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>You're Invited to Blueprint Builder Clarity!</h1>
+        </div>
+        <div class="content">
+            <p>Hi there,</p>
+            <p>You have been invited to join Blueprint Builder Clarity. Click the button below to accept your invitation and create an account.</p>
+            <p style="text-align: center;">
+                <a href="{{ .ConfirmationURL }}" class="button">Accept Invitation</a>
+            </p>
+            <p>If you were not expecting this invitation, you can ignore this email.</p>
+            <p>Best,<br>The Blueprint Builder Clarity Team</p>
+        </div>
+        <div class="footer">
+            <p>&copy; 2025 Blueprint Builder Clarity. All rights reserved.</p>
+            <p><a href="{{ .SiteURL }}">Our Website</a></p>
+        </div>
+    </div>
+</body>
+</html>
+
+
+

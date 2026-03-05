@@ -1,0 +1,21 @@
+{
+  "name": "vx-kora",
+  "version": "1.0.0",
+  "private": true,
+  "description": "K.O.R.A - Knowledge Oriented Retrieval Agents by VaughnX Technology LLC",
+  "scripts": {
+    "dev:web": "npm run dev --workspace=apps/web",
+    "dev:admin": "npm run dev --workspace=workers/ingest/kora-admin",
+    "build:web": "npm run build --workspace=apps/web",
+    "build:admin": "npm run build --workspace=workers/ingest/kora-admin"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "services/*",
+    "workers/*"
+  ],
+  "keywords": ["kora", "ai", "rag", "agents", "marketing"],
+  "author": "VaughnX Technology LLC",
+  "license": "PROPRIETARY"
+}

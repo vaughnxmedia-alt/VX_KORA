@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "@aws-sdk/client-s3": "https://esm.sh/@aws-sdk/client-s3@3.490.0"
+  }
+}
+
