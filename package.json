@@ -13,7 +13,7 @@
     "apps/*",
     "packages/*",
     "services/*",
-    "workers/*"
+    "workers/ingest/*"
   ],
   "keywords": ["kora", "ai", "rag", "agents", "marketing"],
   "author": "VaughnX Technology LLC",

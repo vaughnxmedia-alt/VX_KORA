@@ -1,10 +1,26 @@
 import { useState } from "react"
 import { NavLink, useLocation } from "react-router-dom"
-import { LayoutDashboard, Rss, PlayCircle, FileText, ListTodo, Sparkles, Database, Users, ChevronDown, ChevronRight, Brain, MessageSquareText, PenTool, Layers, Activity, Key, Shield, Globe, Home, GitBranch, Building2, type LucideIcon } from "lucide-react"
+import { 
+  LayoutDashboard, Rss, PlayCircle, FileText, ListTodo, Sparkles, Database, Users, 
+  ChevronDown, ChevronRight, Brain, MessageSquareText, PenTool, Layers, Activity, 
+  Key, Shield, Globe, Home, GitBranch, Building2, Bot, ClipboardCheck, Search, 
+  Fingerprint, Rocket, FileOutput, type LucideIcon 
+} from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useAgentStore } from "@/state/agentStore"
 
 interface NavItem { to: string; label: string; icon?: LucideIcon }
 interface AgentGroup { id: string; label: string; description: string; icon: LucideIcon; overviewPath: string; items: NavItem[] }
+
+const koraAgents: NavItem[] = [
+  { to: "/agents/intake", label: "Intake Clarifier", icon: ClipboardCheck },
+  { to: "/agents/research", label: "Research Agent", icon: Search },
+  { to: "/agents/audience", label: "Audience Intelligence", icon: Users },
+  { to: "/agents/brand", label: "Brand Identity", icon: Fingerprint },
+  { to: "/agents/content", label: "Content Strategy", icon: FileText },
+  { to: "/agents/campaigns", label: "Campaign Builder", icon: Rocket },
+  { to: "/agents/report", label: "PDF Report Builder", icon: FileOutput },
+]
 
 const agentGroups: AgentGroup[] = [
   {
@@ -105,7 +121,28 @@ export function Sidebar() {
         </NavLink>
 
         <div className="mt-4 mb-2">
-          <p className="px-3 text-xs font-semibold text-grey-500 uppercase tracking-wider">Agents</p>
+          <p className="px-3 text-xs font-semibold text-grey-500 uppercase tracking-wider">KORA Agents</p>
+        </div>
+
+        <NavLink to="/agents" end className={({ isActive }) => cn("flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors mb-1", isActive ? "bg-gradient-to-r from-royal to-purple text-white" : "text-grey-400 hover:text-white hover:bg-white/5")}>
+          <Bot className="h-4.5 w-4.5" />
+          Pipeline Overview
+        </NavLink>
+
+        <div className="space-y-0.5 mb-4">
+          {koraAgents.map((item) => {
+            const Icon = item.icon
+            return (
+              <NavLink key={item.to} to={item.to} className={({ isActive }) => cn("flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors", isActive ? "bg-royal/80 text-white" : "text-grey-400 hover:text-white hover:bg-white/5")}>
+                {Icon && <Icon className="h-4 w-4" />}
+                {item.label}
+              </NavLink>
+            )
+          })}
+        </div>
+
+        <div className="mt-4 mb-2">
+          <p className="px-3 text-xs font-semibold text-grey-500 uppercase tracking-wider">System Agents</p>
         </div>
 
         <div className="space-y-0.5">

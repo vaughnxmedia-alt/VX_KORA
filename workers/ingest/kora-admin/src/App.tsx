@@ -1,6 +1,16 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { Layout } from "@/components/Layout"
 import { Overview } from "@/pages/Overview"
+import { Agents } from "@/pages/Agents"
+import { 
+  IntakeClarifier, 
+  ResearchAgent, 
+  AudienceIntelligence, 
+  BrandIdentity, 
+  ContentStrategyAgent, 
+  CampaignBuilder, 
+  PDFReportBuilder 
+} from "@/pages/agents"
 import { CoreOverview } from "@/pages/core/CoreOverview"
 import { GlobalIngest } from "@/pages/core/GlobalIngest"
 import { TenantRouting } from "@/pages/core/TenantRouting"
@@ -17,6 +27,18 @@ function App() {
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Overview />} />
+          
+          {/* Agents Pipeline Overview */}
+          <Route path="agents" element={<Agents />} />
+          
+          {/* Individual Agent Pages */}
+          <Route path="agents/intake" element={<IntakeClarifier />} />
+          <Route path="agents/research" element={<ResearchAgent />} />
+          <Route path="agents/audience" element={<AudienceIntelligence />} />
+          <Route path="agents/brand" element={<BrandIdentity />} />
+          <Route path="agents/content" element={<ContentStrategyAgent />} />
+          <Route path="agents/campaigns" element={<CampaignBuilder />} />
+          <Route path="agents/report" element={<PDFReportBuilder />} />
           
           {/* Core Intelligence Agent */}
           <Route path="core" element={<CoreOverview />} />

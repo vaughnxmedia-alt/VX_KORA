@@ -149,3 +149,44 @@ export interface ActivityItem {
   tenant_name: string | null
   timestamp: string
 }
+
+export interface IndustryRAGAgent {
+  id: string
+  industry: string
+  displayName: string
+  description: string
+  status: "active" | "building" | "inactive"
+  sourcesCount: number
+  documentsCount: number
+  embeddingsCount: number
+  lastSyncAt: string | null
+  nextSyncAt: string | null
+  syncFrequency: "daily" | "weekly" | "bi-weekly"
+  clients: string[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface IngestSource {
+  id: string
+  name: string
+  url: string
+  type: "rss" | "api" | "scraper"
+  industry: string
+  isActive: boolean
+  lastFetchAt: string | null
+  nextFetchAt: string | null
+  itemsCount: number
+  errorRate: number
+}
+
+export interface IngestSchedule {
+  id: string
+  clientId: string
+  clientName: string
+  frequency: "daily" | "weekly"
+  lastRunAt: string | null
+  nextRunAt: string
+  status: "scheduled" | "running" | "completed" | "failed"
+  itemsIngested: number
+}

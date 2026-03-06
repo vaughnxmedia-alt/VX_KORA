@@ -36,6 +36,16 @@ import Leads from './pages/dashboard/Leads';
 import Clients from './pages/dashboard/Clients';
 import EventsManagement from './pages/dashboard/EventsManagement';
 import Subscribers from './pages/dashboard/Subscribers';
+import AssetLibrary from './pages/dashboard/AssetLibrary';
+import Reports from './pages/dashboard/Reports';
+import Settings from './pages/dashboard/Settings';
+import ContentStrategy from './pages/dashboard/ContentStrategy';
+import CampaignGenerator from './pages/dashboard/CampaignGenerator';
+import { GetInspiredPage } from '@/features/inspired/GetInspiredPage';
+import { InspiredProjectListPage } from '@/features/inspired/InspiredProjectListPage';
+import { CampaignsLayout } from '@/features/campaigns/CampaignsLayout';
+import { CampaignsIndexPage } from '@/features/campaigns/pages/CampaignsIndexPage';
+import { CampaignDetailPage } from '@/features/campaigns/pages/CampaignDetailPage';
 import Events from './pages/Events';
 import Kora from './pages/Kora';
 
@@ -71,29 +81,37 @@ createRoot(document.getElementById('root')!).render(
                   <Route index element={<Overview />} />
                   <Route path="overview" element={<Overview />} />
                   <Route path="blog" element={
-                      <ProtectedRoute allowedRoles={['admin', 'author']}>
+                      <ProtectedRoute allowedRoles={['admin', 'author', 'intern', '3pv']}>
                         <BlogManagement />
                       </ProtectedRoute>
                   } />
                   <Route path="blueprints" element={<BrandBlueprints />} />
                   <Route path="audience" element={<TargetAudience />} />
                   <Route path="calendar" element={<ContentCalendar />} />
+                  <Route path="campaigns" element={<CampaignsLayout />}>
+                    <Route index element={<CampaignsIndexPage />} />
+                    <Route path="new" element={<CampaignsIndexPage />} />
+                    <Route path=":campaignId" element={<CampaignDetailPage />} />
+                  </Route>
+                  <Route path="get-inspired" element={<InspiredProjectListPage />} />
+                  <Route path="get-inspired/board/:boardId" element={<GetInspiredPage />} />
+                  <Route path="inspired" element={<InspiredProjectListPage />} />
                   <Route path="filming" element={<FilmingSchedule />} />
                   <Route path="meetings" element={<Meetings />} />
                   <Route path="strategy" element={<StrategyUpdates />} />
                   <Route path="analytics" element={<Analytics />} />
                   <Route path="leads" element={
-                      <ProtectedRoute allowedRoles={['admin', 'author']}>
+                      <ProtectedRoute allowedRoles={['admin', 'author', 'intern', '3pv']}>
                         <Leads />
                       </ProtectedRoute>
                   } />
                   <Route path="clients" element={
-                      <ProtectedRoute allowedRoles={['admin', 'author']}>
+                      <ProtectedRoute allowedRoles={['admin', 'author', 'intern', '3pv']}>
                         <Clients />
                       </ProtectedRoute>
                   } />
                   <Route path="events" element={
-                      <ProtectedRoute allowedRoles={['admin', 'author']}>
+                      <ProtectedRoute allowedRoles={['admin', 'author', 'intern', '3pv']}>
                         <EventsManagement />
                       </ProtectedRoute>
                   } />
@@ -102,6 +120,15 @@ createRoot(document.getElementById('root')!).render(
                         <Subscribers />
                       </ProtectedRoute>
                   } />
+                  <Route path="assets" element={
+                      <ProtectedRoute allowedRoles={['admin', 'author', 'intern', '3pv']}>
+                        <AssetLibrary />
+                      </ProtectedRoute>
+                  } />
+                  <Route path="reports" element={<Reports />} />
+                  <Route path="settings" element={<Settings />} />
+                  <Route path="content-strategy" element={<ContentStrategy />} />
+                  <Route path="campaign-generator" element={<CampaignGenerator />} />
               </Route>
               
               <Route path="/auth" element={<Auth />} />

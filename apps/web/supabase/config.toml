@@ -10,6 +10,15 @@ verify_jwt = false
 [functions.upload-to-s3]
 verify_jwt = false
 
+[functions.telegram-notify]
+verify_jwt = false
+
+[functions.kora-daily-briefing]
+verify_jwt = false
+
+[functions.kora-generate-strategy]
+verify_jwt = false
+
 [api]
 enabled = true
 # Port to use for the API URL.
