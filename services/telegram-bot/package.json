@@ -1,0 +1,40 @@
+{
+  "name": "@kora/telegram-bot",
+  "version": "1.0.0",
+  "description": "KORA Telegram Bot - New Strategy Intake and Daily Briefings",
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "regenerate": "tsx src/regenerate-with-pdf.ts",
+    "verify-accounts": "tsx src/verify-and-fix-accounts.ts",
+    "test:research": "tsx src/test-research-pipeline.ts",
+    "test:deep-pipeline": "tsx src/test-deep-pipeline.ts",
+    "diagnose": "tsx src/diagnose-data-access.ts",
+    "send-test-report": "tsx src/send-test-report.ts",
+    "send-insights": "tsx src/send-deep-insights.ts"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "@supabase/supabase-js": "^2.47.2",
+    "dotenv": "^16.3.1",
+    "jspdf": "^2.5.1",
+    "node-cron": "^3.0.3",
+    "node-telegram-bot-api": "^0.64.0",
+    "openai": "^4.20.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/node-cron": "^3.0.11",
+    "@types/node-telegram-bot-api": "^0.64.0",
+    "@types/jspdf": "^2.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0"
+  },
+  "keywords": ["kora", "telegram", "bot", "strategy", "intake"],
+  "author": "VaughnX Technology LLC",
+  "license": "PROPRIETARY"
+}

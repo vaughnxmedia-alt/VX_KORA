@@ -41,6 +41,8 @@ import Reports from './pages/dashboard/Reports';
 import Settings from './pages/dashboard/Settings';
 import ContentStrategy from './pages/dashboard/ContentStrategy';
 import CampaignGenerator from './pages/dashboard/CampaignGenerator';
+import IntelligenceFilters from './pages/dashboard/IntelligenceFilters';
+import Sources from './pages/dashboard/Sources';
 import { GetInspiredPage } from '@/features/inspired/GetInspiredPage';
 import { InspiredProjectListPage } from '@/features/inspired/InspiredProjectListPage';
 import { CampaignsLayout } from '@/features/campaigns/CampaignsLayout';
@@ -127,8 +129,14 @@ createRoot(document.getElementById('root')!).render(
                   } />
                   <Route path="reports" element={<Reports />} />
                   <Route path="settings" element={<Settings />} />
+                  <Route path="intelligence-filters" element={<IntelligenceFilters />} />
                   <Route path="content-strategy" element={<ContentStrategy />} />
                   <Route path="campaign-generator" element={<CampaignGenerator />} />
+                  <Route path="sources" element={
+                      <ProtectedRoute allowedRoles={['admin']}>
+                        <Sources />
+                      </ProtectedRoute>
+                  } />
               </Route>
               
               <Route path="/auth" element={<Auth />} />

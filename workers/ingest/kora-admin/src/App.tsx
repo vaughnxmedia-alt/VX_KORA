@@ -1,88 +1,113 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
-import { Layout } from "@/components/Layout"
+import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom"
+import { Suspense, lazy } from "react"
+import { Sidebar } from "@/components/Sidebar"
 import { Overview } from "@/pages/Overview"
-import { Agents } from "@/pages/Agents"
-import { 
-  IntakeClarifier, 
-  ResearchAgent, 
-  AudienceIntelligence, 
-  BrandIdentity, 
-  ContentStrategyAgent, 
-  CampaignBuilder, 
-  PDFReportBuilder 
-} from "@/pages/agents"
-import { CoreOverview } from "@/pages/core/CoreOverview"
-import { GlobalIngest } from "@/pages/core/GlobalIngest"
-import { TenantRouting } from "@/pages/core/TenantRouting"
-import { EventsQueue } from "@/pages/core/EventsQueue"
-import { StrategyOverview } from "@/pages/strategy/StrategyOverview"
-import { StrategyRuns } from "@/pages/strategy/StrategyRuns"
-import { Tenants } from "@/pages/Tenants"
-import { Settings } from "@/pages/Settings"
 import { Placeholder } from "@/pages/Placeholder"
+
+// Intake Agent Pages (lazy loaded)
+const IntakeOverview = lazy(() => import("@/pages/intake/IntakeOverview"))
+const IntakeClarifier = lazy(() => import("@/pages/intake/IntakeClarifier"))
+const BrandIdentity = lazy(() => import("@/pages/intake/BrandIdentity"))
+const StrategyArchitect = lazy(() => import("@/pages/intake/StrategyArchitect"))
+const AudienceIntelligence = lazy(() => import("@/pages/intake/AudienceIntelligence"))
+
+// Core Intelligence Pages (lazy loaded)
+const CoreOverview = lazy(() => import("@/pages/core/CoreOverview"))
+const Sources = lazy(() => import("@/pages/core/Sources"))
+const IngestRuns = lazy(() => import("@/pages/core/IngestRuns"))
+const IntelligencePool = lazy(() => import("@/pages/core/GlobalIntelligencePool"))
+const TenantRAGRoute = lazy(() => import("@/pages/core/TenantRAGRoute"))
+const Enrichment = lazy(() => import("@/pages/core/Enrichment"))
+const EventsQueue = lazy(() => import("@/pages/core/EventsQueue"))
+const HealthAndLogs = lazy(() => import("@/pages/core/HealthAndLogs"))
+
+// Agent Detail Pages (lazy loaded)
+const AgentDetail = lazy(() => import("@/pages/agents/AgentDetail"))
+
+// Users and Tenants Pages (lazy loaded)
+const Tenants = lazy(() => import("@/pages/tenants/Tenants"))
+const Users = lazy(() => import("@/pages/tenants/Users"))
+const TelegramPreferences = lazy(() => import("@/pages/tenants/TelegramPreferences"))
+const ApprovalHistory = lazy(() => import("@/pages/tenants/ApprovalHistory"))
+const IntelligenceFilters = lazy(() => import("@/pages/tenants/IntelligenceFilters"))
+
+// Settings Pages (lazy loaded)
+const Integrations = lazy(() => import("@/pages/settings/Integrations"))
+const APIKeys = lazy(() => import("@/pages/settings/APIKeys"))
+const LLMRouter = lazy(() => import("@/pages/settings/LLMRouter"))
+const Notifications = lazy(() => import("@/pages/settings/Notifications"))
+
+function LoadingFallback() {
+  return (
+    <div className="flex items-center justify-center h-full">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+    </div>
+  )
+}
+
+function Layout() {
+  return (
+    <div className="flex h-screen bg-gray-900">
+      <Sidebar />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <main className="flex-1 overflow-y-auto p-6">
+          <Suspense fallback={<LoadingFallback />}>
+            <Outlet />
+          </Suspense>
+        </main>
+      </div>
+    </div>
+  )
+}
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Layout />}>
+          {/* Main Overview */}
           <Route index element={<Overview />} />
-          
-          {/* Agents Pipeline Overview */}
-          <Route path="agents" element={<Agents />} />
-          
-          {/* Individual Agent Pages */}
-          <Route path="agents/intake" element={<IntakeClarifier />} />
-          <Route path="agents/research" element={<ResearchAgent />} />
-          <Route path="agents/audience" element={<AudienceIntelligence />} />
-          <Route path="agents/brand" element={<BrandIdentity />} />
-          <Route path="agents/content" element={<ContentStrategyAgent />} />
-          <Route path="agents/campaigns" element={<CampaignBuilder />} />
-          <Route path="agents/report" element={<PDFReportBuilder />} />
-          
-          {/* Core Intelligence Agent */}
+
+          {/* Intake Agent Routes */}
+          <Route path="intake" element={<IntakeOverview />} />
+          <Route path="intake/clarifier" element={<IntakeClarifier />} />
+          <Route path="intake/brand-identity" element={<BrandIdentity />} />
+          <Route path="intake/strategy-architect" element={<StrategyArchitect />} />
+          <Route path="intake/audience-intelligence" element={<AudienceIntelligence />} />
+
+          {/* Core Intelligence Routes */}
           <Route path="core" element={<CoreOverview />} />
-          <Route path="core/sources" element={<Placeholder title="RSS Sources" description="Manage RSS feed sources for global ingestion." />} />
-          <Route path="core/global-ingest" element={<GlobalIngest />} />
-          <Route path="core/global-items" element={<GlobalIngest />} />
-          <Route path="core/tenant-routing" element={<TenantRouting />} />
-          <Route path="core/events" element={<EventsQueue />} />
-          <Route path="core/enrichment" element={<Placeholder title="Enrichment" description="Content enrichment pipeline status and configuration." />} />
-          <Route path="core/rag-updates" element={<Placeholder title="RAG Updates" description="Knowledge base synchronization and vector embedding status." />} />
-          <Route path="core/health" element={<Placeholder title="Health and Logs" description="System health monitoring and log viewer." />} />
+          <Route path="core/sources" element={<Sources />} />
+          <Route path="core/ingest-runs" element={<IngestRuns />} />
+          <Route path="core/intelligence-pool" element={<IntelligencePool />} />
+          <Route path="core/tenant-rag" element={<TenantRAGRoute />} />
+          <Route path="core/enrichment" element={<Enrichment />} />
+          <Route path="core/events-queue" element={<EventsQueue />} />
+          <Route path="core/health" element={<HealthAndLogs />} />
 
-          {/* Intake Clarifier Agent */}
-          <Route path="intake" element={<Placeholder title="Intake Clarifier" description="User intake processing and profile structuring agent." />} />
-          <Route path="intake/submissions" element={<Placeholder title="Intake Submissions" description="View and manage user intake form submissions." />} />
-          <Route path="intake/profiles" element={<Placeholder title="Structured Profiles" description="AI-generated structured client profiles." />} />
-          <Route path="intake/questions" element={<Placeholder title="Clarifying Questions" description="Manage clarifying question flows." />} />
-          <Route path="intake/validation" element={<Placeholder title="Validation" description="Profile validation and quality checks." />} />
+          {/* Agent Detail Routes */}
+          <Route path="agents/source-discovery" element={<AgentDetail agentId="source-discovery" />} />
+          <Route path="agents/source-processing" element={<AgentDetail agentId="source-processing" />} />
+          <Route path="agents/content-strategy" element={<AgentDetail agentId="content-strategy" />} />
+          <Route path="agents/campaign-assembly" element={<AgentDetail agentId="campaign-assembly" />} />
+          <Route path="agents/telegram-delivery" element={<AgentDetail agentId="telegram-delivery" />} />
+          <Route path="agents/rag-intelligence" element={<AgentDetail agentId="rag-intelligence" />} />
 
-          {/* Content Strategy Agent */}
-          <Route path="strategy" element={<StrategyOverview />} />
-          <Route path="strategy/runs" element={<StrategyRuns />} />
-          <Route path="strategy/insights" element={<Placeholder title="Insights" description="Market and content insights derived from ingested data." />} />
-          <Route path="strategy/pillars" element={<Placeholder title="Content Pillars" description="Manage content pillar configurations per tenant." />} />
-          <Route path="strategy/calendar" element={<Placeholder title="Content Calendar" description="Schedule and plan content publication." />} />
-
-          {/* Campaign Assembly Agent */}
-          <Route path="campaigns" element={<Placeholder title="Campaign Assembly" description="Campaign creation and asset generation agent." />} />
-          <Route path="campaigns/active" element={<Placeholder title="Active Campaigns" description="View and manage active marketing campaigns." />} />
-          <Route path="campaigns/assets" element={<Placeholder title="Asset Library" description="Browse and manage generated campaign assets." />} />
-          <Route path="campaigns/templates" element={<Placeholder title="Templates" description="Campaign and content templates." />} />
-          <Route path="campaigns/delivery" element={<Placeholder title="Delivery" description="Campaign delivery and scheduling." />} />
-
-          {/* Users and Tenants */}
+          {/* Users and Tenants Routes */}
           <Route path="tenants" element={<Tenants />} />
-          <Route path="users" element={<Placeholder title="Users" description="Manage user accounts and permissions." />} />
+          <Route path="users" element={<Users />} />
+          <Route path="telegram-preferences" element={<TelegramPreferences />} />
+          <Route path="approval-history" element={<ApprovalHistory />} />
+          <Route path="intelligence-filters" element={<IntelligenceFilters />} />
 
-          {/* Settings */}
-          <Route path="settings" element={<Settings />} />
-          <Route path="settings/keys" element={<Settings />} />
-          <Route path="settings/access" element={<Settings />} />
+          {/* Settings Routes */}
+          <Route path="settings/integrations" element={<Integrations />} />
+          <Route path="settings/api-keys" element={<APIKeys />} />
+          <Route path="settings/llm-router" element={<LLMRouter />} />
+          <Route path="settings/notifications" element={<Notifications />} />
 
-          {/* Catch-all redirect */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          {/* Fallback */}
+          <Route path="*" element={<Placeholder title="Coming Soon" description="This page is under construction." />} />
         </Route>
       </Routes>
     </BrowserRouter>

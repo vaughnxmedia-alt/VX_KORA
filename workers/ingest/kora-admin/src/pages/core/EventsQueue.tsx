@@ -1,119 +1,338 @@
 import { useState } from "react"
-import { Play, RotateCw, Trash2, AlertCircle, Search, Filter } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { DataTable } from "@/components/DataTable"
-import { StatusPill } from "@/components/StatusPill"
-import { EventTypeBadge } from "@/components/EventTypeBadge"
-import { DetailDrawer } from "@/components/DetailDrawer"
-import { mockKoraEvents, getTenantById } from "@/lib/mock-data"
-import type { KoraEvent } from "@/lib/types"
+import { 
+  Calendar, MapPin, ExternalLink, Send, Lightbulb, Clock, Globe,
+  Filter, MoreHorizontal, Users, Ticket
+} from "lucide-react"
+import { cn } from "@/lib/utils"
 
-function formatTimeAgo(timestamp: string): string {
-  const diffMins = Math.floor((Date.now() - new Date(timestamp).getTime()) / 60000)
-  if (diffMins < 1) return "Just now"
-  if (diffMins < 60) return `${diffMins}m ago`
-  if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`
-  return new Date(timestamp).toLocaleDateString()
+type EventStatus = "discovered" | "reviewed" | "pushed_to_strategy" | "pushed_to_telegram" | "archived"
+
+interface EventItem {
+  id: string
+  title: string
+  event_date: string
+  event_end_date: string | null
+  location: string | null
+  is_virtual: boolean
+  source: string
+  source_url: string
+  registration_url: string | null
+  price: string | null
+  organizer: string | null
+  description: string
+  tenant_relevance: { tenant_name: string; reason: string; score: number }[]
+  status: EventStatus
 }
 
-type StatusFilter = "all" | "pending" | "processing" | "completed" | "failed"
+const mockEvents: EventItem[] = [
+  {
+    id: "ev1", title: "Social Media Marketing Summit 2024", 
+    event_date: "2024-04-15", event_end_date: "2024-04-17",
+    location: "Miami, FL", is_virtual: false,
+    source: "Eventbrite", source_url: "https://eventbrite.com/e/12345",
+    registration_url: "https://eventbrite.com/e/12345/register", price: "$499",
+    organizer: "Digital Marketing Association",
+    description: "Join industry leaders for a 3-day conference on the future of social media marketing and creator economy.",
+    tenant_relevance: [
+      { tenant_name: "JahKnowsPR", reason: "Creator economy focus, social media trends", score: 0.92 },
+      { tenant_name: "Brand Agency", reason: "Marketing conference", score: 0.78 }
+    ],
+    status: "discovered"
+  },
+  {
+    id: "ev2", title: "PR Week Awards Gala",
+    event_date: "2024-05-10", event_end_date: null,
+    location: "New York, NY", is_virtual: false,
+    source: "PR Week", source_url: "https://prweek.com/awards",
+    registration_url: "https://prweek.com/awards/register", price: "$750",
+    organizer: "PR Week",
+    description: "Annual celebration of the best PR campaigns and professionals in the industry.",
+    tenant_relevance: [
+      { tenant_name: "JahKnowsPR", reason: "PR industry event, networking opportunity", score: 0.88 }
+    ],
+    status: "reviewed"
+  },
+  {
+    id: "ev3", title: "TikTok Creator Summit (Virtual)",
+    event_date: "2024-03-28", event_end_date: null,
+    location: null, is_virtual: true,
+    source: "TikTok Newsroom", source_url: "https://newsroom.tiktok.com/summit",
+    registration_url: "https://tiktok.com/summit/register", price: "Free",
+    organizer: "TikTok",
+    description: "Virtual summit for TikTok creators featuring platform updates, best practices, and monetization strategies.",
+    tenant_relevance: [
+      { tenant_name: "JahKnowsPR", reason: "Creator platform updates, content strategy insights", score: 0.95 }
+    ],
+    status: "pushed_to_telegram"
+  },
+  {
+    id: "ev4", title: "Influencer Marketing Conference",
+    event_date: "2024-06-05", event_end_date: "2024-06-06",
+    location: "Los Angeles, CA", is_virtual: false,
+    source: "IMC", source_url: "https://influencermarketingconf.com",
+    registration_url: "https://influencermarketingconf.com/register", price: "$399",
+    organizer: "Influencer Marketing Hub",
+    description: "Two-day conference focused on influencer partnerships, brand collaborations, and ROI measurement.",
+    tenant_relevance: [
+      { tenant_name: "JahKnowsPR", reason: "Influencer marketing focus", score: 0.89 },
+      { tenant_name: "Acme Corp", reason: "Brand partnership strategies", score: 0.72 }
+    ],
+    status: "discovered"
+  },
+]
 
-export function EventsQueue() {
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedEvent, setSelectedEvent] = useState<KoraEvent | null>(null)
+const statusConfig: Record<EventStatus, { label: string; color: string; bg: string }> = {
+  discovered: { label: "Discovered", color: "text-gray-400", bg: "bg-gray-400/10" },
+  reviewed: { label: "Reviewed", color: "text-blue-400", bg: "bg-blue-400/10" },
+  pushed_to_strategy: { label: "In Strategy", color: "text-purple-400", bg: "bg-purple-400/10" },
+  pushed_to_telegram: { label: "Sent to Telegram", color: "text-emerald-400", bg: "bg-emerald-400/10" },
+  archived: { label: "Archived", color: "text-gray-500", bg: "bg-gray-500/10" },
+}
 
-  const filteredEvents = mockKoraEvents.filter((event) => {
-    if (statusFilter !== "all" && event.status !== statusFilter) return false
-    if (searchQuery) {
-      const tenant = event.tenant_id ? getTenantById(event.tenant_id) : null
-      const tenantName = tenant?.name.toLowerCase() || ""
-      return event.event_type.toLowerCase().includes(searchQuery.toLowerCase()) || tenantName.includes(searchQuery.toLowerCase())
-    }
+export default function EventsQueue() {
+  const [events] = useState<EventItem[]>(mockEvents)
+  const [filterStatus, setFilterStatus] = useState<EventStatus | "all">("all")
+  const [viewMode, setViewMode] = useState<"cards" | "table">("cards")
+
+  const filteredEvents = events.filter(event => {
+    if (filterStatus !== "all" && event.status !== filterStatus) return false
     return true
   })
 
-  const columns = [
-    { key: "event_type" as const, header: "Event Type", render: (event: KoraEvent) => <EventTypeBadge type={event.event_type} /> },
-    { key: "tenant_id" as const, header: "Tenant", render: (event: KoraEvent) => { const tenant = event.tenant_id ? getTenantById(event.tenant_id) : null; return <span className={tenant ? "text-grey-900" : "text-grey-400 italic"}>{tenant?.name || "Global"}</span> } },
-    { key: "status" as const, header: "Status", render: (event: KoraEvent) => <StatusPill status={event.status as "pending" | "completed" | "failed"} /> },
-    { key: "retry_count" as const, header: "Retries", render: (event: KoraEvent) => <span className={event.retry_count > 0 ? "text-orange font-medium" : "text-grey-400"}>{event.retry_count}/{event.max_retries}</span> },
-    { key: "created_at" as const, header: "Created", render: (event: KoraEvent) => <span className="text-grey-500 text-sm">{formatTimeAgo(event.created_at)}</span> },
-    { key: "processed_at" as const, header: "Processed", render: (event: KoraEvent) => <span className="text-grey-500 text-sm">{event.processed_at ? formatTimeAgo(event.processed_at) : "—"}</span> },
-  ]
-
-  const pendingCount = mockKoraEvents.filter((e) => e.status === "pending").length
-  const failedCount = mockKoraEvents.filter((e) => e.status === "failed").length
+  const upcomingCount = events.filter(e => new Date(e.event_date) > new Date()).length
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-grey-900">Events Queue</h1>
-          <p className="text-grey-500 mt-1">Monitor and manage the K.O.R.A event processing queue.</p>
+          <h1 className="text-2xl font-bold text-white">Events Queue</h1>
+          <p className="text-gray-400 text-sm">Event marketplace with tenant relevance and push options</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-grey-500">Pending:</span>
-            <span className="font-semibold text-yellow-600">{pendingCount}</span>
-            <span className="text-grey-300">|</span>
-            <span className="text-grey-500">Failed:</span>
-            <span className="font-semibold text-red-600">{failedCount}</span>
+          <span className="text-gray-400 text-sm">{upcomingCount} upcoming events</span>
+          <div className="flex items-center bg-gray-800 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode("cards")}
+              className={cn(
+                "px-3 py-1.5 rounded text-sm transition-colors",
+                viewMode === "cards" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"
+              )}
+            >
+              Cards
+            </button>
+            <button
+              onClick={() => setViewMode("table")}
+              className={cn(
+                "px-3 py-1.5 rounded text-sm transition-colors",
+                viewMode === "table" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"
+              )}
+            >
+              Table
+            </button>
           </div>
-          <Button variant="outline"><RotateCw className="h-4 w-4 mr-2" />Process All Pending</Button>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-card">
-        <div className="p-4 border-b border-grey-100 flex items-center justify-between gap-4">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-grey-400" />
-            <Input placeholder="Search by event type or tenant..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
-          </div>
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-grey-400" />
-            {(["all", "pending", "processing", "completed", "failed"] as StatusFilter[]).map((status) => (
-              <button key={status} onClick={() => setStatusFilter(status)} className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${statusFilter === status ? "bg-royal text-white" : "text-grey-600 hover:bg-grey-100"}`}>
-                {status.charAt(0).toUpperCase() + status.slice(1)}
-              </button>
-            ))}
-          </div>
+      {/* Filters */}
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-gray-400" />
+          <span className="text-sm text-gray-400">Status:</span>
         </div>
-        <DataTable data={filteredEvents} columns={columns} keyExtractor={(event) => event.id} onRowClick={setSelectedEvent} emptyMessage="No events found matching your filters" />
+        <select 
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value as EventStatus | "all")}
+          className="bg-gray-800 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white"
+        >
+          <option value="all">All Status</option>
+          {Object.entries(statusConfig).map(([key, config]) => (
+            <option key={key} value={key}>{config.label}</option>
+          ))}
+        </select>
       </div>
 
-      <DetailDrawer isOpen={!!selectedEvent} onClose={() => setSelectedEvent(null)} title="Event Details">
-        {selectedEvent && (
-          <div className="space-y-6">
-            <div className="flex items-center gap-3">
-              <EventTypeBadge type={selectedEvent.event_type} />
-              <StatusPill status={selectedEvent.status as "pending" | "completed" | "failed"} />
-            </div>
-            {selectedEvent.tenant_id && (
-              <div><p className="text-xs text-grey-500 uppercase tracking-wider mb-1">Tenant</p><p className="text-grey-900 font-medium">{getTenantById(selectedEvent.tenant_id)?.name}</p></div>
-            )}
-            <div><p className="text-xs text-grey-500 uppercase tracking-wider mb-1">Payload</p><pre className="bg-grey-50 rounded-lg p-3 text-sm text-grey-700 overflow-x-auto">{JSON.stringify(selectedEvent.payload, null, 2)}</pre></div>
-            {selectedEvent.error_message && (
-              <div className="bg-red-50 border border-red-100 rounded-lg p-3">
-                <div className="flex items-center gap-2 text-red-700 mb-1"><AlertCircle className="h-4 w-4" /><span className="font-medium">Error</span></div>
-                <p className="text-sm text-red-600">{selectedEvent.error_message}</p>
+      {/* Events Grid */}
+      {viewMode === "cards" ? (
+        <div className="grid grid-cols-2 gap-4">
+          {filteredEvents.map((event) => {
+            const status = statusConfig[event.status]
+            const eventDate = new Date(event.event_date)
+            const isPast = eventDate < new Date()
+            
+            return (
+              <div 
+                key={event.id}
+                className={cn(
+                  "bg-gray-800/50 rounded-xl border border-white/5 overflow-hidden",
+                  isPast && "opacity-60"
+                )}
+              >
+                <div className="p-5">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className={cn("text-xs px-2 py-0.5 rounded-full", status.bg, status.color)}>
+                        {status.label}
+                      </span>
+                      {event.is_virtual && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-400/10 text-cyan-400">
+                          Virtual
+                        </span>
+                      )}
+                    </div>
+                    {event.price && (
+                      <span className="text-white font-medium text-sm">{event.price}</span>
+                    )}
+                  </div>
+
+                  <h3 className="text-white font-semibold text-lg mb-2">{event.title}</h3>
+                  
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Calendar className="h-4 w-4 text-gray-500" />
+                      <span className="text-gray-300">
+                        {eventDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        {event.event_end_date && ` - ${new Date(event.event_end_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      {event.is_virtual ? (
+                        <>
+                          <Globe className="h-4 w-4 text-gray-500" />
+                          <span className="text-gray-300">Online Event</span>
+                        </>
+                      ) : (
+                        <>
+                          <MapPin className="h-4 w-4 text-gray-500" />
+                          <span className="text-gray-300">{event.location}</span>
+                        </>
+                      )}
+                    </div>
+                    {event.organizer && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Users className="h-4 w-4 text-gray-500" />
+                        <span className="text-gray-400">by {event.organizer}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <p className="text-gray-400 text-sm mb-4 line-clamp-2">{event.description}</p>
+
+                  {/* Tenant Relevance */}
+                  {event.tenant_relevance.length > 0 && (
+                    <div className="mb-4">
+                      <p className="text-gray-500 text-xs mb-2">Tenant Relevance:</p>
+                      <div className="space-y-1">
+                        {event.tenant_relevance.map((rel, i) => (
+                          <div key={i} className="flex items-center justify-between text-sm">
+                            <span className="text-blue-400">{rel.tenant_name}</span>
+                            <span className="text-gray-500 text-xs">{(rel.score * 100).toFixed(0)}%</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 pt-3 border-t border-white/5">
+                    {event.registration_url && (
+                      <a 
+                        href={event.registration_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700 text-white text-sm rounded-lg hover:bg-gray-600 transition-colors"
+                      >
+                        <Ticket className="h-4 w-4" />
+                        Register
+                      </a>
+                    )}
+                    <button className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition-colors">
+                      <Lightbulb className="h-4 w-4" />
+                      Add to Strategy
+                    </button>
+                    <button className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors">
+                      <Send className="h-4 w-4" />
+                      Telegram
+                    </button>
+                    <button className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors ml-auto">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
               </div>
-            )}
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div><p className="text-grey-500">Created</p><p className="text-grey-900">{new Date(selectedEvent.created_at).toLocaleString()}</p></div>
-              <div><p className="text-grey-500">Processed</p><p className="text-grey-900">{selectedEvent.processed_at ? new Date(selectedEvent.processed_at).toLocaleString() : "—"}</p></div>
-              <div><p className="text-grey-500">Retries</p><p className="text-grey-900">{selectedEvent.retry_count}/{selectedEvent.max_retries}</p></div>
-              <div><p className="text-grey-500">Locked By</p><p className="text-grey-900">{selectedEvent.locked_by || "—"}</p></div>
-            </div>
-            <div className="flex gap-2 pt-4 border-t border-grey-100">
-              {selectedEvent.status === "failed" && <Button variant="outline" size="sm"><RotateCw className="h-4 w-4 mr-2" />Retry</Button>}
-              {selectedEvent.status === "pending" && <Button size="sm"><Play className="h-4 w-4 mr-2" />Process Now</Button>}
-              <Button variant="outline" size="sm" className="text-red-600 hover:bg-red-50"><Trash2 className="h-4 w-4 mr-2" />Delete</Button>
-            </div>
-          </div>
-        )}
-      </DetailDrawer>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="bg-gray-800/50 rounded-xl border border-white/5 overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-white/5">
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Event</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Date</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Location</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Relevance</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
+                <th className="text-right px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {filteredEvents.map((event) => {
+                const status = statusConfig[event.status]
+                return (
+                  <tr key={event.id} className="hover:bg-white/5 transition-colors">
+                    <td className="px-4 py-3">
+                      <p className="text-white font-medium">{event.title}</p>
+                      <p className="text-gray-500 text-xs">{event.organizer}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-gray-300 text-sm">
+                        {new Date(event.event_date).toLocaleDateString()}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-gray-300 text-sm">
+                        {event.is_virtual ? "Virtual" : event.location}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        {event.tenant_relevance.slice(0, 2).map((rel, i) => (
+                          <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-blue-400/10 text-blue-400">
+                            {rel.tenant_name}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={cn("text-xs px-2 py-0.5 rounded-full", status.bg, status.color)}>
+                        {status.label}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors">
+                          <ExternalLink className="h-4 w-4" />
+                        </button>
+                        <button className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {filteredEvents.length === 0 && (
+        <div className="text-center py-12">
+          <Calendar className="h-12 w-12 text-gray-600 mx-auto mb-4" />
+          <p className="text-gray-400">No events match your filters</p>
+        </div>
+      )}
     </div>
   )
 }

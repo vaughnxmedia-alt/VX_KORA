@@ -17,8 +17,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Sparkles, FileText, Layout } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Sparkles, FileText, Layout, Send, CheckCircle2, Clock, Loader2 } from "lucide-react";
 import { loadBoards } from "@/features/inspired/storage";
+import { supabase } from "@/integrations/supabase/client";
 import type { CampaignType, CampaignTemplateType } from "../types";
 import type { MockUser } from "../context/MockAuthContext";
 
@@ -30,21 +32,18 @@ const TEMPLATE_TYPES: CampaignTemplateType[] = [
   "30-Day Content Calendar",
 ];
 
-type CampaignSource = "content-strategy" | "board";
+type CampaignSource = "content-strategy" | "telegram-approved" | "board";
 
 interface ContentStrategy {
   id: string;
   name: string;
   createdAt: string;
-  status: "active" | "draft";
+  status: "active" | "draft" | "archived";
+  approvalStatus: "pending" | "approved" | "rejected";
+  telegramApproved?: boolean;
+  telegramApprovedAt?: string;
+  sourceInsight?: string;
 }
-
-// TODO: Replace with real API call to fetch user's content strategies from Mission Control
-const MOCK_CONTENT_STRATEGIES: ContentStrategy[] = [
-  { id: "cs-1", name: "Q1 2026 Brand Awareness", createdAt: "2026-01-15", status: "active" },
-  { id: "cs-2", name: "Product Launch - Spring Collection", createdAt: "2026-02-01", status: "active" },
-  { id: "cs-3", name: "Thought Leadership Series", createdAt: "2026-02-10", status: "draft" },
-];
 
 export interface NewCampaignModalProps {
   open: boolean;
@@ -75,22 +74,73 @@ export function NewCampaignModal({
     "Full Campaign Launch Blueprint"
   );
   const [campaignSource, setCampaignSource] = useState<CampaignSource>(
-    fromBoardId ? "board" : "content-strategy"
+    fromBoardId ? "board" : "telegram-approved"
   );
   const [selectedBoardId, setSelectedBoardId] = useState<string | null>(fromBoardId ?? null);
   const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null);
   const [savedBoards, setSavedBoards] = useState<{ id: string; name: string }[]>([]);
   const [contentStrategies, setContentStrategies] = useState<ContentStrategy[]>([]);
+  const [telegramApproved, setTelegramApproved] = useState<ContentStrategy[]>([]);
   const [assignedIds, setAssignedIds] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (open) {
       const boards = loadBoards();
       setSavedBoards(boards.map((b) => ({ id: b.id, name: b.name })));
-      // TODO: Fetch real content strategies from backend
-      setContentStrategies(MOCK_CONTENT_STRATEGIES);
+      fetchContentStrategies();
     }
   }, [open]);
+
+  async function fetchContentStrategies() {
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: customer } = await supabase
+        .from("customers")
+        .select("id")
+        .eq("user_id", user.id)
+        .single();
+
+      if (!customer) return;
+
+      const { data: strategies, error } = await supabase
+        .from("content_strategies")
+        .select("*")
+        .eq("client_id", customer.id)
+        .order("generated_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching content strategies:", error);
+        return;
+      }
+
+      if (strategies) {
+        const mapped: ContentStrategy[] = strategies.map((s: Record<string, unknown>) => ({
+          id: s.id as string,
+          name: (s.strategy_name as string) || (s.content_pillars as Array<{ name?: string }>)?.[0]?.name || "Content Strategy",
+          createdAt: (s.generated_at as string) || (s.created_at as string) || new Date().toISOString(),
+          status: (s.status as "active" | "draft" | "archived") || "draft",
+          approvalStatus: (s.approval_status as "pending" | "approved" | "rejected") || "pending",
+          telegramApproved: s.telegram_approved === true,
+          telegramApprovedAt: s.telegram_approved_at as string | undefined,
+          sourceInsight: s.source_insight as string | undefined,
+        }));
+
+        const approved = mapped.filter(s => s.approvalStatus === "approved" || s.telegramApproved);
+        const pending = mapped.filter(s => s.approvalStatus !== "approved" && !s.telegramApproved);
+
+        setTelegramApproved(approved);
+        setContentStrategies(pending);
+      }
+    } catch (err) {
+      console.error("Error loading strategies:", err);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
     if (open && fromBoardId) {
@@ -108,13 +158,15 @@ export function NewCampaignModal({
   }, [savedBoards, fromBoardId]);
 
   const selectedBoard = boardOptions.find((b) => b.id === selectedBoardId);
-  const selectedStrategy = contentStrategies.find((s) => s.id === selectedStrategyId);
+  const selectedStrategy = campaignSource === "telegram-approved" 
+    ? telegramApproved.find((s) => s.id === selectedStrategyId)
+    : contentStrategies.find((s) => s.id === selectedStrategyId);
 
   const defaultName = React.useMemo(() => {
     if (campaignSource === "board" && selectedBoardId && selectedBoard) {
       return `${selectedBoard.name} Campaign`;
     }
-    if (campaignSource === "content-strategy" && selectedStrategyId && selectedStrategy) {
+    if ((campaignSource === "content-strategy" || campaignSource === "telegram-approved") && selectedStrategyId && selectedStrategy) {
       return `${selectedStrategy.name} Campaign`;
     }
     if (fromBoardId) {
@@ -125,6 +177,7 @@ export function NewCampaignModal({
 
   const displayName = name.trim() || defaultName || "Untitled Campaign";
   const hasContentStrategies = contentStrategies.length > 0;
+  const hasTelegramApproved = telegramApproved.length > 0;
 
   const handleNext = () => {
     if (step < 5) setStep(step + 1);
@@ -134,7 +187,7 @@ export function NewCampaignModal({
         type,
         templateType,
         fromBoardId: campaignSource === "board" ? (selectedBoardId ?? fromBoardId ?? undefined) : undefined,
-        fromContentStrategyId: campaignSource === "content-strategy" ? (selectedStrategyId ?? undefined) : undefined,
+        fromContentStrategyId: (campaignSource === "content-strategy" || campaignSource === "telegram-approved") ? (selectedStrategyId ?? undefined) : undefined,
         assignedUserIds: assignedIds,
       });
       onOpenChange(false);
@@ -142,7 +195,7 @@ export function NewCampaignModal({
       setName("");
       setType("Marketing");
       setTemplateType("Full Campaign Launch Blueprint");
-      setCampaignSource(fromBoardId ? "board" : "content-strategy");
+      setCampaignSource(fromBoardId ? "board" : "telegram-approved");
       setSelectedBoardId(fromBoardId ?? null);
       setSelectedStrategyId(null);
       setAssignedIds([]);
@@ -166,7 +219,7 @@ export function NewCampaignModal({
           <DialogTitle>New Campaign</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
-          {/* Step 1: Choose source - Content Strategy or Board */}
+          {/* Step 1: Choose source - Telegram Approved, Content Strategy, or Board */}
           {step === 1 && (
             <div className="space-y-4">
               <div>
@@ -176,6 +229,38 @@ export function NewCampaignModal({
                 </p>
               </div>
               <div className="grid grid-cols-1 gap-3">
+                {/* Telegram-Approved Ideas - Featured */}
+                <button
+                  type="button"
+                  onClick={() => setCampaignSource("telegram-approved")}
+                  className={`flex items-start gap-3 p-4 rounded-lg border-2 text-left transition-colors relative ${
+                    campaignSource === "telegram-approved"
+                      ? "border-primary bg-primary/5"
+                      : "border-muted hover:border-muted-foreground/30"
+                  }`}
+                >
+                  {hasTelegramApproved && (
+                    <Badge className="absolute -top-2 -right-2 bg-green-500 text-white text-xs">
+                      {telegramApproved.length} approved
+                    </Badge>
+                  )}
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center shrink-0">
+                    <Send className="w-5 h-5 text-blue-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">Telegram-Approved Ideas</p>
+                      <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                        <CheckCircle2 className="w-3 h-3 mr-1" />
+                        Recommended
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Strategy ideas you've approved from your daily KORA briefings. Ready to execute.
+                    </p>
+                  </div>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setCampaignSource("content-strategy")}
@@ -218,48 +303,125 @@ export function NewCampaignModal({
             </div>
           )}
 
-          {/* Step 2: Select specific source */}
-          {step === 2 && campaignSource === "content-strategy" && (
+          {/* Step 2: Select specific source - Telegram Approved */}
+          {step === 2 && campaignSource === "telegram-approved" && (
             <div className="space-y-4">
-              {hasContentStrategies ? (
+              {hasTelegramApproved ? (
                 <>
                   <div className="space-y-2">
-                    <Label>Select a Content Strategy</Label>
+                    <Label>Select a Telegram-Approved Idea</Label>
                     <p className="text-xs text-muted-foreground">
-                      Choose a strategy to base your campaign on. KORA will pull in relevant brand data automatically.
+                      These are strategy ideas you've approved from your daily KORA briefings.
                     </p>
-                    <Select
-                      value={selectedStrategyId ?? ""}
-                      onValueChange={(v) => setSelectedStrategyId(v || null)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose a strategy" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {contentStrategies.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            <div className="flex items-center gap-2">
-                              <FileText className="w-4 h-4 text-muted-foreground" />
-                              <span>{s.name}</span>
-                              <span className={`text-xs px-1.5 py-0.5 rounded ${
-                                s.status === "active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"
-                              }`}>
-                                {s.status}
-                              </span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
                   </div>
-                  {selectedStrategy && (
-                    <div className="p-3 rounded-lg bg-muted/50 border text-sm">
-                      <p className="font-medium">{selectedStrategy.name}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Created {new Date(selectedStrategy.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                  )}
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {telegramApproved.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => setSelectedStrategyId(s.id)}
+                        className={`w-full p-3 rounded-lg border-2 text-left transition-colors ${
+                          selectedStrategyId === s.id
+                            ? "border-primary bg-primary/5"
+                            : "border-muted hover:border-muted-foreground/30"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-sm">{s.name}</p>
+                              <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                                <CheckCircle2 className="w-3 h-3 mr-1" />
+                                Approved
+                              </Badge>
+                            </div>
+                            {s.sourceInsight && (
+                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                                {s.sourceInsight}
+                              </p>
+                            )}
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {s.telegramApprovedAt 
+                                ? new Date(s.telegramApprovedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+                                : new Date(s.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+                              }
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-6 space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center mx-auto">
+                    <Send className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium">No Telegram-Approved Ideas Yet</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Approve strategy ideas from your daily KORA briefings to see them here.
+                    </p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Connect Telegram in Settings to start receiving daily briefings.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Step 2: Select specific source - Content Strategy (Pending Approval) */}
+          {step === 2 && campaignSource === "content-strategy" && (
+            <div className="space-y-4">
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : hasContentStrategies ? (
+                <>
+                  <div className="space-y-2">
+                    <Label>Pending Content Strategies</Label>
+                    <p className="text-xs text-muted-foreground">
+                      These strategies are awaiting approval. Approve them via Telegram to use in campaigns.
+                    </p>
+                  </div>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {contentStrategies.map((s) => (
+                      <div
+                        key={s.id}
+                        className="p-3 rounded-lg border border-amber-200 bg-amber-50/50 text-sm"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <FileText className="w-4 h-4 text-amber-600" />
+                              <p className="font-medium">{s.name}</p>
+                              <Badge variant="outline" className="text-xs bg-amber-100 text-amber-700 border-amber-300">
+                                <Clock className="w-3 h-3 mr-1" />
+                                Pending Approval
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Created {new Date(s.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="p-3 rounded-lg bg-blue-50 border border-blue-200 text-sm">
+                    <p className="text-blue-800 font-medium flex items-center gap-2">
+                      <Send className="w-4 h-4" />
+                      Approve via Telegram
+                    </p>
+                    <p className="text-xs text-blue-600 mt-1">
+                      KORA sends strategy suggestions to Telegram for your review. Approved strategies appear in the "Telegram-Approved Ideas" section.
+                    </p>
+                  </div>
                 </>
               ) : (
                 <div className="text-center py-6 space-y-3">
@@ -267,17 +429,13 @@ export function NewCampaignModal({
                     <Sparkles className="w-6 h-6 text-amber-600" />
                   </div>
                   <div>
-                    <p className="font-medium">No Content Strategies Yet</p>
+                    <p className="font-medium">No Pending Strategies</p>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Generate your first content strategy to unlock AI-powered campaign creation.
+                      All your strategies have been approved or you haven't generated any yet.
                     </p>
                   </div>
-                  <Button variant="outline" size="sm" className="mt-2">
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Generate Content Strategy
-                  </Button>
                   <p className="text-xs text-muted-foreground">
-                    Your strategy profile was created when you became a client. KORA already knows your brand.
+                    Go to Brand Strategy to generate new content strategies, or check Telegram-Approved Ideas.
                   </p>
                 </div>
               )}
@@ -396,7 +554,9 @@ export function NewCampaignModal({
                 </p>
                 <p>
                   <strong className="text-foreground">Source:</strong>{" "}
-                  {campaignSource === "content-strategy"
+                  {campaignSource === "telegram-approved"
+                    ? `Telegram-Approved${selectedStrategy ? `: ${selectedStrategy.name}` : ""}`
+                    : campaignSource === "content-strategy"
                     ? `Content Strategy${selectedStrategy ? `: ${selectedStrategy.name}` : ""}`
                     : `Board${selectedBoard ? `: ${selectedBoard.name}` : ""}`}
                 </p>
@@ -416,6 +576,12 @@ export function NewCampaignModal({
                     : "None"}
                 </p>
               </div>
+              {campaignSource === "telegram-approved" && (
+                <p className="text-xs flex items-center gap-1.5 text-green-600">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  This campaign is based on an idea you approved from your daily KORA briefing.
+                </p>
+              )}
               {campaignSource === "content-strategy" && (
                 <p className="text-xs flex items-center gap-1.5 text-amber-600">
                   <Sparkles className="w-3.5 h-3.5" />

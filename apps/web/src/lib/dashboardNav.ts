@@ -21,6 +21,7 @@ import {
   Megaphone,
   Wand2,
   Layers,
+  Globe,
 } from "lucide-react";
 
 export interface NavItem {
@@ -49,7 +50,7 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
       { key: "blueprints", title: "Brand Blueprints", url: "/dashboard/blueprints", icon: FileText },
       { key: "audience", title: "Target Audience", url: "/dashboard/audience", icon: Users },
       { key: "strategy", title: "Brand Strategy", url: "/dashboard/strategy", icon: Lightbulb },
-      { key: "campaigns", title: "Campaigns", url: "/dashboard/campaigns", icon: Megaphone },
+      { key: "sources", title: "Intelligence Sources", url: "/dashboard/sources", icon: Globe, adminOnly: true },
     ],
   },
   {
@@ -57,6 +58,7 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
     items: [
       { key: "content-strategy", title: "Content Strategy", url: "/dashboard/content-strategy", icon: Layers },
       { key: "campaign-generator", title: "Campaign Generator", url: "/dashboard/campaign-generator", icon: Wand2 },
+      { key: "campaigns", title: "Campaigns", url: "/dashboard/campaigns", icon: Megaphone },
     ],
   },
   {
@@ -106,5 +108,6 @@ export const ADMIN_ONLY_KEYS = [
   "subscribers",
   "clients",
   "admin",
+  "sources",
 ];
 export const ADMIN_TAB_KEY = "admin";

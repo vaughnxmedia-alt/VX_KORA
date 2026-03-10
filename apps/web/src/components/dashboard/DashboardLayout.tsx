@@ -1,3 +1,4 @@
+import { useState, useEffect, useCallback } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { DashboardSidebar } from "./DashboardSidebar";
 import { Outlet, useLocation } from "react-router-dom";
@@ -11,9 +12,57 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { HomeIcon } from "lucide-react";
+import { RatingPopup } from "@/components/RatingPopup";
+import { useActiveDay } from "@/hooks/useActiveDay";
+import { useAuth } from "@/components/AuthProvider";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function DashboardLayout() {
   const location = useLocation();
+  const { session } = useAuth();
+  const userId = session?.user?.id ?? null;
+  const { 
+    getActiveDaysCount, 
+    shouldShowRatingPopup, 
+    markRatingShown, 
+    markAsRated 
+  } = useActiveDay(userId);
+  
+  const [showRating, setShowRating] = useState(false);
+  const [activeDays, setActiveDays] = useState(0);
+
+  useEffect(() => {
+    if (userId) {
+      const timer = setTimeout(() => {
+        if (shouldShowRatingPopup()) {
+          setActiveDays(getActiveDaysCount());
+          setShowRating(true);
+          markRatingShown();
+        }
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [userId, shouldShowRatingPopup, getActiveDaysCount, markRatingShown]);
+
+  const handleRatingClose = useCallback(() => {
+    setShowRating(false);
+  }, []);
+
+  const handleRatingSubmit = useCallback(async (rating: number, feedback: string) => {
+    markAsRated();
+    
+    try {
+      await supabase.from("kora_ratings" as any).insert({
+        user_id: userId,
+        rating,
+        feedback: feedback || null,
+        active_days_at_rating: activeDays
+      });
+    } catch (e) {
+      console.error("Error saving rating:", e);
+    }
+  }, [userId, activeDays, markAsRated]);
 
   const getBreadcrumbs = () => {
     const path = location.pathname;
@@ -91,6 +140,13 @@ export default function DashboardLayout() {
           </div>
         </main>
       </div>
+      
+      <RatingPopup
+        open={showRating}
+        onClose={handleRatingClose}
+        onSubmit={handleRatingSubmit}
+        activeDays={activeDays}
+      />
     </SidebarProvider>
   );
 }
