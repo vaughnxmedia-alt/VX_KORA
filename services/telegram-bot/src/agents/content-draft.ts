@@ -52,10 +52,17 @@ export interface ContentDraftOutput {
   formattedMessages: string[]
 }
 
-// Supabase client
-const supabaseUrl = process.env.SUPABASE_URL!
-const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY!
-const supabase = createClient(supabaseUrl, supabaseKey)
+// Supabase client (lazy so bot can start without SUPABASE_* set)
+let _supabase: ReturnType<typeof createClient> | null = null
+function getSupabase(): ReturnType<typeof createClient> {
+  if (!_supabase) {
+    const url = process.env.SUPABASE_URL
+    const key = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!url || !key) throw new Error("SUPABASE_URL and SUPABASE_SERVICE_KEY required for content draft")
+    _supabase = createClient(url, key)
+  }
+  return _supabase
+}
 
 export class ContentDraftAgent extends BaseIntelAgent<ContentDraftInput, ContentDraftOutput> {
   constructor() {
@@ -143,7 +150,7 @@ export class ContentDraftAgent extends BaseIntelAgent<ContentDraftInput, Content
   }
 
   private async loadPreferences(tenantId: string): Promise<ContentPreferences> {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from("intel_content_preferences")
       .select("*")
       .eq("tenant_id", tenantId)
@@ -172,7 +179,7 @@ export class ContentDraftAgent extends BaseIntelAgent<ContentDraftInput, Content
 
   private async loadBrandContext(tenantId: string): Promise<any> {
     // Load brand blueprint
-    const { data: blueprint } = await supabase
+    const { data: blueprint } = await getSupabase()
       .from("brand_blueprints")
       .select("*")
       .eq("client_id", tenantId)
@@ -181,7 +188,7 @@ export class ContentDraftAgent extends BaseIntelAgent<ContentDraftInput, Content
       .single()
 
     // Load audience analysis
-    const { data: audience } = await supabase
+    const { data: audience } = await getSupabase()
       .from("audience_analyses")
       .select("*")
       .eq("client_id", tenantId)
@@ -190,7 +197,7 @@ export class ContentDraftAgent extends BaseIntelAgent<ContentDraftInput, Content
       .single()
 
     // Load content strategy
-    const { data: strategy } = await supabase
+    const { data: strategy } = await getSupabase()
       .from("content_strategies")
       .select("*")
       .eq("client_id", tenantId)
@@ -206,7 +213,7 @@ export class ContentDraftAgent extends BaseIntelAgent<ContentDraftInput, Content
   }
 
   private async loadRecentInsights(tenantId: string): Promise<any> {
-    const { data } = await supabase
+    const { data } = await getSupabase()
       .from("intel_insight_reports")
       .select("*")
       .eq("tenant_id", tenantId)
@@ -841,7 +848,7 @@ export class ContentDraftAgent extends BaseIntelAgent<ContentDraftInput, Content
 
   private async saveDraft(tenantId: string, output: ContentDraftOutput): Promise<void> {
     try {
-      await supabase.from("intel_content_drafts").insert({
+      await getSupabase().from("intel_content_drafts").insert({
         tenant_id: tenantId,
         strategy_type: output.strategyType,
         start_date: output.startDate.toISOString().split("T")[0],

@@ -72,10 +72,17 @@ export interface InsightReportOutput {
   formattedMessage: string
 }
 
-// Supabase client
-const supabaseUrl = process.env.SUPABASE_URL!
-const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY!
-const supabase = createClient(supabaseUrl, supabaseKey)
+// Supabase client (lazy so bot can start without SUPABASE_* set)
+let _supabase: ReturnType<typeof createClient> | null = null
+function getSupabase(): ReturnType<typeof createClient> {
+  if (!_supabase) {
+    const url = process.env.SUPABASE_URL
+    const key = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!url || !key) throw new Error("SUPABASE_URL and SUPABASE_SERVICE_KEY (or SUPABASE_SERVICE_ROLE_KEY) are required for insight reports")
+    _supabase = createClient(url, key)
+  }
+  return _supabase
+}
 
 export class InsightReportAgent extends BaseIntelAgent<InsightReportInput, InsightReportOutput> {
   constructor() {
@@ -167,7 +174,7 @@ export class InsightReportAgent extends BaseIntelAgent<InsightReportInput, Insig
   }
 
   private async loadPreferences(tenantId: string): Promise<ContentPreferences> {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from("intel_content_preferences")
       .select("*")
       .eq("tenant_id", tenantId)
@@ -196,7 +203,7 @@ export class InsightReportAgent extends BaseIntelAgent<InsightReportInput, Insig
   }
 
   private async loadApprovedSources(tenantId: string): Promise<any[]> {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from("intel_sources")
       .select("*")
       .eq("tenant_id", tenantId)
@@ -725,7 +732,7 @@ export class InsightReportAgent extends BaseIntelAgent<InsightReportInput, Insig
 
   private async saveReport(tenantId: string, output: InsightReportOutput): Promise<void> {
     try {
-      await supabase.from("intel_insight_reports").insert({
+      await getSupabase().from("intel_insight_reports").insert({
         tenant_id: tenantId,
         report_date: output.reportDate.toISOString().split("T")[0],
         report_type: output.reportType,

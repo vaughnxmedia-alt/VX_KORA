@@ -35,19 +35,40 @@ const supabase = createClient(
 
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN!, { polling: false })
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+const genAI = process.env.GEMINI_API_KEY?.trim()
+  ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+  : null
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! })
 
 // Tavily for news search
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY
 
-// Target users
-const TARGET_USERS = [
+/** One recipient for deep insights (DB or fallback). */
+export type InsightRecipient = {
+  telegramId: number
+  name: string
+  tenantId: string
+  useCase: "pr_industry" | "podcast_creator" | "general"
+  platforms: string[]
+  focusTopics: string[]
+}
+
+const DEFAULT_FOCUS_TOPICS = [
+  "PR industry news",
+  "brand strategy",
+  "marketing trends",
+  "social media",
+  "audience engagement"
+]
+const DEFAULT_PLATFORMS = ["instagram", "linkedin", "tiktok"]
+
+// Fallback when DB returns no recipients (e.g. before seed)
+const TARGET_USERS_FALLBACK: InsightRecipient[] = [
   {
     telegramId: 8216104620,
     name: "Juss",
     tenantId: "juss",
-    useCase: "pr_industry" as const,
+    useCase: "pr_industry",
     platforms: ["instagram", "linkedin", "tiktok"],
     focusTopics: [
       "creator economy",
@@ -62,7 +83,7 @@ const TARGET_USERS = [
     telegramId: 8697293004,
     name: "Jocelyn (JahknowsPR)",
     tenantId: "jahknowspr",
-    useCase: "pr_industry" as const,
+    useCase: "pr_industry",
     platforms: ["instagram", "linkedin", "twitter"],
     focusTopics: [
       "PR industry news",
@@ -74,6 +95,76 @@ const TARGET_USERS = [
     ]
   }
 ]
+
+/** Load recipients from DB: customers with telegram_id + optional intel_content_preferences. Single-user run when INSIGHTS_SINGLE_TELEGRAM_ID is set. */
+async function getInsightRecipients(): Promise<InsightRecipient[]> {
+  const singleId = process.env.INSIGHTS_SINGLE_TELEGRAM_ID?.trim()
+  const singleTelegramId = singleId ? Number(singleId) : NaN
+
+  const { data: customers, error: custError } = await supabase
+    .from("customers")
+    .select("id, telegram_id, first_name, last_name, business_name, email, client_status")
+    .not("telegram_id", "is", null)
+
+  if (custError || !customers?.length) {
+    if (!Number.isNaN(singleTelegramId)) {
+      console.log("[recipients] No customers in DB; single-user run has no matching customer.")
+      return []
+    }
+    console.log("[recipients] No customers with telegram_id in DB, using fallback list.")
+    return TARGET_USERS_FALLBACK
+  }
+
+  let filtered = customers
+  if (!Number.isNaN(singleTelegramId)) {
+    filtered = customers.filter((c) => Number(c.telegram_id) === singleTelegramId)
+    if (filtered.length === 0) {
+      console.log(`[recipients] No customer with telegram_id ${singleTelegramId}; skipping run.`)
+      return []
+    }
+    console.log(`[recipients] Single-user run for telegram_id ${singleTelegramId}.`)
+  }
+
+  const ids = customers.map((c) => c.id)
+  const { data: prefs } = await supabase
+    .from("intel_content_preferences")
+    .select("tenant_id, primary_use_case, platform_priority, focus_topics")
+    .in("tenant_id", ids)
+
+  const prefsByTenant = new Map((prefs || []).map((p) => [p.tenant_id, p]))
+
+  const recipients: InsightRecipient[] = filtered.map((c) => {
+    const p = prefsByTenant.get(c.id)
+    const name =
+      c.business_name ||
+      [c.first_name, c.last_name].filter(Boolean).join(" ").trim() ||
+      c.email ||
+      "Unknown"
+    const useCase = (p?.primary_use_case === "podcast_creator" || p?.primary_use_case === "general"
+      ? p.primary_use_case
+      : "pr_industry") as InsightRecipient["useCase"]
+    const platforms =
+      Array.isArray(p?.platform_priority) && p.platform_priority.length > 0
+        ? p.platform_priority
+        : DEFAULT_PLATFORMS
+    const focusTopics =
+      Array.isArray(p?.focus_topics) && p.focus_topics.length > 0
+        ? p.focus_topics
+        : DEFAULT_FOCUS_TOPICS
+
+    return {
+      telegramId: Number(c.telegram_id),
+      name,
+      tenantId: c.id,
+      useCase,
+      platforms,
+      focusTopics
+    }
+  })
+
+  console.log(`[recipients] Loaded ${recipients.length} from DB${singleId ? " (single-user)" : ""}.`)
+  return recipients
+}
 
 interface NewsResult {
   title: string
@@ -169,7 +260,7 @@ async function fetchLiveNews(queries: string[]): Promise<NewsResult[]> {
 
 async function synthesizeInsightsWithLLM(
   newsResults: NewsResult[],
-  userContext: typeof TARGET_USERS[0],
+  userContext: InsightRecipient,
   learnedPreferences?: UserLearnedPreferences | null
 ): Promise<{
   topStories: TopStory[]
@@ -258,29 +349,58 @@ Respond ONLY with valid JSON (no markdown, no explanation):
 Generate 5 top stories, 4 strategic takeaways, 4 trending topics, and 5 content opportunities.
 Make them SPECIFIC, CURRENT, and ACTIONABLE for PR/marketing professionals.`
 
-  // Try Gemini first, fallback to OpenAI
-  try {
-    console.log(`  [Gemini] Attempting synthesis...`)
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" })
-    const result = await model.generateContent(systemPrompt + "\n\n" + userPrompt)
-    const responseText = result.response.text()
-    
-    let jsonText = responseText
-    if (jsonText.includes("```json")) {
-      jsonText = jsonText.split("```json")[1].split("```")[0]
-    } else if (jsonText.includes("```")) {
-      jsonText = jsonText.split("```")[1].split("```")[0]
+  // Gemini: model IDs vary by account/region; 404 = wrong model name for your API key.
+  // Set GEMINI_MODEL in .env to one that works (see https://ai.google.dev/gemini-api/docs/models )
+  // Order: env first, then 2.5/2.0 (KORA Agents dashboard), then legacy 1.5
+  const geminiCandidates = [
+    process.env.GEMINI_MODEL?.trim(),
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-001",
+    "gemini-2.5-flash-preview-05-20",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-001",
+    "gemini-2.0-flash-exp",
+    "gemini-1.5-flash",
+    "gemini-1.5-flash-8b",
+    "gemini-1.5-flash-latest",
+  ].filter((m): m is string => Boolean(m))
+  const tried = new Set<string>()
+  const uniqueModels = geminiCandidates.filter((m) => (tried.has(m) ? false : (tried.add(m), true)))
+
+  if (genAI) {
+    for (const modelId of uniqueModels) {
+      try {
+        console.log(`  [Gemini] Synthesis with ${modelId}...`)
+        const model = genAI.getGenerativeModel({ model: modelId })
+        const result = await model.generateContent(systemPrompt + "\n\n" + userPrompt)
+        const responseText = result.response.text()
+
+        let jsonText = responseText
+        if (jsonText.includes("```json")) {
+          jsonText = jsonText.split("```json")[1].split("```")[0]
+        } else if (jsonText.includes("```")) {
+          jsonText = jsonText.split("```")[1].split("```")[0]
+        }
+
+        const parsed = JSON.parse(jsonText.trim())
+        console.log(`  [Gemini] OK (${modelId})`)
+        return parsed
+      } catch (geminiError: unknown) {
+        const err = geminiError as { status?: number; message?: string }
+        const msg = err.status ?? err.message ?? String(geminiError)
+        console.log(`  [Gemini] ${modelId} failed (${msg})`)
+      }
     }
-    
-    return JSON.parse(jsonText.trim())
-  } catch (geminiError: any) {
-    console.log(`  [Gemini] Failed (${geminiError.status || geminiError.message}), using OpenAI...`)
+    console.log(`  [Gemini] All models failed, using OpenAI fallback...`)
+  } else {
+    console.log(`  [Gemini] GEMINI_API_KEY not set, using OpenAI...`)
   }
 
-  // Fallback to OpenAI
-  console.log(`  [OpenAI] Synthesizing insights with GPT-4o...`)
+  // Fallback: gpt-4o-mini is much cheaper than gpt-4o; override with OPENAI_SYNTHESIS_MODEL=gpt-4o if needed
+  const openaiSynthModel = process.env.OPENAI_SYNTHESIS_MODEL || "gpt-4o-mini"
+  console.log(`  [OpenAI] Synthesizing insights with ${openaiSynthModel}...`)
   const response = await openai.chat.completions.create({
-    model: "gpt-4o",
+    model: openaiSynthModel,
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt }
@@ -310,7 +430,7 @@ Make them SPECIFIC, CURRENT, and ACTIONABLE for PR/marketing professionals.`
 
 async function formatWithOpenAI(
   insights: Awaited<ReturnType<typeof synthesizeInsightsWithLLM>>,
-  userContext: typeof TARGET_USERS[0]
+  userContext: InsightRecipient
 ): Promise<string> {
   console.log(`  [OpenAI] Formatting final output...`)
 
@@ -367,7 +487,20 @@ End with a note that this was generated by KORA Intelligence.`
 // MAIN EXECUTION
 // ============================================================================
 
-async function generateAndSendInsights(user: typeof TARGET_USERS[0]) {
+export type InsightReportSummary = {
+  name: string
+  telegramId: number
+  customerId?: string
+  search_queries_used: string[]
+  news_items_fetched: number
+  top_story_headlines: string[]
+  trending_topics: string[]
+  strategic_takeaways: string[]
+  content_opportunities: { idea: string; platform: string }[]
+  learned_signal_count: number
+}
+
+async function generateAndSendInsights(user: InsightRecipient): Promise<InsightReportSummary> {
   console.log(`\n${"=".repeat(60)}`)
   console.log(`Processing: ${user.name}`)
   console.log(`${"=".repeat(60)}`)
@@ -492,28 +625,29 @@ async function generateAndSendInsights(user: typeof TARGET_USERS[0]) {
     console.log(`  Could not save to database (table may not exist yet)`)
   }
 
-  // Step 6: Save conversation context for follow-up capability
-  console.log(`  Saving conversation context...`)
-  try {
-    // Extract topics from insights for context
-    const topics = [
-      ...user.focusTopics.slice(0, 3),
-      ...(insights.trendingTopics || []).map(t => t.topic).slice(0, 2)
-    ]
-
-    await updateConversationContext(user.telegramId, user.tenantId, {
-      lastInsightReport: {
-        topStories: insights.topStories,
-        trendingTopics: insights.trendingTopics,
-        contentOpportunities: insights.contentOpportunities,
-        generatedAt: new Date().toISOString()
-      },
-      searchQueries: queries.slice(0, 10),
-      topics
-    })
-    console.log(`  Context saved - user can now reply with refinements!`)
-  } catch (e) {
-    console.log(`  Could not save context (tables may not exist yet)`)
+  // Step 6: Save conversation context for follow-up capability (only when tenantId is a valid UUID from DB)
+  const isUuid = typeof user.tenantId === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user.tenantId)
+  if (isUuid) {
+    console.log(`  Saving conversation context...`)
+    try {
+      const topics = [
+        ...user.focusTopics.slice(0, 3),
+        ...(insights.trendingTopics || []).map(t => t.topic).slice(0, 2)
+      ]
+      await updateConversationContext(user.telegramId, user.tenantId, {
+        lastInsightReport: {
+          topStories: insights.topStories,
+          trendingTopics: insights.trendingTopics,
+          contentOpportunities: insights.contentOpportunities,
+          generatedAt: new Date().toISOString()
+        },
+        searchQueries: queries.slice(0, 10),
+        topics
+      })
+      console.log(`  Context saved - user can now reply with refinements!`)
+    } catch (e) {
+      console.log(`  Could not save context (tables may not exist yet)`)
+    }
   }
 
   // Send follow-up prompt
@@ -530,6 +664,28 @@ async function generateAndSendInsights(user: typeof TARGET_USERS[0]) {
   )
 
   console.log(`  ✅ Complete for ${user.name}`)
+
+  const learnedCount =
+    (learnedPreferences?.topicInterests.length || 0) +
+    (learnedPreferences?.perspectivePreferences.length || 0) +
+    (learnedPreferences?.negativeSignals.length || 0)
+
+  return {
+    name: user.name,
+    telegramId: user.telegramId,
+    customerId:
+      typeof user.tenantId === "string" && user.tenantId.length === 36 ? user.tenantId : undefined,
+    search_queries_used: queries.slice(0, 12),
+    news_items_fetched: newsResults.length,
+    top_story_headlines: (insights.topStories || []).slice(0, 6).map((s) => s.headline || ""),
+    trending_topics: (insights.trendingTopics || []).slice(0, 6).map((t) => t.topic || ""),
+    strategic_takeaways: (insights.strategicTakeaways || []).slice(0, 6).map(String),
+    content_opportunities: (insights.contentOpportunities || []).slice(0, 6).map((o) => ({
+      idea: o.idea || "",
+      platform: o.platform || "",
+    })),
+    learned_signal_count: learnedCount,
+  }
 }
 
 function splitMessage(text: string, maxLength: number): string[] {
@@ -553,24 +709,134 @@ function splitMessage(text: string, maxLength: number): string[] {
   return parts
 }
 
+const INGEST_AGENT_ID = "deep-insights-telegram"
+
+async function startIngestRun(): Promise<string | null> {
+  try {
+    const { data, error } = await supabase
+      .from("kora_ingest_runs")
+      .insert({
+        agent_id: INGEST_AGENT_ID,
+        trigger_source: "manual",
+        status: "running",
+        started_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single()
+    if (error) {
+      console.warn("[kora_ingest_runs] Could not start run row:", error.message)
+      return null
+    }
+    console.log(`[kora_ingest_runs] Started run ${data.id}`)
+    return data.id as string
+  } catch (e) {
+    console.warn("[kora_ingest_runs] insert failed:", e)
+    return null
+  }
+}
+
+async function finishIngestRun(
+  runId: string | null,
+  recipients: InsightRecipient[],
+  opts: {
+    telegramSends: number
+    failures: { name: string; error: string }[]
+    itemsDiscoveredApprox: number
+    modelUsage: Record<string, unknown>
+    llmCostEstimate: number
+    reportSummaries: InsightReportSummary[]
+  }
+) {
+  if (!runId) return
+  const allFailed =
+    opts.telegramSends === 0 && recipients.length > 0 && opts.failures.length >= recipients.length
+  const status = allFailed ? "failed" : "completed"
+  const recipientDetails: { name: string; telegramId: number; customerId?: string }[] = recipients.map(
+    (u) => ({
+      name: u.name,
+      telegramId: u.telegramId,
+      customerId: typeof u.tenantId === "string" && u.tenantId.length === 36 ? u.tenantId : undefined,
+    })
+  )
+
+  try {
+    const { error } = await supabase
+      .from("kora_ingest_runs")
+      .update({
+        status,
+        completed_at: new Date().toISOString(),
+        telegram_sends: opts.telegramSends,
+        sources_processed: Math.min(10, recipients.length * 5),
+        items_discovered: opts.itemsDiscoveredApprox,
+        items_processed: opts.telegramSends,
+        model_usage: opts.modelUsage,
+        llm_cost_estimate: opts.llmCostEstimate,
+        error_message: allFailed
+          ? opts.failures.map((f) => `${f.name}: ${f.error}`).join("; ")
+          : null,
+        metadata: {
+          pipeline: "send-deep-insights",
+          recipients: recipientDetails,
+          failures: opts.failures,
+          reports: opts.reportSummaries,
+        },
+      })
+      .eq("id", runId)
+    if (error) console.warn("[kora_ingest_runs] update failed:", error.message)
+    else console.log(`[kora_ingest_runs] Finished run ${runId} (${status}, ${opts.telegramSends} sends)`)
+  } catch (e) {
+    console.warn("[kora_ingest_runs] update error:", e)
+  }
+}
+
 async function main() {
-  console.log("=" .repeat(60))
+  console.log("=".repeat(60))
   console.log("KORA Deep Intelligence Pipeline")
   console.log("Using: Core Intelligence + Sources + Gemini")
-  console.log("=" .repeat(60))
+  console.log("=".repeat(60))
 
-  if (!process.env.GEMINI_API_KEY) {
-    console.error("❌ GEMINI_API_KEY not set!")
+  if (!process.env.OPENAI_API_KEY) {
+    console.error("❌ OPENAI_API_KEY required (formatting step)")
+    return
+  }
+  if (!process.env.GEMINI_API_KEY?.trim()) {
+    console.warn("⚠️ GEMINI_API_KEY not set — using OpenAI for synthesis (set GEMINI_MODEL once Gemini works)")
+  }
+
+  const recipients = await getInsightRecipients()
+  if (recipients.length === 0) {
+    console.warn("No recipients (DB empty and no fallback). Exiting.")
     return
   }
 
-  for (const user of TARGET_USERS) {
+  const runId = await startIngestRun()
+  let telegramSends = 0
+  const failures: { name: string; error: string }[] = []
+  const reportSummaries: InsightReportSummary[] = []
+  let itemsDiscoveredApprox = 0
+
+  for (const user of recipients) {
     try {
-      await generateAndSendInsights(user)
-    } catch (error) {
+      const summary = await generateAndSendInsights(user)
+      reportSummaries.push(summary)
+      telegramSends += 1
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error)
       console.error(`❌ Error processing ${user.name}:`, error)
+      failures.push({ name: user.name, error: msg })
     }
   }
+
+  itemsDiscoveredApprox = Math.max(telegramSends * 12, failures.length ? 4 : 0)
+
+  await finishIngestRun(runId, recipients, {
+    telegramSends,
+    failures,
+    itemsDiscoveredApprox,
+    modelUsage: {},
+    llmCostEstimate: telegramSends * 0.15,
+    reportSummaries,
+  })
 
   console.log("\n" + "=".repeat(60))
   console.log("Deep Intelligence Pipeline Complete!")

@@ -9,7 +9,7 @@
 
 import TelegramBot from "node-telegram-bot-api"
 import OpenAI from "openai"
-import { createClient } from "@supabase/supabase-js"
+import { getDatabase } from "../db/client.js"
 import {
   getConversationContext,
   addMessageToContext,
@@ -26,11 +26,17 @@ import {
   parseRefinementRequest
 } from "../agents/refine-insight.js"
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+let _openai: OpenAI | null = null
+function getOpenAI(): OpenAI | null {
+  if (!process.env.OPENAI_API_KEY) return null
+  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  return _openai
+}
+function db() {
+  const s = getDatabase()
+  if (!s) throw new Error("Database not configured")
+  return s
+}
 
 // ============================================================================
 // Types
@@ -196,6 +202,8 @@ async function classifyWithLLM(
   message: string,
   hasRecentInsight: boolean
 ): Promise<IntentClassification> {
+  const openai = getOpenAI()
+  if (!openai) return { intent: "other", confidence: 0, extractedFilters: [], reasoning: "OpenAI not configured" }
   try {
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -449,7 +457,7 @@ export async function handleConversation(
 
   try {
     // Get user's tenant ID
-    const { data: customer } = await supabase
+    const { data: customer } = await db()
       .from("customers")
       .select("id")
       .eq("telegram_id", telegramId)

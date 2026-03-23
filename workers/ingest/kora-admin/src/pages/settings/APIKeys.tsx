@@ -17,28 +17,7 @@ interface APIKey {
   usageCount: number
 }
 
-const mockKeys: APIKey[] = [
-  {
-    id: "1", name: "Production Key", prefix: "kora_prod_",
-    lastUsed: "5 mins ago", createdAt: "Jan 15, 2024", expiresAt: null,
-    status: "active", permissions: ["read", "write", "admin"], usageCount: 12456
-  },
-  {
-    id: "2", name: "Development Key", prefix: "kora_dev_",
-    lastUsed: "2 days ago", createdAt: "Feb 1, 2024", expiresAt: "Dec 31, 2024",
-    status: "active", permissions: ["read", "write"], usageCount: 3421
-  },
-  {
-    id: "3", name: "CI/CD Pipeline", prefix: "kora_ci_",
-    lastUsed: "1 hour ago", createdAt: "Feb 15, 2024", expiresAt: null,
-    status: "active", permissions: ["read"], usageCount: 8923
-  },
-  {
-    id: "4", name: "Old Integration Key", prefix: "kora_int_",
-    lastUsed: "30 days ago", createdAt: "Jan 1, 2024", expiresAt: "Feb 28, 2024",
-    status: "expired", permissions: ["read", "write"], usageCount: 567
-  },
-]
+const mockKeys: APIKey[] = []
 
 const statusConfig = {
   active: { label: "Active", color: "text-emerald-400", bg: "bg-emerald-400/10", icon: CheckCircle2 },

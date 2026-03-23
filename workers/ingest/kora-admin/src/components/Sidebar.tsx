@@ -104,10 +104,8 @@ const systemAgentGroups: AgentGroup[] = [
   },
 ]
 
-// Users and Tenants section
 const usersAndTenantsItems: NavItem[] = [
-  { to: "/tenants", label: "Tenants", icon: Building2 },
-  { to: "/users", label: "Users", icon: Users },
+  { to: "/clients", label: "Clients", icon: Building2 },
   { to: "/telegram-preferences", label: "Telegram Preferences", icon: Send },
   { to: "/approval-history", label: "Approval History", icon: History },
   { to: "/intelligence-filters", label: "Intelligence Filters", icon: Filter },
@@ -266,10 +264,10 @@ export function Sidebar() {
           </div>
         </div>
 
-        {/* Users and Tenants Section */}
+        {/* Clients & delivery */}
         <div className="mb-6">
           <p className="px-3 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            Users and Tenants
+            Clients and delivery
           </p>
 
           <div className="space-y-0.5">

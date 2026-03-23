@@ -23,38 +23,7 @@ interface Tenant {
   createdAt: string
 }
 
-const mockTenants: Tenant[] = [
-  {
-    id: "1", name: "JahKnowsPR", slug: "jahknowspr", industry: "Marketing & PR",
-    status: "active", isInternal: true, usersCount: 3, ragDocuments: 892, sourcesCount: 47,
-    telegramEnabled: true, filterProfileName: "JahKnowsPR Home Profile",
-    lastActivity: "2 hours ago", createdAt: "Jan 15, 2024"
-  },
-  {
-    id: "2", name: "Acme Corp", slug: "acme-corp", industry: "Technology",
-    status: "active", isInternal: false, usersCount: 5, ragDocuments: 234, sourcesCount: 12,
-    telegramEnabled: true, filterProfileName: "Default Profile",
-    lastActivity: "1 day ago", createdAt: "Feb 20, 2024"
-  },
-  {
-    id: "3", name: "StartupX", slug: "startupx", industry: "SaaS",
-    status: "active", isInternal: false, usersCount: 2, ragDocuments: 156, sourcesCount: 8,
-    telegramEnabled: false, filterProfileName: null,
-    lastActivity: "3 hours ago", createdAt: "Mar 1, 2024"
-  },
-  {
-    id: "4", name: "Brand Agency", slug: "brand-agency", industry: "Marketing & PR",
-    status: "active", isInternal: false, usersCount: 8, ragDocuments: 567, sourcesCount: 23,
-    telegramEnabled: true, filterProfileName: "Agency Profile",
-    lastActivity: "5 hours ago", createdAt: "Feb 10, 2024"
-  },
-  {
-    id: "5", name: "Test Company", slug: "test-company", industry: "Other",
-    status: "trial", isInternal: false, usersCount: 1, ragDocuments: 0, sourcesCount: 0,
-    telegramEnabled: false, filterProfileName: null,
-    lastActivity: "2 weeks ago", createdAt: "Mar 5, 2024"
-  },
-]
+const mockTenants: Tenant[] = []
 
 const statusConfig = {
   active: { color: "text-emerald-400", bg: "bg-emerald-400/10", label: "Active" },

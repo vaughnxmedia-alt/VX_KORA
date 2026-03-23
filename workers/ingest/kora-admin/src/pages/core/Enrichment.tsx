@@ -26,40 +26,7 @@ interface EnrichmentItem {
   } | null
 }
 
-const mockItems: EnrichmentItem[] = [
-  {
-    id: "e1", intelligence_item_id: "i1", title: "TikTok's New Creator Fund Details", source: "Social Media Today",
-    tenant: "JahKnowsPR", enrichment_type: "make_smarter", status: "pending", priority: 9,
-    requested_by: "Jah", created_at: "30 mins ago", result: null
-  },
-  {
-    id: "e2", intelligence_item_id: "i2", title: "Brand Partnership Best Practices 2024", source: "AdAge",
-    tenant: null, enrichment_type: "strategy_candidate", status: "pending", priority: 8,
-    requested_by: null, created_at: "1 hour ago", result: null
-  },
-  {
-    id: "e3", intelligence_item_id: "i3", title: "Crisis Communication Framework", source: "PR Week",
-    tenant: "JahKnowsPR", enrichment_type: "telegram_brief", status: "processing", priority: 7,
-    requested_by: "System", created_at: "2 hours ago", result: null
-  },
-  {
-    id: "e4", intelligence_item_id: "i4", title: "Instagram Reels Algorithm Update", source: "Later Blog",
-    tenant: "JahKnowsPR", enrichment_type: "rag_addition", status: "completed", priority: 6,
-    requested_by: "Jah", created_at: "4 hours ago", 
-    result: { action_taken: "added_to_rag", output_id: "doc-123", notes: "High relevance for content strategy" }
-  },
-  {
-    id: "e5", intelligence_item_id: "i5", title: "LinkedIn Algorithm Changes for Creators", source: "Social Media Examiner",
-    tenant: null, enrichment_type: "review", status: "pending", priority: 5,
-    requested_by: null, created_at: "5 hours ago", result: null
-  },
-  {
-    id: "e6", intelligence_item_id: "i6", title: "Influencer Marketing ROI Study", source: "Marketing Week",
-    tenant: "Acme Corp", enrichment_type: "strategy_candidate", status: "completed", priority: 7,
-    requested_by: "System", created_at: "1 day ago",
-    result: { action_taken: "converted_to_strategy", output_id: "strat-456", notes: "Used in Q2 campaign planning" }
-  },
-]
+const mockItems: EnrichmentItem[] = []
 
 const enrichmentTypeConfig: Record<EnrichmentType, { label: string; color: string; bg: string; icon: typeof Sparkles }> = {
   make_smarter: { label: "Make Me Smarter", color: "text-purple-400", bg: "bg-purple-400/10", icon: Sparkles },

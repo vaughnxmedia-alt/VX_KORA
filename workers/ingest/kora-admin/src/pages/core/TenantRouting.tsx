@@ -17,7 +17,7 @@ function formatTimeAgo(timestamp: string): string {
 }
 
 export function TenantRouting() {
-  const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(mockTenants[0])
+  const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null)
 
   const tenantProfile = selectedTenant ? getTenantProfile(selectedTenant.id) : null
   const tenantQueue = selectedTenant ? getTenantQueue(selectedTenant.id) : []

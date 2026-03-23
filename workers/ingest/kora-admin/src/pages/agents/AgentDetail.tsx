@@ -99,39 +99,13 @@ const agentConfig: Record<string, Omit<AgentInfo, "status" | "lastRun" | "nextRu
   },
 }
 
-const mockAgentData: Record<string, Partial<AgentInfo>> = {
-  "intake-clarifier": { status: "idle", lastRun: "2 days ago", nextRun: null, successRate: 0.99, avgDuration: "15s", totalRuns24h: 0, itemsProcessed24h: 0 },
-  "source-discovery": { status: "healthy", lastRun: "2 hours ago", nextRun: "In 2 hours", successRate: 0.98, avgDuration: "8m 45s", totalRuns24h: 6, itemsProcessed24h: 47 },
-  "source-processing": { status: "healthy", lastRun: "1 hour ago", nextRun: null, successRate: 0.95, avgDuration: "3m", totalRuns24h: 12, itemsProcessed24h: 156 },
-  "content-strategy": { status: "healthy", lastRun: "1 hour ago", nextRun: null, successRate: 0.99, avgDuration: "45s", totalRuns24h: 8, itemsProcessed24h: 23 },
-  "campaign-assembly": { status: "healthy", lastRun: "3 hours ago", nextRun: null, successRate: 0.96, avgDuration: "1m 2s", totalRuns24h: 4, itemsProcessed24h: 12 },
-  "telegram-delivery": { status: "healthy", lastRun: "7:00 AM", nextRun: "Tomorrow 7:00 AM", successRate: 1.0, avgDuration: "2m 15s", totalRuns24h: 1, itemsProcessed24h: 5 },
-  "rag-intelligence": { status: "warning", lastRun: "45 mins ago", nextRun: null, successRate: 0.92, avgDuration: "4m 40s", totalRuns24h: 15, itemsProcessed24h: 89 },
-}
+const mockAgentData: Record<string, Partial<AgentInfo>> = {}
 
-const mockRuns: AgentRun[] = [
-  { id: "run-1", status: "completed", startedAt: "2 hours ago", duration: "8m 32s", itemsProcessed: 47, errors: 0, trigger: "Scheduled" },
-  { id: "run-2", status: "completed", startedAt: "4 hours ago", duration: "7m 45s", itemsProcessed: 38, errors: 1, trigger: "Scheduled" },
-  { id: "run-3", status: "completed", startedAt: "6 hours ago", duration: "9m 12s", itemsProcessed: 52, errors: 0, trigger: "Scheduled" },
-  { id: "run-4", status: "failed", startedAt: "8 hours ago", duration: "2m 15s", itemsProcessed: 12, errors: 5, trigger: "Manual" },
-  { id: "run-5", status: "completed", startedAt: "10 hours ago", duration: "8m 05s", itemsProcessed: 41, errors: 0, trigger: "Scheduled" },
-]
+const mockRuns: AgentRun[] = []
 
-const mockQueue: QueueItem[] = [
-  { id: "q1", title: "Process new RSS items from AdAge", priority: 8, scheduledFor: null, status: "processing", createdAt: "5 mins ago" },
-  { id: "q2", title: "Embed documents for JahKnowsPR", priority: 7, scheduledFor: null, status: "pending", createdAt: "10 mins ago" },
-  { id: "q3", title: "Score relevance for batch #1234", priority: 6, scheduledFor: "In 5 mins", status: "pending", createdAt: "15 mins ago" },
-]
+const mockQueue: QueueItem[] = []
 
-const mockLogs: LogEntry[] = [
-  { id: "l1", level: "info", message: "Agent run started", timestamp: "2 hours ago" },
-  { id: "l2", level: "info", message: "Processing 47 items from 12 sources", timestamp: "2 hours ago" },
-  { id: "l3", level: "debug", message: "Fetching RSS feed: https://adage.com/feed", timestamp: "2 hours ago" },
-  { id: "l4", level: "info", message: "Successfully processed 47 items", timestamp: "1 hour 52 mins ago" },
-  { id: "l5", level: "info", message: "Agent run completed in 8m 32s", timestamp: "1 hour 52 mins ago" },
-  { id: "l6", level: "warn", message: "Rate limit warning from OpenAI API", timestamp: "4 hours ago" },
-  { id: "l7", level: "error", message: "Failed to fetch source: connection timeout", timestamp: "8 hours ago" },
-]
+const mockLogs: LogEntry[] = []
 
 const statusConfig = {
   healthy: { color: "text-emerald-400", bg: "bg-emerald-400/10", icon: CheckCircle2 },

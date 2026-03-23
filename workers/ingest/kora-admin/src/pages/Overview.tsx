@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react"
+import { useState, useMemo } from "react"
 import { Brain, PenTool, Layers, MessageSquareText, FileText, Clock, CheckCircle2, Loader2, AlertCircle, ArrowRight, Lightbulb, TrendingUp } from "lucide-react"
 import { Link } from "react-router-dom"
 import { cn } from "@/lib/utils"
@@ -38,25 +38,14 @@ interface IndustryInsight {
 }
 
 const systemAgents: SystemAgent[] = [
-  { id: "core", name: "Core Intelligence", description: "Global ingestion, enrichment, and RAG updates", icon: Brain, status: "healthy", lastRun: "2 min ago", itemsProcessed: 1247, route: "/core" },
-  { id: "intake", name: "Intake Clarifier", description: "User intake processing and profile structuring", icon: MessageSquareText, status: "healthy", lastRun: "5 min ago", itemsProcessed: 23, route: "/intake" },
-  { id: "strategy", name: "Content Strategy", description: "Strategy generation and content planning", icon: PenTool, status: "running", lastRun: "Running...", itemsProcessed: 8, route: "/strategy" },
-  { id: "campaigns", name: "Campaign Assembly", description: "Campaign creation and asset generation", icon: Layers, status: "healthy", lastRun: "15 min ago", itemsProcessed: 45, route: "/campaigns" },
+  { id: "core", name: "Core Intelligence", description: "Global ingestion, enrichment, and RAG updates", icon: Brain, status: "idle", lastRun: "—", itemsProcessed: 0, route: "/core" },
+  { id: "intake", name: "Intake Clarifier", description: "User intake processing and profile structuring", icon: MessageSquareText, status: "idle", lastRun: "—", itemsProcessed: 0, route: "/intake" },
+  { id: "strategy", name: "Content Strategy", description: "Strategy generation and content planning", icon: PenTool, status: "idle", lastRun: "—", itemsProcessed: 0, route: "/strategy" },
+  { id: "campaigns", name: "Campaign Assembly", description: "Campaign creation and asset generation", icon: Layers, status: "idle", lastRun: "—", itemsProcessed: 0, route: "/campaigns" },
 ]
 
-const mockContentStrategies: ContentStrategy[] = [
-  { id: "1", title: "Q1 2026 Content Strategy", tenant: "TechFlow Solutions", status: "complete", generatedAt: "10 min ago", pillars: ["Thought Leadership", "Product Updates", "Industry Trends"] },
-  { id: "2", title: "Weekly Social Strategy", tenant: "Meridian Capital", status: "generating", generatedAt: "Generating...", pillars: ["Investment Insights", "Portfolio Highlights"] },
-  { id: "3", title: "Blog Content Plan", tenant: "FinanceHub Inc", status: "complete", generatedAt: "1 hour ago", pillars: ["Fintech Trends", "Product Features", "Customer Stories"] },
-  { id: "4", title: "PR Campaign Strategy", tenant: "DataViz Analytics", status: "pending", generatedAt: "Queued", pillars: ["Data Storytelling", "Case Studies"] },
-]
-
-const mockInsights: IndustryInsight[] = [
-  { id: "1", title: "AI-Powered Content Creation Sees 340% Growth in Enterprise Adoption", source: "TechCrunch", category: "AI & Technology", relevance: 95, extractedAt: "3 min ago", summary: "Enterprise companies are rapidly adopting AI content tools, with spending expected to reach $15B by 2027." },
-  { id: "2", title: "New SEC Guidelines Impact Fintech Marketing Strategies", source: "Financial Times", category: "Regulatory", relevance: 88, extractedAt: "8 min ago", summary: "Recent SEC updates require more transparent disclosures in fintech marketing materials." },
-  { id: "3", title: "Video Content Engagement Up 67% Year-Over-Year", source: "Marketing Week", category: "Content Trends", relevance: 92, extractedAt: "12 min ago", summary: "Short-form video continues to dominate engagement metrics across all B2B platforms." },
-  { id: "4", title: "Sustainability Messaging Drives 45% Higher Conversion", source: "Harvard Business Review", category: "Consumer Behavior", relevance: 85, extractedAt: "25 min ago", summary: "Brands with authentic sustainability narratives see significant conversion improvements." },
-]
+const mockContentStrategies: ContentStrategy[] = []
+const mockInsights: IndustryInsight[] = []
 
 const statusConfig: Record<AgentStatus, { color: string; bgColor: string; icon: typeof CheckCircle2; label: string }> = {
   idle: { color: "text-gray-400", bgColor: "bg-gray-500/10", icon: Clock, label: "Idle" },
@@ -71,17 +60,6 @@ export function Overview() {
   const [insights] = useState(mockInsights)
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null)
   const { clients, getDisplayName } = useClients()
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setStrategies(prev => prev.map(s => 
-        s.status === "generating" && Math.random() > 0.7 
-          ? { ...s, status: "complete" as const, generatedAt: "Just now" }
-          : s
-      ))
-    }, 5000)
-    return () => clearInterval(interval)
-  }, [])
 
   const filteredStrategies = useMemo(() => {
     if (!selectedClientId) return strategies

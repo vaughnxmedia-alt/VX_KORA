@@ -19,18 +19,7 @@ interface TaskConfig {
   costPer1kTokens: number
 }
 
-const mockTaskConfigs: TaskConfig[] = [
-  { taskType: "embeddings", displayName: "Embeddings", description: "Vector embeddings for RAG", primaryProvider: "openai", primaryModel: "text-embedding-3-small", fallbackProvider: null, fallbackModel: null, maxTokens: 8192, temperature: 0, useLongContext: false, costPer1kTokens: 0.00002 },
-  { taskType: "classification", displayName: "Classification", description: "Content categorization", primaryProvider: "openai", primaryModel: "gpt-4o-mini", fallbackProvider: "gemini", fallbackModel: "gemini-1.5-flash", maxTokens: 1000, temperature: 0, useLongContext: false, costPer1kTokens: 0.00015 },
-  { taskType: "tagging", displayName: "Tagging", description: "Entity and topic tagging", primaryProvider: "openai", primaryModel: "gpt-4o-mini", fallbackProvider: "gemini", fallbackModel: "gemini-1.5-flash", maxTokens: 500, temperature: 0, useLongContext: false, costPer1kTokens: 0.00015 },
-  { taskType: "relevance_scoring", displayName: "Relevance Scoring", description: "Content relevance assessment", primaryProvider: "openai", primaryModel: "gpt-4o-mini", fallbackProvider: "gemini", fallbackModel: "gemini-1.5-flash", maxTokens: 200, temperature: 0, useLongContext: false, costPer1kTokens: 0.00015 },
-  { taskType: "summarization", displayName: "Summarization", description: "Content summarization", primaryProvider: "openai", primaryModel: "gpt-4o-mini", fallbackProvider: "gemini", fallbackModel: "gemini-1.5-flash", maxTokens: 2000, temperature: 0.3, useLongContext: false, costPer1kTokens: 0.00015 },
-  { taskType: "transcript_digestion", displayName: "Transcript Digestion", description: "Video/audio transcript processing", primaryProvider: "gemini", primaryModel: "gemini-1.5-pro", fallbackProvider: "openai", fallbackModel: "gpt-4o", maxTokens: 8000, temperature: 0.3, useLongContext: true, costPer1kTokens: 0.00125 },
-  { taskType: "long_form_synthesis", displayName: "Long-Form Synthesis", description: "Multi-source synthesis", primaryProvider: "gemini", primaryModel: "gemini-1.5-pro", fallbackProvider: "openai", fallbackModel: "gpt-4o", maxTokens: 4000, temperature: 0.5, useLongContext: true, costPer1kTokens: 0.00125 },
-  { taskType: "weekly_brief", displayName: "Weekly Brief", description: "Weekly digest generation", primaryProvider: "gemini", primaryModel: "gemini-1.5-pro", fallbackProvider: "openai", fallbackModel: "gpt-4o", maxTokens: 6000, temperature: 0.5, useLongContext: true, costPer1kTokens: 0.00125 },
-  { taskType: "strategy_generation", displayName: "Strategy Generation", description: "Content strategy creation", primaryProvider: "gemini", primaryModel: "gemini-1.5-pro", fallbackProvider: "openai", fallbackModel: "gpt-4o", maxTokens: 4000, temperature: 0.7, useLongContext: true, costPer1kTokens: 0.00125 },
-  { taskType: "structured_output", displayName: "Structured Output", description: "JSON and structured data", primaryProvider: "openai", primaryModel: "gpt-4o", fallbackProvider: "gemini", fallbackModel: "gemini-1.5-pro", maxTokens: 2000, temperature: 0, useLongContext: false, costPer1kTokens: 0.005 },
-]
+const mockTaskConfigs: TaskConfig[] = []
 
 interface CostThresholds {
   dailyBudget: number

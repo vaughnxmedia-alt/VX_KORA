@@ -895,10 +895,10 @@ async function sendPDFsViaTelegram(
   
   await new Promise(r => setTimeout(r, 500))
   
-  // Send completion message
+  // Send completion message (Mission Control + /run for insights)
   await bot.sendMessage(
     telegramId,
-    `*All documents sent!*\n\nYour complete strategy package includes:\n- Brand Identity Blueprint\n- Content Strategy with Example Week\n- Target Audience Analysis\n\nThese documents are also saved to your dashboard at jahknowspr.com. Log in with your email to view them anytime.\n\nThank you for choosing JahKnowsPR!`,
+    `*All documents sent!*\n\nYour complete strategy package includes:\n- Brand Identity Blueprint\n- Content Strategy with Example Week\n- Target Audience Analysis\n\nThese are saved in the Intake agent. To get your *personalized insights* run, go to **Mission Control** → Ingest Runs → click **Trigger Run**, or type \`/run\` here and we’ll trigger an insight run just for you.\n\nThank you for choosing JahKnowsPR!`,
     { parse_mode: "Markdown" }
   )
   

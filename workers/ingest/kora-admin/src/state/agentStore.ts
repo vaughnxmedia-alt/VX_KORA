@@ -114,46 +114,11 @@ const initialAgents: Agent[] = [
   },
 ]
 
-const mockClients: Client[] = [
-  { id: "c1", name: "Sarah Johnson", businessName: "Wellness Co", email: "sarah@wellness.co", status: "active_client", createdAt: "2024-01-15" },
-  { id: "c2", name: "Marcus Chen", businessName: "TechStart Inc", email: "marcus@techstart.io", status: "active_client", createdAt: "2024-02-01" },
-  { id: "c3", name: "Elena Rodriguez", businessName: "Artisan Foods", email: "elena@artisanfoods.com", status: "active_client", createdAt: "2024-02-20" },
-  { id: "c4", name: "James Wilson", businessName: "Urban Fitness", email: "james@urbanfitness.com", status: "meeting_scheduled", createdAt: "2024-03-01" },
-  { id: "c5", name: "Priya Patel", businessName: "Mindful Media", email: "priya@mindfulmedia.co", status: "active_client", createdAt: "2024-03-05" },
-]
-
-const generateMockDeliverables = (): Deliverable[] => {
-  const deliverables: Deliverable[] = []
-  const statuses: Deliverable["status"][] = ["pending", "in_progress", "complete", "failed"]
-  
-  mockClients.forEach((client) => {
-    initialAgents.forEach((agent) => {
-      agent.deliverables.forEach((deliverableName, index) => {
-        const statusIndex = Math.floor(Math.random() * 4)
-        const isComplete = statuses[statusIndex] === "complete"
-        
-        deliverables.push({
-          id: `${agent.id}-${client.id}-${index}`,
-          agentId: agent.id,
-          clientId: client.id,
-          clientName: client.businessName || client.name,
-          title: deliverableName,
-          status: statuses[statusIndex],
-          createdAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000),
-          completedAt: isComplete ? new Date(Date.now() - Math.random() * 2 * 24 * 60 * 60 * 1000) : undefined,
-        })
-      })
-    })
-  })
-  
-  return deliverables
-}
-
 export const useAgentStore = create<AgentStore>((set, get) => ({
   agents: initialAgents,
-  clients: mockClients,
+  clients: [],
   selectedClientId: null,
-  deliverables: generateMockDeliverables(),
+  deliverables: [],
 
   setSelectedClient: (clientId) => set({ selectedClientId: clientId }),
 

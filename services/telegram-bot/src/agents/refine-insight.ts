@@ -22,11 +22,22 @@ import {
   type UserLearnedPreferences
 } from "../db/conversation-context.js"
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+let _openai: OpenAI | null = null
+let _supabase: ReturnType<typeof createClient> | null = null
+function getOpenAI(): OpenAI | null {
+  if (!process.env.OPENAI_API_KEY) return null
+  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  return _openai
+}
+function getSupabase(): ReturnType<typeof createClient> {
+  if (!_supabase) {
+    const url = process.env.SUPABASE_URL
+    const key = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!url || !key) throw new Error("SUPABASE_URL and key required for refine-insight")
+    _supabase = createClient(url, key)
+  }
+  return _supabase
+}
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY
 
 // ============================================================================
@@ -213,6 +224,8 @@ async function synthesizeRefinedInsights(
     .map((n, i) => `[${i + 1}] ${n.title}\nURL: ${n.url}\nContent: ${n.content}`)
     .join("\n---\n")
 
+  const openai = getOpenAI()
+  if (!openai) throw new Error("OPENAI_API_KEY required for refinement")
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
     messages: [
@@ -484,6 +497,8 @@ export async function parseRefinementRequest(
 }
 
 async function extractFiltersWithLLM(message: string): Promise<string[]> {
+  const openai = getOpenAI()
+  if (!openai) return []
   try {
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",

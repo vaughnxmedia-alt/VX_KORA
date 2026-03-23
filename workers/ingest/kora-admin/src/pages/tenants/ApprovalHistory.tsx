@@ -20,16 +20,7 @@ interface ApprovalEntry {
   createdAt: string
 }
 
-const mockHistory: ApprovalEntry[] = [
-  { id: "1", tenant: "JahKnowsPR", user: "Jah", targetType: "intelligence", targetId: "int-1", targetTitle: "TikTok Creator Marketing Trends 2024", action: "approved", reason: "High relevance for content strategy", createdAt: "2 hours ago" },
-  { id: "2", tenant: "JahKnowsPR", user: "Jah", targetType: "source", targetId: "src-1", targetTitle: "Marketing Weekly Newsletter", action: "approved", reason: null, createdAt: "3 hours ago" },
-  { id: "3", tenant: "JahKnowsPR", user: "Jah", targetType: "strategy", targetId: "strat-1", targetTitle: "Q2 Content Strategy", action: "approved", reason: "Ready for implementation", createdAt: "1 day ago" },
-  { id: "4", tenant: "Acme Corp", user: "John Smith", targetType: "intelligence", targetId: "int-2", targetTitle: "Corporate Earnings Report", action: "rejected", reason: "Not relevant to our industry", createdAt: "1 day ago" },
-  { id: "5", tenant: "JahKnowsPR", user: "Jah", targetType: "enrichment", targetId: "enr-1", targetTitle: "Instagram Algorithm Update", action: "approved", reason: "Add to RAG", createdAt: "2 days ago" },
-  { id: "6", tenant: "Brand Agency", user: "Sarah Johnson", targetType: "source", targetId: "src-2", targetTitle: "Competitor Blog", action: "rejected", reason: "Low quality content", createdAt: "2 days ago" },
-  { id: "7", tenant: "JahKnowsPR", user: "Jah", targetType: "campaign", targetId: "camp-1", targetTitle: "Spring Launch Campaign", action: "approved", reason: null, createdAt: "3 days ago" },
-  { id: "8", tenant: "JahKnowsPR", user: "Jah", targetType: "intelligence", targetId: "int-3", targetTitle: "Old Marketing News", action: "archived", reason: "Outdated information", createdAt: "1 week ago" },
-]
+const mockHistory: ApprovalEntry[] = []
 
 const actionConfig: Record<Action, { label: string; color: string; bg: string; icon: typeof CheckCircle2 }> = {
   approved: { label: "Approved", color: "text-emerald-400", bg: "bg-emerald-400/10", icon: CheckCircle2 },

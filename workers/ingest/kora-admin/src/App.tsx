@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom"
+import { BrowserRouter, Routes, Route, Outlet, Navigate } from "react-router-dom"
 import { Suspense, lazy } from "react"
 import { Sidebar } from "@/components/Sidebar"
 import { Overview } from "@/pages/Overview"
@@ -24,9 +24,7 @@ const HealthAndLogs = lazy(() => import("@/pages/core/HealthAndLogs"))
 // Agent Detail Pages (lazy loaded)
 const AgentDetail = lazy(() => import("@/pages/agents/AgentDetail"))
 
-// Users and Tenants Pages (lazy loaded)
-const Tenants = lazy(() => import("@/pages/tenants/Tenants"))
-const Users = lazy(() => import("@/pages/tenants/Users"))
+const Clients = lazy(() => import("@/pages/tenants/Clients"))
 const TelegramPreferences = lazy(() => import("@/pages/tenants/TelegramPreferences"))
 const ApprovalHistory = lazy(() => import("@/pages/tenants/ApprovalHistory"))
 const IntelligenceFilters = lazy(() => import("@/pages/tenants/IntelligenceFilters"))
@@ -93,9 +91,9 @@ function App() {
           <Route path="agents/telegram-delivery" element={<AgentDetail agentId="telegram-delivery" />} />
           <Route path="agents/rag-intelligence" element={<AgentDetail agentId="rag-intelligence" />} />
 
-          {/* Users and Tenants Routes */}
-          <Route path="tenants" element={<Tenants />} />
-          <Route path="users" element={<Users />} />
+          <Route path="clients" element={<Clients />} />
+          <Route path="tenants" element={<Navigate to="/clients" replace />} />
+          <Route path="users" element={<Navigate to="/clients" replace />} />
           <Route path="telegram-preferences" element={<TelegramPreferences />} />
           <Route path="approval-history" element={<ApprovalHistory />} />
           <Route path="intelligence-filters" element={<IntelligenceFilters />} />

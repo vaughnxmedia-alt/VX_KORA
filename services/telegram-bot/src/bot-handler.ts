@@ -375,7 +375,7 @@ async function handleIntakeComplete(
     )
 
     await bot.sendMessage(chatId,
-      `🎉 *That's everything!*\n\nYour complete strategy package includes:\n✅ Brand Identity Blueprint\n✅ Content Strategy with Example Week\n✅ Target Audience Analysis\n\nThese documents are now saved to your profile. You can access them anytime through the KORA dashboard.\n\n━━━━━━━━━━━━━━━━━━━━━━\n\n*What's Next?*\n\n1. Review your strategy documents\n2. Start creating content based on your pillars\n3. Follow your example week schedule\n4. Track your progress in KORA\n\nNeed to update your strategy? Just type *${COMMAND_TRIGGER}* again anytime.\n\nThank you for trusting KORA! 🚀`,
+      `🎉 *That's everything!*\n\nYour complete strategy package includes:\n✅ Brand Identity Blueprint\n✅ Content Strategy with Example Week\n✅ Target Audience Analysis\n\nThey’re saved in the Intake agent. To get your *personalized insights*: Mission Control → Ingest Runs → **Trigger Run**, or type \`/run\` here for a run just for you.\n\n━━━━━━━━━━━━━━━━━━━━━━\n\n*What's Next?*\n\n1. Review your strategy documents\n2. Type \`/run\` to get your first insight run\n3. Start creating content based on your pillars\n4. Follow your example week schedule\n\nNeed to update your strategy? Just type *${COMMAND_TRIGGER}* again anytime.\n\nThank you for trusting KORA! 🚀`,
       { parse_mode: "Markdown" }
     )
 

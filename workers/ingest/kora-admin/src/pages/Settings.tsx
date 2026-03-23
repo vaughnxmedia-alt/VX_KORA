@@ -3,7 +3,6 @@ import { Globe, Key, Shield, Save, Eye, EyeOff, Send, MessageCircle, Bell, BellO
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
-const TELEGRAM_BOT_TOKEN = "8791517814:AAFtdYP6_sflkkiRvveS1YrT66tPYa4YeZs"
 const JAHKNOWS_CHAT_ID = "8216104620"
 
 export function Settings() {
@@ -12,7 +11,8 @@ export function Settings() {
   const [showTelegramToken, setShowTelegramToken] = useState(false)
   const [openAIKey, setOpenAIKey] = useState("sk-proj-xxxxxxxxxxxxx")
   const [geminiKey, setGeminiKey] = useState("AIzaSyxxxxxxxxxx")
-  const [telegramBotToken, setTelegramBotToken] = useState(TELEGRAM_BOT_TOKEN)
+  /** Paste token when testing; bot scripts use services/telegram-bot/.env instead. */
+  const [telegramBotToken, setTelegramBotToken] = useState("")
   const [telegramChatId, setTelegramChatId] = useState(JAHKNOWS_CHAT_ID)
   const [notifyDeliverables, setNotifyDeliverables] = useState(true)
   const [notifyIngest, setNotifyIngest] = useState(false)

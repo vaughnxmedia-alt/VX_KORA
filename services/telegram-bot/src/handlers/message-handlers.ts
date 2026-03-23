@@ -130,6 +130,9 @@ export async function handleIntakeResponse(
 
     if (result.isComplete) {
       activeSessions.delete(telegramId)
+      await bot.sendMessage(chatId,
+        "Thank you! I'm now generating your strategy documents. This may take a few minutes."
+      ).catch(() => {})
       return
     }
 

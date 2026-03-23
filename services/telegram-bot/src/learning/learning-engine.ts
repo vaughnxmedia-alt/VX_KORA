@@ -20,7 +20,12 @@ import {
   type ConversationContext
 } from "../db/conversation-context.js"
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+let _openai: OpenAI | null = null
+function getOpenAI(): OpenAI | null {
+  if (!process.env.OPENAI_API_KEY) return null
+  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  return _openai
+}
 
 // ============================================================================
 // Types
@@ -218,6 +223,9 @@ async function extractSignalsWithLLM(
   message: string,
   context: LearningContext
 ): Promise<ExtractedSignal[]> {
+  const openai = getOpenAI()
+  if (!openai) return []
+
   try {
     const contextInfo = context.lastInsightTopics?.length
       ? `The user was previously shown insights about: ${context.lastInsightTopics.join(", ")}`

@@ -26,43 +26,7 @@ interface IntelligenceItem {
   is_event: boolean
 }
 
-const mockItems: IntelligenceItem[] = [
-  {
-    id: "1", title: "How TikTok Changed Creator Marketing Forever", source_name: "AdAge", source_type: "rss",
-    content_type: "article", url: "https://adage.com/article/123", extracted_summary: "A deep dive into how TikTok's algorithm has fundamentally shifted the creator economy and brand partnerships...",
-    language: "en", status: "ready", parser_status: "enriched",
-    tenant_matches: [{ tenant_id: "1", tenant_name: "JahKnowsPR", score: 0.94 }],
-    relevance_score: 0.94, discovered_at: "2 hours ago", is_event: false
-  },
-  {
-    id: "2", title: "Brand Crisis Management in the Age of Cancel Culture", source_name: "PR Week", source_type: "rss",
-    content_type: "article", url: "https://prweek.com/article/456", extracted_summary: "Experts weigh in on how brands should navigate the increasingly treacherous waters of social media backlash...",
-    language: "en", status: "ready", parser_status: "enriched",
-    tenant_matches: [{ tenant_id: "1", tenant_name: "JahKnowsPR", score: 0.91 }, { tenant_id: "2", tenant_name: "Acme Corp", score: 0.72 }],
-    relevance_score: 0.91, discovered_at: "3 hours ago", is_event: false
-  },
-  {
-    id: "3", title: "Gary Vee on Building Personal Brands in 2024", source_name: "Gary Vee", source_type: "youtube",
-    content_type: "video", url: "https://youtube.com/watch?v=abc123", extracted_summary: "Gary discusses the evolving landscape of personal branding and why authenticity matters more than ever...",
-    language: "en", status: "processing", parser_status: "parsed",
-    tenant_matches: [{ tenant_id: "1", tenant_name: "JahKnowsPR", score: 0.88 }],
-    relevance_score: 0.88, discovered_at: "1 hour ago", is_event: false
-  },
-  {
-    id: "4", title: "Social Media Marketing Summit 2024", source_name: "Eventbrite", source_type: "web",
-    content_type: "event", url: "https://eventbrite.com/e/789", extracted_summary: "Join industry leaders for a 3-day conference on the future of social media marketing...",
-    language: "en", status: "discovered", parser_status: "pending",
-    tenant_matches: [],
-    relevance_score: 0.75, discovered_at: "30 mins ago", is_event: true
-  },
-  {
-    id: "5", title: "Instagram Algorithm Update Affects Reach", source_name: "Social Media Today", source_type: "rss",
-    content_type: "article", url: "https://socialmediatoday.com/article/999", extracted_summary: "Instagram's latest algorithm change is causing significant drops in organic reach for business accounts...",
-    language: "en", status: "routed", parser_status: "enriched",
-    tenant_matches: [{ tenant_id: "1", tenant_name: "JahKnowsPR", score: 0.89 }],
-    relevance_score: 0.89, discovered_at: "5 hours ago", is_event: false
-  },
-]
+const mockItems: IntelligenceItem[] = []
 
 const statusConfig = {
   discovered: { color: "text-gray-400", bg: "bg-gray-400/10", label: "Discovered" },

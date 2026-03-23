@@ -5,15 +5,16 @@
  */
 
 import TelegramBot from "node-telegram-bot-api"
-import { createClient } from "@supabase/supabase-js"
+import { getDatabase } from "../db/client.js"
 import { generateInsightReport, type InsightReportOutput } from "../agents/insight-report.js"
 import { generateContentDraft, type ContentDraftOutput } from "../agents/content-draft.js"
 import { USE_CASE_TEMPLATES } from "../types/insight.js"
 
-// Supabase client
-const supabaseUrl = process.env.SUPABASE_URL!
-const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY!
-const supabase = createClient(supabaseUrl, supabaseKey)
+function db() {
+  const s = getDatabase()
+  if (!s) throw new Error("Database not configured")
+  return s
+}
 
 /**
  * Handle @korainsight trigger
@@ -33,7 +34,7 @@ export async function handleInsightTrigger(
 
   try {
     // Find tenant
-    const { data: customer, error: customerError } = await supabase
+    const { data: customer, error: customerError } = await db()
       .from("customers")
       .select("id, business_name")
       .eq("telegram_id", telegramId)
@@ -122,7 +123,7 @@ export async function handleContentTrigger(
 
   try {
     // Find tenant
-    const { data: customer, error: customerError } = await supabase
+    const { data: customer, error: customerError } = await db()
       .from("customers")
       .select("id, business_name")
       .eq("telegram_id", telegramId)
@@ -222,7 +223,7 @@ export async function handleScheduleCommand(
 
   try {
     // Find tenant
-    const { data: customer, error: customerError } = await supabase
+    const { data: customer, error: customerError } = await db()
       .from("customers")
       .select("id, business_name")
       .eq("telegram_id", telegramId)
@@ -348,7 +349,7 @@ async function handleScheduleStatus(
   chatId: number,
   tenantId: string
 ): Promise<void> {
-  const { data: schedules, error } = await supabase
+  const { data: schedules, error } = await db()
     .from("intel_delivery_schedules")
     .select("*")
     .eq("tenant_id", tenantId)
@@ -398,7 +399,7 @@ async function handleScheduleCancel(
   tenantId: string,
   telegramId: number
 ): Promise<void> {
-  const { error } = await supabase
+  const { error } = await db()
     .from("intel_delivery_schedules")
     .update({ is_active: false })
     .eq("tenant_id", tenantId)
@@ -430,7 +431,7 @@ async function createOrUpdateSchedule(
   const nextDelivery = calculateNextDelivery(scheduleType, deliveryTime, deliveryDay)
 
   // Check if schedule exists
-  const { data: existing } = await supabase
+  const { data: existing } = await db()
     .from("intel_delivery_schedules")
     .select("id")
     .eq("tenant_id", tenantId)
@@ -439,7 +440,7 @@ async function createOrUpdateSchedule(
 
   if (existing) {
     // Update existing
-    await supabase
+    await db()
       .from("intel_delivery_schedules")
       .update({
         schedule_type: scheduleType,
@@ -451,7 +452,7 @@ async function createOrUpdateSchedule(
       .eq("id", existing.id)
   } else {
     // Create new
-    await supabase
+    await db()
       .from("intel_delivery_schedules")
       .insert({
         tenant_id: tenantId,
@@ -566,7 +567,7 @@ export async function handlePreferencesCommand(
 
   try {
     // Find tenant
-    const { data: customer, error: customerError } = await supabase
+    const { data: customer, error: customerError } = await db()
       .from("customers")
       .select("id, business_name")
       .eq("telegram_id", telegramId)
@@ -630,7 +631,7 @@ async function showPreferencesStatus(
   chatId: number,
   tenantId: string
 ): Promise<void> {
-  const { data: prefs } = await supabase
+  const { data: prefs } = await db()
     .from("intel_content_preferences")
     .select("*")
     .eq("tenant_id", tenantId)
@@ -716,7 +717,7 @@ async function setUseCase(
   const template = USE_CASE_TEMPLATES[primaryUseCase] || USE_CASE_TEMPLATES.general
 
   // Upsert preferences
-  await supabase
+  await db()
     .from("intel_content_preferences")
     .upsert({
       tenant_id: tenantId,
@@ -768,7 +769,7 @@ async function setPlatforms(
     return
   }
 
-  await supabase
+  await db()
     .from("intel_content_preferences")
     .update({ platform_priority: filtered })
     .eq("tenant_id", tenantId)
@@ -800,7 +801,7 @@ async function setTone(
     return
   }
 
-  await supabase
+  await db()
     .from("intel_content_preferences")
     .update({ content_tone: tone })
     .eq("tenant_id", tenantId)
@@ -830,7 +831,7 @@ async function setPodcastName(
     return
   }
 
-  await supabase
+  await db()
     .from("intel_content_preferences")
     .update({ podcast_name: podcastName.trim() })
     .eq("tenant_id", tenantId)

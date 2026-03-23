@@ -24,20 +24,8 @@ interface NotificationRule {
   severity: "info" | "warning" | "critical"
 }
 
-const mockChannels: NotificationChannel[] = [
-  { id: "1", type: "email", name: "Admin Email", destination: "admin@jahknowspr.com", isEnabled: true, isVerified: true },
-  { id: "2", type: "telegram", name: "Ops Telegram", destination: "@kora_ops_bot", isEnabled: true, isVerified: true },
-  { id: "3", type: "slack", name: "Alerts Channel", destination: "#kora-alerts", isEnabled: false, isVerified: false },
-]
-
-const mockRules: NotificationRule[] = [
-  { id: "1", name: "Agent Failure", description: "Notify when any agent fails", event: "agent.failed", channels: ["1", "2"], isEnabled: true, severity: "critical" },
-  { id: "2", name: "High LLM Cost", description: "Alert when daily cost exceeds 80% of budget", event: "cost.threshold", channels: ["1"], isEnabled: true, severity: "warning" },
-  { id: "3", name: "Source Error", description: "Notify when a source repeatedly fails", event: "source.error", channels: ["2"], isEnabled: true, severity: "warning" },
-  { id: "4", name: "Daily Summary", description: "Daily digest of system activity", event: "daily.summary", channels: ["1"], isEnabled: true, severity: "info" },
-  { id: "5", name: "New Tenant", description: "Notify when a new tenant is created", event: "tenant.created", channels: ["1", "2"], isEnabled: false, severity: "info" },
-  { id: "6", name: "RAG Update", description: "Notify when RAG documents are added", event: "rag.updated", channels: [], isEnabled: false, severity: "info" },
-]
+const mockChannels: NotificationChannel[] = []
+const mockRules: NotificationRule[] = []
 
 const channelIcons = {
   email: Mail,

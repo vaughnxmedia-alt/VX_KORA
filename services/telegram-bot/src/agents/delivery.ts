@@ -312,8 +312,9 @@ export class DeliveryAgent extends BaseIntelAgent<DeliveryInput, DeliveryOutput>
     bot: TelegramBot
   ): Promise<void> {
     const message = `Your strategy documents are ready!\n\n` +
-      `You can view them anytime on your dashboard.\n\n` +
+      `They’re saved in the Intake agent. To get your *personalized insights*: go to **Mission Control** → Ingest Runs → **Trigger Run**, or type \`/run\` here for an insight run just for you.\n\n` +
       `Commands:\n` +
+      `/run - Trigger your personalized insight run\n` +
       `/status - Check your current status\n` +
       `/feedback - Rate and review your deliverables\n` +
       `/restart - Start a new strategy session`

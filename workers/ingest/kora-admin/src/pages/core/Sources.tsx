@@ -27,17 +27,7 @@ interface Source {
   error_rate: number
 }
 
-const mockSources: Source[] = [
-  { id: "1", name: "PR Week", source_type: "rss", url: "https://prweek.com/feed", tenant: "JahKnowsPR", status: "active", is_active: true, approval_status: "approved", last_checked: "2 hours ago", relevance_score: 0.92, filter_profile_name: "JahKnowsPR Home Profile", items_count: 1234, error_rate: 0.01 },
-  { id: "2", name: "AdAge", source_type: "rss", url: "https://adage.com/feed", tenant: "JahKnowsPR", status: "active", is_active: true, approval_status: "approved", last_checked: "2 hours ago", relevance_score: 0.88, filter_profile_name: "JahKnowsPR Home Profile", items_count: 987, error_rate: 0.02 },
-  { id: "3", name: "Gary Vee", source_type: "youtube", url: "https://youtube.com/@garyvee", tenant: "JahKnowsPR", status: "active", is_active: true, approval_status: "approved", last_checked: "4 hours ago", relevance_score: 0.95, filter_profile_name: "JahKnowsPR Home Profile", items_count: 456, error_rate: 0 },
-  { id: "4", name: "Social Media Today", source_type: "rss", url: "https://socialmediatoday.com/feed", tenant: "JahKnowsPR", status: "active", is_active: true, approval_status: "approved", last_checked: "1 hour ago", relevance_score: 0.85, filter_profile_name: "JahKnowsPR Home Profile", items_count: 2345, error_rate: 0.01 },
-  { id: "5", name: "Marketing Weekly Newsletter", source_type: "web", url: "https://marketingweekly.com", tenant: "JahKnowsPR", status: "pending_approval", is_active: false, approval_status: "pending", last_checked: null, relevance_score: null, filter_profile_name: null, items_count: 0, error_rate: 0 },
-  { id: "6", name: "TikTok Trends", source_type: "social", url: "https://tiktok.com/discover", tenant: "JahKnowsPR", status: "error", is_active: true, approval_status: "approved", last_checked: "6 hours ago", relevance_score: 0.78, filter_profile_name: "JahKnowsPR Home Profile", items_count: 567, error_rate: 0.15 },
-  { id: "7", name: "Google News - Marketing", source_type: "search", url: "https://news.google.com/search?q=marketing", tenant: "JahKnowsPR", status: "active", is_active: true, approval_status: "approved", last_checked: "30 mins ago", relevance_score: 0.82, filter_profile_name: "JahKnowsPR Home Profile", items_count: 3456, error_rate: 0.03 },
-  { id: "8", name: "TechCrunch", source_type: "rss", url: "https://techcrunch.com/feed", tenant: "TechFlow Solutions", status: "active", is_active: true, approval_status: "approved", last_checked: "1 hour ago", relevance_score: 0.90, filter_profile_name: "TechFlow Profile", items_count: 1890, error_rate: 0.02 },
-  { id: "9", name: "Bloomberg Markets", source_type: "rss", url: "https://bloomberg.com/markets/feed", tenant: "Meridian Capital", status: "active", is_active: true, approval_status: "approved", last_checked: "30 mins ago", relevance_score: 0.94, filter_profile_name: "Meridian Profile", items_count: 2100, error_rate: 0.01 },
-]
+const mockSources: Source[] = []
 
 const sourceTypeIcons: Record<SourceType, typeof Rss> = {
   rss: Rss,

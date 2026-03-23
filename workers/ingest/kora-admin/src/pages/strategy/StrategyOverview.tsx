@@ -3,15 +3,14 @@ import { PenTool, ArrowRight, FileText, Lightbulb, Layers, Calendar } from "luci
 import { mockContentStrategies, mockTenants } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
 
-const sections = [
-  { to: "/strategy/runs", label: "Strategy Runs", description: "View generated strategies", icon: FileText, stat: `${mockContentStrategies.length} strategies` },
-  { to: "/strategy/insights", label: "Insights", description: "Market and content insights", icon: Lightbulb, stat: "Coming soon" },
-  { to: "/strategy/pillars", label: "Content Pillars", description: "Manage content pillars", icon: Layers, stat: "Coming soon" },
-  { to: "/strategy/calendar", label: "Content Calendar", description: "Schedule and plan content", icon: Calendar, stat: "Coming soon" },
-]
-
 export function StrategyOverview() {
   const activeStrategies = mockContentStrategies.filter((s) => s.status === "active")
+  const sections = [
+    { to: "/strategy/runs", label: "Strategy Runs", description: "View generated strategies", icon: FileText, stat: `${mockContentStrategies.length} strategies` },
+    { to: "/strategy/insights", label: "Insights", description: "Market and content insights", icon: Lightbulb, stat: "Coming soon" },
+    { to: "/strategy/pillars", label: "Content Pillars", description: "Manage content pillars", icon: Layers, stat: "Coming soon" },
+    { to: "/strategy/calendar", label: "Content Calendar", description: "Schedule and plan content", icon: Calendar, stat: "Coming soon" },
+  ]
 
   return (
     <div className="space-y-6">
@@ -27,21 +26,25 @@ export function StrategyOverview() {
 
       <div className="bg-white rounded-xl shadow-card p-5">
         <h2 className="font-semibold text-grey-900 mb-4">Active Strategies</h2>
-        <div className="grid grid-cols-3 gap-4">
-          {activeStrategies.map((strategy) => {
-            const tenant = mockTenants.find((t) => t.id === strategy.tenant_id)
-            return (
-              <Link key={strategy.id} to="/strategy/runs" className="bg-grey-50 rounded-lg p-4 hover:bg-grey-100 transition-colors">
-                <h3 className="font-medium text-grey-900">{strategy.title}</h3>
-                <p className="text-sm text-grey-500 mt-1">{tenant?.name}</p>
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Active</span>
-                  <span className="text-xs text-grey-400">{strategy.strategy_data.content_pillars.length} pillars</span>
-                </div>
-              </Link>
-            )
-          })}
-        </div>
+        {activeStrategies.length === 0 ? (
+          <p className="text-sm text-grey-500 py-4">No strategies yet. Real runs will appear here after generation.</p>
+        ) : (
+          <div className="grid grid-cols-3 gap-4">
+            {activeStrategies.map((strategy) => {
+              const tenant = mockTenants.find((t) => t.id === strategy.tenant_id)
+              return (
+                <Link key={strategy.id} to="/strategy/runs" className="bg-grey-50 rounded-lg p-4 hover:bg-grey-100 transition-colors">
+                  <h3 className="font-medium text-grey-900">{strategy.title}</h3>
+                  <p className="text-sm text-grey-500 mt-1">{tenant?.name}</p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Active</span>
+                    <span className="text-xs text-grey-400">{strategy.strategy_data.content_pillars.length} pillars</span>
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-4 gap-4">

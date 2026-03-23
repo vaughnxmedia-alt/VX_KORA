@@ -15,7 +15,9 @@
     "test:deep-pipeline": "tsx src/test-deep-pipeline.ts",
     "diagnose": "tsx src/diagnose-data-access.ts",
     "send-test-report": "tsx src/send-test-report.ts",
-    "send-insights": "tsx src/send-deep-insights.ts"
+    "send-insights": "tsx src/send-deep-insights.ts",
+    "insights:trigger-server": "tsx src/insights-trigger-server.ts",
+    "test:bot": "tsx src/test-bot-echo.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",

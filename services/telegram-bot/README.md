@@ -49,26 +49,56 @@ npm install
 
 Apply the migration in `apps/web/supabase/migrations/20260306200000_telegram_intake_schema.sql` to your Supabase project.
 
-### 5. Start the Bot
+### 5. Start the Bot (full flow: welcome + questionnaire)
+
+**Use `npm run dev` for the real bot.** The bot only replies when this process is running. If users get no response (e.g. to `/start`), start the bot and keep it running.
+
+See [WORKFLOW.md](./WORKFLOW.md) for how /start → @koranewstrategy → questionnaire → pipeline are connected.
 
 Development:
 ```bash
 npm run dev
 ```
 
-Production:
+Production (run 24/7, e.g. with systemd or PM2):
 ```bash
 npm run build
 npm start
 ```
 
+Ensure `TELEGRAM_BOT_TOKEN` in `.env` is the BotFather token for the bot you want (e.g. `BOT_USERNAME=@VX_kora_bot`).
+
+### Bot not responding?
+
+1. **Run the echo test first** (from `services/telegram-bot`):
+   ```bash
+   npm run test:bot
+   ```
+   Send any message to your bot in Telegram. You should see `Received: ...` in the terminal and the bot should reply **"Got it!"**.  
+   - If that **works**: token and Telegram are fine; the full bot may be failing in a handler (check for errors in the terminal when you run `npm run dev`).  
+   - If that **fails** or you never see `Received`: wrong token, wrong bot, or run from the wrong directory (must run from `services/telegram-bot` so `.env` is found).
+
+2. **Run the full bot from the bot directory** — Always `cd` into `services/telegram-bot` then run `npm run dev`. You should see `[incoming] <chatId> <text>` in the console for every message. If you see `[incoming]` but no reply, a handler is failing (check for errors above it).
+
+3. **Check the token** — In `services/telegram-bot/.env`, `TELEGRAM_BOT_TOKEN` must be the token from BotFather for the exact bot you message (e.g. @VX_kora_bot). No spaces or quotes around the value.
+
+4. **Polling errors** — If you see `Telegram polling error` or `Polling error:` in the console, the token may be invalid or revoked. Get a new token from BotFather and update `.env`.
+
+5. **409 Conflict: "only one bot instance is running"** — Telegram allows only **one** long-polling connection per bot token. If you see this error:
+   - **Stop every other place** the bot is running: close the other terminal where you ran `npm run dev`, and in Cursor stop any background "Run" of the bot.
+   - Run `npm run dev` in **only one** terminal. The 409 will stop once no other process is using the same token to poll.
+
 ## Commands
 
 | Command | Description |
 |---------|-------------|
+| `/start` | Welcome message and command list |
+| `/run` | Trigger your personalized insight run (single user) |
 | `@koranewstrategy` | Start new strategy intake |
 | `/restart` | Restart intake from beginning |
 | `/cancel` | Cancel current intake session |
+| `/help` | Get help |
+| `/status` | Check your progress |
 
 ## Intake Flow
 

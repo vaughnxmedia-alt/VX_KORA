@@ -34,30 +34,9 @@ interface CostMetric {
   budget: number
 }
 
-const mockAgentHealth: AgentHealth[] = [
-  { agent_id: "source-discovery", name: "Source Discovery", status: "healthy", last_run: "2 hours ago", success_rate: 0.98, avg_duration_ms: 525000, error_rate_24h: 0.02, queue_depth: 0 },
-  { agent_id: "source-processing", name: "Source Processing", status: "healthy", last_run: "1 hour ago", success_rate: 0.95, avg_duration_ms: 180000, error_rate_24h: 0.05, queue_depth: 12 },
-  { agent_id: "core-intelligence", name: "Core Intelligence", status: "healthy", last_run: "30 mins ago", success_rate: 0.97, avg_duration_ms: 932000, error_rate_24h: 0.03, queue_depth: 3 },
-  { agent_id: "content-strategy", name: "Content Strategy", status: "healthy", last_run: "1 hour ago", success_rate: 0.99, avg_duration_ms: 45000, error_rate_24h: 0.01, queue_depth: 0 },
-  { agent_id: "campaign-assembly", name: "Campaign Assembly", status: "healthy", last_run: "3 hours ago", success_rate: 0.96, avg_duration_ms: 62000, error_rate_24h: 0.04, queue_depth: 0 },
-  { agent_id: "telegram-delivery", name: "Telegram Delivery", status: "healthy", last_run: "7:00 AM", success_rate: 1.0, avg_duration_ms: 135000, error_rate_24h: 0, queue_depth: 0 },
-  { agent_id: "rag-intelligence", name: "RAG Intelligence", status: "warning", last_run: "45 mins ago", success_rate: 0.92, avg_duration_ms: 280000, error_rate_24h: 0.08, queue_depth: 24 },
-  { agent_id: "intake-clarifier", name: "Intake Clarifier", status: "healthy", last_run: "2 days ago", success_rate: 0.99, avg_duration_ms: 15000, error_rate_24h: 0.01, queue_depth: 0 },
-]
-
-const mockLLMUsage: LLMUsage[] = [
-  { provider: "OpenAI", model: "gpt-4o-mini", requests_24h: 1234, tokens_24h: 456000, cost_24h: 0.68, avg_latency_ms: 850, error_rate: 0.01 },
-  { provider: "OpenAI", model: "text-embedding-3-small", requests_24h: 3456, tokens_24h: 2340000, cost_24h: 0.05, avg_latency_ms: 120, error_rate: 0 },
-  { provider: "OpenAI", model: "gpt-4o", requests_24h: 45, tokens_24h: 89000, cost_24h: 0.45, avg_latency_ms: 1200, error_rate: 0.02 },
-  { provider: "Gemini", model: "gemini-1.5-pro", requests_24h: 234, tokens_24h: 567000, cost_24h: 0.71, avg_latency_ms: 980, error_rate: 0.01 },
-  { provider: "Gemini", model: "gemini-1.5-flash", requests_24h: 567, tokens_24h: 234000, cost_24h: 0.02, avg_latency_ms: 450, error_rate: 0 },
-]
-
-const mockCostMetrics: CostMetric[] = [
-  { period: "Today", openai_cost: 1.18, gemini_cost: 0.73, total_cost: 1.91, budget: 50 },
-  { period: "This Week", openai_cost: 8.45, gemini_cost: 5.12, total_cost: 13.57, budget: 350 },
-  { period: "This Month", openai_cost: 34.67, gemini_cost: 21.45, total_cost: 56.12, budget: 1000 },
-]
+const mockAgentHealth: AgentHealth[] = []
+const mockLLMUsage: LLMUsage[] = []
+const mockCostMetrics: CostMetric[] = []
 
 const statusConfig = {
   healthy: { color: "text-emerald-400", bg: "bg-emerald-400/10", icon: CheckCircle2 },

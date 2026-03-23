@@ -18,16 +18,7 @@ interface User {
   createdAt: string
 }
 
-const mockUsers: User[] = [
-  { id: "1", email: "jah@jahknowspr.com", fullName: "Jah", tenant: "JahKnowsPR", role: "owner", isActive: true, lastLogin: "2 hours ago", createdAt: "Jan 15, 2024" },
-  { id: "2", email: "assistant@jahknowspr.com", fullName: "Assistant", tenant: "JahKnowsPR", role: "admin", isActive: true, lastLogin: "1 day ago", createdAt: "Jan 20, 2024" },
-  { id: "3", email: "intern@jahknowspr.com", fullName: "Intern", tenant: "JahKnowsPR", role: "member", isActive: true, lastLogin: "3 days ago", createdAt: "Feb 1, 2024" },
-  { id: "4", email: "admin@acme.com", fullName: "John Smith", tenant: "Acme Corp", role: "owner", isActive: true, lastLogin: "5 hours ago", createdAt: "Feb 20, 2024" },
-  { id: "5", email: "marketing@acme.com", fullName: "Jane Doe", tenant: "Acme Corp", role: "admin", isActive: true, lastLogin: "1 day ago", createdAt: "Feb 22, 2024" },
-  { id: "6", email: "founder@startupx.io", fullName: "Alex Chen", tenant: "StartupX", role: "owner", isActive: true, lastLogin: "6 hours ago", createdAt: "Mar 1, 2024" },
-  { id: "7", email: "team@brandagency.com", fullName: "Sarah Johnson", tenant: "Brand Agency", role: "owner", isActive: true, lastLogin: "2 hours ago", createdAt: "Feb 10, 2024" },
-  { id: "8", email: "test@test.com", fullName: "Test User", tenant: "Test Company", role: "owner", isActive: false, lastLogin: null, createdAt: "Mar 5, 2024" },
-]
+const mockUsers: User[] = []
 
 const roleConfig: Record<UserRole, { label: string; color: string; bg: string }> = {
   owner: { label: "Owner", color: "text-purple-400", bg: "bg-purple-400/10" },

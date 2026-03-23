@@ -18,17 +18,7 @@ interface Integration {
   category: "data" | "social" | "messaging" | "ai"
 }
 
-const mockIntegrations: Integration[] = [
-  { id: "supabase", name: "Supabase", description: "Database, authentication, and real-time subscriptions", icon: Database, status: "connected", lastSync: "2 mins ago", configuredAt: "Jan 15, 2024", category: "data" },
-  { id: "openai", name: "OpenAI", description: "GPT models for classification, tagging, and embeddings", icon: Globe, status: "connected", lastSync: "5 mins ago", configuredAt: "Jan 15, 2024", category: "ai" },
-  { id: "gemini", name: "Google Gemini", description: "Long-context synthesis and strategy generation", icon: Globe, status: "connected", lastSync: "5 mins ago", configuredAt: "Feb 1, 2024", category: "ai" },
-  { id: "telegram", name: "Telegram Bot", description: "Daily briefings and approval workflow", icon: Send, status: "connected", lastSync: "Today 7:00 AM", configuredAt: "Jan 20, 2024", category: "messaging" },
-  { id: "youtube", name: "YouTube Data API", description: "Channel and video metadata extraction", icon: Youtube, status: "connected", lastSync: "1 hour ago", configuredAt: "Jan 25, 2024", category: "social" },
-  { id: "twitter", name: "X (Twitter) API", description: "Social listening and trend monitoring", icon: Twitter, status: "error", lastSync: "2 days ago", configuredAt: "Jan 25, 2024", category: "social" },
-  { id: "linkedin", name: "LinkedIn API", description: "Professional content and company insights", icon: Linkedin, status: "disconnected", lastSync: null, configuredAt: null, category: "social" },
-  { id: "serp", name: "SERP API", description: "Search engine results for source discovery", icon: Search, status: "connected", lastSync: "30 mins ago", configuredAt: "Feb 1, 2024", category: "data" },
-  { id: "slack", name: "Slack", description: "Team notifications and alerts", icon: MessageSquare, status: "disconnected", lastSync: null, configuredAt: null, category: "messaging" },
-]
+const mockIntegrations: Integration[] = []
 
 const statusConfig = {
   connected: { label: "Connected", color: "text-emerald-400", bg: "bg-emerald-400/10", icon: CheckCircle2 },

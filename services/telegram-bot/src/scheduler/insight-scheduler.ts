@@ -7,14 +7,9 @@
 
 import cron from "node-cron"
 import TelegramBot from "node-telegram-bot-api"
-import { createClient } from "@supabase/supabase-js"
+import { getDatabase } from "../db/client.js"
 import { generateInsightReport } from "../agents/insight-report.js"
 import { generateContentDraft } from "../agents/content-draft.js"
-
-// Supabase client
-const supabaseUrl = process.env.SUPABASE_URL!
-const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY!
-const supabase = createClient(supabaseUrl, supabaseKey)
 
 interface ScheduledDelivery {
   id: string
@@ -68,6 +63,8 @@ async function processDueDeliveries(): Promise<void> {
     console.error("[Scheduler] Bot not initialized")
     return
   }
+  const supabase = getDatabase()
+  if (!supabase) return
 
   try {
     // Get all due deliveries
@@ -80,7 +77,15 @@ async function processDueDeliveries(): Promise<void> {
       .limit(10) // Process max 10 at a time to avoid overload
 
     if (error) {
-      console.error("[Scheduler] Error fetching due deliveries:", error)
+      if ((error as { code?: string }).code === "PGRST205") {
+        // Table intel_delivery_schedules missing; avoid logging every minute
+        if (!process.env.KORA_SCHEDULER_TABLE_WARNED) {
+          process.env.KORA_SCHEDULER_TABLE_WARNED = "1"
+          console.warn("[Scheduler] Table intel_delivery_schedules not found; scheduled delivery disabled. Create the table or ignore if you don't use /schedule.")
+        }
+      } else {
+        console.error("[Scheduler] Error fetching due deliveries:", error)
+      }
       return
     }
 
@@ -180,6 +185,8 @@ async function processDelivery(delivery: ScheduledDelivery): Promise<void> {
  */
 async function deliverInsightReport(delivery: ScheduledDelivery): Promise<void> {
   if (!bot) return
+  const supabase = getDatabase()
+  if (!supabase) return
 
   // Send processing notification
   const processingMsg = await bot.sendMessage(
@@ -224,6 +231,8 @@ async function deliverContentDraft(
   strategyType: "3day" | "5day"
 ): Promise<void> {
   if (!bot) return
+  const supabase = getDatabase()
+  if (!supabase) return
 
   // Send processing notification
   const processingMsg = await bot.sendMessage(
@@ -294,6 +303,9 @@ function calculateNextDelivery(
  * Clean up old reports (keep last 30 days)
  */
 async function cleanupOldReports(): Promise<void> {
+  const supabase = getDatabase()
+  if (!supabase) return
+
   const cutoffDate = new Date()
   cutoffDate.setDate(cutoffDate.getDate() - 30)
 

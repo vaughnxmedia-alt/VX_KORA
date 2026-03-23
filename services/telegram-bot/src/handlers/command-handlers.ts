@@ -1,6 +1,7 @@
 import TelegramBot from "node-telegram-bot-api"
 import { getOrchestrator } from "../pipeline/orchestrator"
 import { getTenantProfileByTelegramId } from "../db/tenant-profiles"
+import { clearSession } from "./message-handlers"
 import { getLatestPipelineRun } from "../db/pipeline-runs"
 import { getBrandBlueprint, getContentStrategy, getAudienceAnalysis } from "../db/deliverables"
 import { isTestTenant } from "../types/testing"
@@ -13,8 +14,10 @@ export async function handleStartCommand(
   const chatId = msg.chat.id
   const telegramId = msg.from?.id
 
+  const fallback = "Welcome to KORA! Type @koranewstrategy to begin, or /help for commands."
+
   if (!telegramId) {
-    await bot.sendMessage(chatId, "Could not identify user.")
+    await bot.sendMessage(chatId, "Could not identify user.").catch(() => {})
     return
   }
 
@@ -29,12 +32,18 @@ To get started, type @koranewstrategy
 
 Commands:
 /start - Show this welcome message
+/run - Trigger your personalized insight run (after intake)
 /status - Check your current progress
 /restart - Start a new strategy session
 /feedback - Rate your deliverables (after completion)
 /help - Get help`
 
-  await bot.sendMessage(chatId, welcomeMessage)
+  try {
+    await bot.sendMessage(chatId, welcomeMessage)
+  } catch (err) {
+    console.error("handleStartCommand send error:", err)
+    await bot.sendMessage(chatId, fallback).catch(() => {})
+  }
 }
 
 export async function handleStatusCommand(
@@ -98,6 +107,7 @@ export async function handleRestartCommand(
     return
   }
 
+  clearSession(telegramId)
   await bot.sendMessage(chatId,
     "Ready to start fresh!\n\nType @koranewstrategy to begin a new strategy session."
   )
@@ -114,6 +124,7 @@ export async function handleHelpCommand(
 
 *Commands:*
 /start - Welcome message
+/run - Trigger your personalized insight run
 /status - Check your progress
 /restart - Start a new session
 /feedback - Rate deliverables
@@ -130,7 +141,7 @@ export async function handleHelpCommand(
 - Research: I analyze your website and social profiles
 - Generation: AI creates your strategy documents
 - Review: Quality checks before delivery
-- Delivery: Documents sent here and to your dashboard
+- Delivery: Documents sent here and saved in Intake; use /run for your insight run
 
 *Need Help?*
 Contact support or check the documentation.`
@@ -144,6 +155,62 @@ Contact support or check the documentation.`
     await bot.sendMessage(chatId, helpMessage + testInfo, { parse_mode: "Markdown" })
   } else {
     await bot.sendMessage(chatId, helpMessage, { parse_mode: "Markdown" })
+  }
+}
+
+const INSIGHTS_TRIGGER_URL = process.env.INSIGHTS_TRIGGER_URL || "http://127.0.0.1:3847/run"
+
+export async function handleRunCommand(
+  bot: TelegramBot,
+  msg: TelegramBot.Message
+): Promise<void> {
+  const chatId = msg.chat.id
+  const telegramId = msg.from?.id
+
+  if (!telegramId) {
+    await bot.sendMessage(chatId, "Could not identify user.")
+    return
+  }
+
+  try {
+    const secret = process.env.TRIGGER_RUN_SECRET?.trim()
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    }
+    if (secret) headers["x-trigger-secret"] = secret
+    const res = await fetch(INSIGHTS_TRIGGER_URL, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ telegram_id: telegramId }),
+    })
+    const text = await res.text()
+    let body: { ok?: boolean; message?: string; error?: string }
+    try {
+      body = JSON.parse(text) as typeof body
+    } catch {
+      body = {}
+    }
+    if (res.status === 202 && body.ok) {
+      await bot.sendMessage(
+        chatId,
+        "Your personalized insight run has been started. You’ll receive your briefing here shortly.",
+        { parse_mode: "Markdown" }
+      )
+    } else if (res.status === 429) {
+      await bot.sendMessage(chatId, "A run is already in progress. Please wait a moment and try again.")
+    } else {
+      await bot.sendMessage(
+        chatId,
+        "The insight server isn’t available right now. Use Mission Control → Ingest Runs → **Trigger Run**, or try again later.",
+        { parse_mode: "Markdown" }
+      )
+    }
+  } catch {
+    await bot.sendMessage(
+      chatId,
+      "Could not reach the insight server. Use Mission Control → Ingest Runs → **Trigger Run**, or try again later.",
+      { parse_mode: "Markdown" }
+    )
   }
 }
 

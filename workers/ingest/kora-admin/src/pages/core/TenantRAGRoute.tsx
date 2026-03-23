@@ -20,36 +20,7 @@ interface TenantRAG {
   last_updated: string
 }
 
-const mockTenants: TenantRAG[] = [
-  {
-    id: "1", tenant_name: "JahKnowsPR", tenant_id: "jahknowspr",
-    total_documents: 892, documents_this_week: 67,
-    approval_sources: { auto: 512, manual: 234, telegram: 146 },
-    strategy_linkage_rate: 0.78, usage_frequency: 156, deliverable_usage_rate: 0.82,
-    rag_health_score: 0.94, smarter_opt_in: true, last_updated: "2 hours ago"
-  },
-  {
-    id: "2", tenant_name: "Acme Corp", tenant_id: "acme-corp",
-    total_documents: 234, documents_this_week: 12,
-    approval_sources: { auto: 156, manual: 67, telegram: 11 },
-    strategy_linkage_rate: 0.45, usage_frequency: 34, deliverable_usage_rate: 0.56,
-    rag_health_score: 0.78, smarter_opt_in: false, last_updated: "1 day ago"
-  },
-  {
-    id: "3", tenant_name: "StartupX", tenant_id: "startupx",
-    total_documents: 156, documents_this_week: 23,
-    approval_sources: { auto: 89, manual: 45, telegram: 22 },
-    strategy_linkage_rate: 0.62, usage_frequency: 67, deliverable_usage_rate: 0.71,
-    rag_health_score: 0.85, smarter_opt_in: true, last_updated: "4 hours ago"
-  },
-  {
-    id: "4", tenant_name: "Brand Agency", tenant_id: "brand-agency",
-    total_documents: 567, documents_this_week: 34,
-    approval_sources: { auto: 345, manual: 178, telegram: 44 },
-    strategy_linkage_rate: 0.71, usage_frequency: 89, deliverable_usage_rate: 0.68,
-    rag_health_score: 0.88, smarter_opt_in: true, last_updated: "6 hours ago"
-  },
-]
+const mockTenants: TenantRAG[] = []
 
 interface DocumentEntry {
   id: string
@@ -61,12 +32,7 @@ interface DocumentEntry {
   strategy_links: number
 }
 
-const mockDocuments: DocumentEntry[] = [
-  { id: "d1", title: "TikTok Creator Marketing Trends 2024", source: "AdAge", approval_source: "auto", approved_at: "2 hours ago", usage_count: 12, strategy_links: 3 },
-  { id: "d2", title: "Brand Crisis Management Guide", source: "PR Week", approval_source: "telegram", approved_at: "1 day ago", usage_count: 8, strategy_links: 2 },
-  { id: "d3", title: "Instagram Algorithm Deep Dive", source: "Social Media Today", approval_source: "manual", approved_at: "3 days ago", usage_count: 23, strategy_links: 5 },
-  { id: "d4", title: "Personal Branding Strategies", source: "Gary Vee", approval_source: "auto", approved_at: "1 week ago", usage_count: 45, strategy_links: 8 },
-]
+const mockDocuments: DocumentEntry[] = []
 
 export default function TenantRAGRoute() {
   const [tenants] = useState<TenantRAG[]>(mockTenants)
@@ -74,7 +40,7 @@ export default function TenantRAGRoute() {
   const [documents] = useState<DocumentEntry[]>(mockDocuments)
 
   const totalDocuments = tenants.reduce((sum, t) => sum + t.total_documents, 0)
-  const avgHealthScore = tenants.reduce((sum, t) => sum + t.rag_health_score, 0) / tenants.length
+  const avgHealthScore = tenants.length > 0 ? tenants.reduce((sum, t) => sum + t.rag_health_score, 0) / tenants.length : 0
 
   return (
     <div className="space-y-6">

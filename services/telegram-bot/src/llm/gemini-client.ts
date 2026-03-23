@@ -21,11 +21,13 @@ export function getGemini(): GoogleGenerativeAI | null {
   return genAI
 }
 
+/** API ids aligned with AI Studio / KORA Agents (2.5 / 2.0 Flash); avoid -exp if it 404s. */
 function getModelName(model: LLMModel): string {
   const modelMap: Record<string, string> = {
     "gemini-1.5-pro": "gemini-1.5-pro",
     "gemini-1.5-flash": "gemini-1.5-flash",
-    "gemini-2.0-flash": "gemini-2.0-flash-exp",
+    "gemini-2.0-flash": "gemini-2.0-flash",
+    "gemini-2.5-flash": "gemini-2.5-flash",
   }
   return modelMap[model] || model
 }

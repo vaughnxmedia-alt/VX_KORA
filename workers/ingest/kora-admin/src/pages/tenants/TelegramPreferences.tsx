@@ -26,36 +26,7 @@ interface TelegramPref {
   consecutiveFailures: number
 }
 
-const mockPrefs: TelegramPref[] = [
-  {
-    id: "1", tenant: "JahKnowsPR", user: "Jah", chatId: "8216104620",
-    isActive: true, isVerified: true, deliveryFrequency: "daily", briefingTime: "07:00",
-    timezone: "America/Puerto_Rico", includeContentStrategy: true, includeIndustryInsights: true,
-    includeEventAlerts: true, allowMakeMeSmarter: true,
-    lastMessageSent: "Today 7:00 AM", nextScheduled: "Tomorrow 7:00 AM", consecutiveFailures: 0
-  },
-  {
-    id: "2", tenant: "Acme Corp", user: "John Smith", chatId: "1234567890",
-    isActive: true, isVerified: true, deliveryFrequency: "weekly", briefingTime: "09:00",
-    timezone: "America/New_York", includeContentStrategy: true, includeIndustryInsights: true,
-    includeEventAlerts: false, allowMakeMeSmarter: false,
-    lastMessageSent: "Monday 9:00 AM", nextScheduled: "Next Monday 9:00 AM", consecutiveFailures: 0
-  },
-  {
-    id: "3", tenant: "Brand Agency", user: "Sarah Johnson", chatId: "9876543210",
-    isActive: true, isVerified: true, deliveryFrequency: "daily", briefingTime: "08:00",
-    timezone: "America/Los_Angeles", includeContentStrategy: true, includeIndustryInsights: true,
-    includeEventAlerts: true, allowMakeMeSmarter: true,
-    lastMessageSent: "Today 8:00 AM", nextScheduled: "Tomorrow 8:00 AM", consecutiveFailures: 0
-  },
-  {
-    id: "4", tenant: "StartupX", user: "Alex Chen", chatId: "5555555555",
-    isActive: false, isVerified: false, deliveryFrequency: "none", briefingTime: "09:00",
-    timezone: "America/New_York", includeContentStrategy: false, includeIndustryInsights: false,
-    includeEventAlerts: false, allowMakeMeSmarter: false,
-    lastMessageSent: null, nextScheduled: null, consecutiveFailures: 0
-  },
-]
+const mockPrefs: TelegramPref[] = []
 
 const frequencyConfig: Record<DeliveryFrequency, { label: string; color: string }> = {
   daily: { label: "Daily", color: "text-emerald-400" },

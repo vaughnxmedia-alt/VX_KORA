@@ -24,62 +24,7 @@ interface EventItem {
   status: EventStatus
 }
 
-const mockEvents: EventItem[] = [
-  {
-    id: "ev1", title: "Social Media Marketing Summit 2024", 
-    event_date: "2024-04-15", event_end_date: "2024-04-17",
-    location: "Miami, FL", is_virtual: false,
-    source: "Eventbrite", source_url: "https://eventbrite.com/e/12345",
-    registration_url: "https://eventbrite.com/e/12345/register", price: "$499",
-    organizer: "Digital Marketing Association",
-    description: "Join industry leaders for a 3-day conference on the future of social media marketing and creator economy.",
-    tenant_relevance: [
-      { tenant_name: "JahKnowsPR", reason: "Creator economy focus, social media trends", score: 0.92 },
-      { tenant_name: "Brand Agency", reason: "Marketing conference", score: 0.78 }
-    ],
-    status: "discovered"
-  },
-  {
-    id: "ev2", title: "PR Week Awards Gala",
-    event_date: "2024-05-10", event_end_date: null,
-    location: "New York, NY", is_virtual: false,
-    source: "PR Week", source_url: "https://prweek.com/awards",
-    registration_url: "https://prweek.com/awards/register", price: "$750",
-    organizer: "PR Week",
-    description: "Annual celebration of the best PR campaigns and professionals in the industry.",
-    tenant_relevance: [
-      { tenant_name: "JahKnowsPR", reason: "PR industry event, networking opportunity", score: 0.88 }
-    ],
-    status: "reviewed"
-  },
-  {
-    id: "ev3", title: "TikTok Creator Summit (Virtual)",
-    event_date: "2024-03-28", event_end_date: null,
-    location: null, is_virtual: true,
-    source: "TikTok Newsroom", source_url: "https://newsroom.tiktok.com/summit",
-    registration_url: "https://tiktok.com/summit/register", price: "Free",
-    organizer: "TikTok",
-    description: "Virtual summit for TikTok creators featuring platform updates, best practices, and monetization strategies.",
-    tenant_relevance: [
-      { tenant_name: "JahKnowsPR", reason: "Creator platform updates, content strategy insights", score: 0.95 }
-    ],
-    status: "pushed_to_telegram"
-  },
-  {
-    id: "ev4", title: "Influencer Marketing Conference",
-    event_date: "2024-06-05", event_end_date: "2024-06-06",
-    location: "Los Angeles, CA", is_virtual: false,
-    source: "IMC", source_url: "https://influencermarketingconf.com",
-    registration_url: "https://influencermarketingconf.com/register", price: "$399",
-    organizer: "Influencer Marketing Hub",
-    description: "Two-day conference focused on influencer partnerships, brand collaborations, and ROI measurement.",
-    tenant_relevance: [
-      { tenant_name: "JahKnowsPR", reason: "Influencer marketing focus", score: 0.89 },
-      { tenant_name: "Acme Corp", reason: "Brand partnership strategies", score: 0.72 }
-    ],
-    status: "discovered"
-  },
-]
+const mockEvents: EventItem[] = []
 
 const statusConfig: Record<EventStatus, { label: string; color: string; bg: string }> = {
   discovered: { label: "Discovered", color: "text-gray-400", bg: "bg-gray-400/10" },

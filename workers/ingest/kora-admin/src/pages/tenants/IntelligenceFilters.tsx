@@ -25,44 +25,7 @@ interface FilterProfile {
   updatedAt: string
 }
 
-const mockProfiles: FilterProfile[] = [
-  {
-    id: "1", tenant: "JahKnowsPR", name: "JahKnowsPR Home Profile",
-    description: "Default intelligence filter profile optimized for PR, marketing, and creator economy insights",
-    isDefault: true, isActive: true,
-    includeTopics: ["creators", "influencers", "viral marketing", "brand controversies", "PR crises", "creator economy", "social media trends"],
-    excludeTopics: ["corporate earnings", "internal agency hires", "boring acquisitions", "unrelated finance news"],
-    preferredSourceTypes: ["rss", "youtube", "social", "web"],
-    platformFocus: ["Instagram", "TikTok", "YouTube", "LinkedIn", "X"],
-    summaryStyle: "executive", strategyStyle: "actionable",
-    allowAutoRouteToRag: true, allowMakeMeSmarter: true, parsingDepth: "deep",
-    createdAt: "Jan 15, 2024", updatedAt: "Mar 1, 2024"
-  },
-  {
-    id: "2", tenant: "Acme Corp", name: "Default Profile",
-    description: "Standard technology industry filtering",
-    isDefault: true, isActive: true,
-    includeTopics: ["technology", "SaaS", "enterprise software", "cloud computing", "AI"],
-    excludeTopics: ["consumer tech", "gaming", "social media drama"],
-    preferredSourceTypes: ["rss", "web"],
-    platformFocus: ["LinkedIn", "Twitter"],
-    summaryStyle: "detailed", strategyStyle: "analytical",
-    allowAutoRouteToRag: false, allowMakeMeSmarter: false, parsingDepth: "medium",
-    createdAt: "Feb 20, 2024", updatedAt: "Feb 20, 2024"
-  },
-  {
-    id: "3", tenant: "Brand Agency", name: "Agency Profile",
-    description: "Multi-client agency filtering for brand marketing",
-    isDefault: true, isActive: true,
-    includeTopics: ["brand marketing", "advertising", "campaigns", "creative", "brand strategy"],
-    excludeTopics: ["B2B", "enterprise", "technical"],
-    preferredSourceTypes: ["rss", "youtube", "social"],
-    platformFocus: ["Instagram", "TikTok", "YouTube"],
-    summaryStyle: "brief", strategyStyle: "creative",
-    allowAutoRouteToRag: true, allowMakeMeSmarter: true, parsingDepth: "medium",
-    createdAt: "Feb 10, 2024", updatedAt: "Feb 28, 2024"
-  },
-]
+const mockProfiles: FilterProfile[] = []
 
 const styleLabels = {
   summaryStyle: { brief: "Brief", detailed: "Detailed", executive: "Executive" },
