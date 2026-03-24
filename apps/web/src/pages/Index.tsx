@@ -1,40 +1,27 @@
-import { useEffect, useState, useRef } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Target, Lightbulb, PenTool, CheckCircle2, Star } from "lucide-react";
+import {
+  ArrowRight,
+  BookOpen,
+  LayoutDashboard,
+  Megaphone,
+  MessageCircle,
+  Palette,
+  Star,
+  Target,
+} from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import ContactSection from "@/components/ContactSection";
 import SubscriptionSection from "@/components/SubscriptionSection";
 import WelcomeTheBrief from "@/components/WelcomeTheBrief";
-import { useInView, motion, animate, useMotionValue, useTransform } from "framer-motion";
-import { LogoText } from "@/components/LogoText";
+import { motion } from "framer-motion";
+const CREATIVE_CONSULT_MAIL =
+  "mailto:welcome@jahknowspr.com?subject=Creative%20services%20consultation&body=Tell%20us%20about%20your%20project%20(videography%2C%20photography%2C%20branding%2C%20web%2C%20etc.)%3A%0A%0A";
 
-
-const CountUp = ({ to, suffix = "", prefix = "", delay = 0 }: { to: number; suffix?: string; prefix?: string; delay?: number }) => {
-  const count = useMotionValue(0);
-  const rounded = useTransform(count, (latest) => Math.round(latest));
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-100px" });
-
-  useEffect(() => {
-    if (isInView) {
-      const controls = animate(count, to, { duration: 2.5, delay: delay, ease: "easeOut" });
-      return () => controls.stop();
-    }
-  }, [isInView, to, delay, count]);
-
-  return (
-    <span ref={ref}>
-      {prefix}
-      <motion.span>{rounded}</motion.span>
-      {suffix}
-    </span>
-  );
-};
-
-
+const CAMPAIGN_RETAINER_MAIL =
+  "mailto:welcome@jahknowspr.com?subject=Campaign%20%26%20retainer%20inquiry&body=Share%20your%20goals%2C%20timeline%2C%20and%20what%20ongoing%20support%20should%20look%20like%3A%0A%0A";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -233,133 +220,174 @@ const Index = () => {
         </div>
       </section>
 
-      {/* The Four Phases Section */}
-      <section className="py-20 md:py-28 px-4 sm:px-6 bg-muted/30 border-b border-gold/20">
+      {/* Services — aligned with /work-with-me */}
+      <section id="services" className="py-20 md:py-28 px-4 sm:px-6 bg-muted/30 border-b border-gold/20 scroll-mt-28">
         <div className="max-w-6xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7 }}
-            className="text-center mb-16"
+            className="text-center mb-12 md:mb-16 space-y-4"
           >
             <h2 className="text-3xl md:text-5xl font-serif font-bold text-foreground tracking-tight">
-              The Four Phases<span className="text-gold">.</span>
+              Services<span className="text-gold">.</span>
             </h2>
+            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+              Same ladder as our Services page: free perspective → light add-on → first paid strategy session →
+              production → ongoing campaigns → invitation-based platform. Full positioning lives on{" "}
+              <Link to="/work-with-me" className="font-medium text-primary underline-offset-4 hover:underline">
+                How we work with you
+              </Link>
+              .
+            </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-2 gap-8 lg:gap-10">
-            {/* Phase 1 */}
-            <motion.div
-              initial={{ opacity: 0, x: -40 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              className="group relative bg-background rounded-2xl p-8 shadow-sm border border-border/50 hover:shadow-lg hover:border-gold/40 transition-all duration-500"
-            >
-              <div className="absolute top-6 right-6 text-6xl font-serif font-bold text-gold/20 group-hover:text-gold/40 transition-colors duration-500">
-                01
-              </div>
-              <div className="relative space-y-4">
-                <h3 className="text-lg md:text-xl font-serif font-bold text-foreground">
-                  The Positioning Brief
-                </h3>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Purpose</span>
-                  <span className="text-sm font-medium text-primary">Clarity.</span>
-                </div>
-                <p className="text-muted-foreground leading-relaxed">
-                  We define where you stand, who you are for, and what you should not be doing. This phase eliminates guesswork and aligns your brand with the market you are actually meant to lead.
-                </p>
-                <p className="text-sm font-medium text-foreground italic pt-2">
-                  This is where clarity is established.
-                </p>
-              </div>
-            </motion.div>
-
-            {/* Phase 2 */}
-            <motion.div
-              initial={{ opacity: 0, x: 40 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="group relative bg-background rounded-2xl p-8 shadow-sm border border-border/50 hover:shadow-lg hover:border-gold/40 transition-all duration-500"
-            >
-              <div className="absolute top-6 right-6 text-6xl font-serif font-bold text-gold/20 group-hover:text-gold/40 transition-colors duration-500">
-                02
-              </div>
-              <div className="relative space-y-4">
-                <h3 className="text-lg md:text-xl font-serif font-bold text-foreground">
-                  The Narrative Foundation
-                </h3>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Purpose</span>
-                  <span className="text-sm font-medium text-primary">Consistency.</span>
-                </div>
-                <p className="text-muted-foreground leading-relaxed">
-                  We establish the language, themes, and message architecture that will carry your brand over time. This ensures that every public-facing move reinforces your position rather than weakening it.
-                </p>
-                <p className="text-sm font-medium text-foreground italic pt-2">
-                  Narrative is not storytelling. It is strategy.
-                </p>
-              </div>
-            </motion.div>
-
-            {/* Phase 3 */}
-            <motion.div
-              initial={{ opacity: 0, x: -40 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-              className="group relative bg-background rounded-2xl p-8 shadow-sm border border-border/50 hover:shadow-lg hover:border-gold/40 transition-all duration-500"
-            >
-              <div className="absolute top-6 right-6 text-6xl font-serif font-bold text-gold/20 group-hover:text-gold/40 transition-colors duration-500">
-                03
-              </div>
-              <div className="relative space-y-4">
-                <h3 className="text-lg md:text-xl font-serif font-bold text-foreground">
-                  The Strategic Visibility Campaign
-                </h3>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Purpose</span>
-                  <span className="text-sm font-medium text-primary">Placement.</span>
-                </div>
-                <p className="text-muted-foreground leading-relaxed">
-                  Visibility is deployed intentionally. We identify when, where, and how your brand should be seen, ensuring that exposure amplifies authority instead of creating noise.
-                </p>
-                <p className="text-sm font-medium text-foreground italic pt-2">
-                  This phase is about signal, not scale.
-                </p>
-              </div>
-            </motion.div>
-
-            {/* Phase 4 */}
-            <motion.div
-              initial={{ opacity: 0, x: 40 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.4 }}
-              className="group relative bg-background rounded-2xl p-8 shadow-sm border border-border/50 hover:shadow-lg hover:border-gold/40 transition-all duration-500"
-            >
-              <div className="absolute top-6 right-6 text-6xl font-serif font-bold text-gold/20 group-hover:text-gold/40 transition-colors duration-500">
-                04
-              </div>
-              <div className="relative space-y-4">
-                <h3 className="text-lg md:text-xl font-serif font-bold text-foreground">
-                  The Advisory Retainer
-                </h3>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Purpose</span>
-                  <span className="text-sm font-medium text-primary">Continuity.</span>
-                </div>
-                <p className="text-muted-foreground leading-relaxed">
-                  For leaders navigating growth, transition, or public complexity, we remain in close strategic proximity. This engagement is advisory in nature and reserved for those who require ongoing discernment, not execution.
-                </p>
-                <p className="text-sm font-medium text-foreground italic pt-2">
-                  Access is extended selectively.
-                </p>
-              </div>
-            </motion.div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-10">
+            {[
+              {
+                step: "01",
+                eyebrow: "Free",
+                title: "The Brief",
+                body: "Free perspective — sharper thinking before you spend. Strategic angles and real commentary for founders, creatives, and operators still exploring.",
+                who: "Anyone learning how we think before a paid commitment.",
+                href: "/the-brief",
+                cta: "Go to The Brief",
+                external: false,
+                icon: BookOpen,
+                delay: 0.05,
+              },
+              {
+                step: "02",
+                eyebrow: "Add-on",
+                title: "Join KORA on Telegram",
+                body: "Light support in chat — ideas, prompts, back-and-forth without full platform login. Not core software access.",
+                who: "People who live in chat and want KORA in a simple daily format.",
+                href: "/kora",
+                cta: "Meet KORA in Telegram",
+                price: "$15/mo",
+                external: false,
+                icon: MessageCircle,
+                delay: 0.1,
+              },
+              {
+                step: "03",
+                eyebrow: "Paid session",
+                title: "Strategy Session",
+                bestseller: true,
+                body: "$150 · 60 min · Zoom or in person. The first paid step — clarity on positioning, visibility, and next moves before deeper work or system access.",
+                who: "Founders and businesses who need strategy before software, retainers, or heavy execution.",
+                href: "/strategy-session",
+                cta: "Book a Strategy Session",
+                external: false,
+                icon: Target,
+                delay: 0.15,
+              },
+              {
+                step: "04",
+                eyebrow: "Production",
+                title: "Creative Work & Production",
+                body: "Videography, photography, branding, sites — scoped on timeline and deliverables for clients ready to execute.",
+                who: "Teams that need assets, direction, and hands-on production.",
+                href: CREATIVE_CONSULT_MAIL,
+                cta: "Book a Creative Consultation",
+                external: true,
+                icon: Palette,
+                delay: 0.2,
+              },
+              {
+                step: "05",
+                eyebrow: "Ongoing",
+                title: "Campaigns & Retainers",
+                body: "Ongoing strategy and campaign leadership — not a one-off. Launches, visibility, cadence, and coordination month to month.",
+                who: "Brands that need sustained momentum and a strategic partner in the loop.",
+                href: CAMPAIGN_RETAINER_MAIL,
+                cta: "Discuss a Campaign Retainer",
+                external: true,
+                icon: Megaphone,
+                delay: 0.25,
+              },
+              {
+                step: "06",
+                eyebrow: "Platform",
+                title: "KORA Full Platform Access",
+                body: "Strategy, workflows, calendars, and support in one system — offered by invitation after fit and onboarding.",
+                who: "Qualified clients ready for structured workflow and deeper access.",
+                href: "/kora",
+                cta: "Learn About Full KORA Access",
+                external: false,
+                icon: LayoutDashboard,
+                delay: 0.3,
+              },
+            ].map(
+              ({
+                step,
+                eyebrow,
+                title,
+                body,
+                who,
+                href,
+                cta,
+                external,
+                icon: Icon,
+                delay,
+                price,
+                bestseller,
+              }) => (
+                <motion.div
+                  key={step}
+                  initial={{ opacity: 0, y: 24 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.55, delay }}
+                  className="group relative flex flex-col bg-background rounded-2xl p-8 shadow-sm border border-border/50 hover:shadow-lg hover:border-gold/40 transition-all duration-500"
+                >
+                  <div className="absolute top-6 right-6 text-5xl font-serif font-bold text-gold/20 group-hover:text-gold/35 transition-colors duration-500 select-none">
+                    {step}
+                  </div>
+                  <div className="relative flex flex-col flex-1 space-y-4">
+                    <div className="flex items-center gap-2 text-primary">
+                      <Icon className="h-6 w-6 shrink-0 opacity-90" aria-hidden />
+                      <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                        {eyebrow}
+                      </span>
+                    </div>
+                    <div className="space-y-2 pr-8">
+                      <div className="flex flex-wrap items-center gap-2 gap-y-1">
+                        <h3 className="text-lg md:text-xl font-serif font-bold text-foreground">{title}</h3>
+                        {bestseller ? (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-300">
+                            <Star className="h-3 w-3 fill-amber-500 text-amber-500" aria-hidden />
+                            Bestseller
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="text-muted-foreground leading-relaxed text-sm md:text-base">{body}</p>
+                      {who ? (
+                        <p className="text-xs text-muted-foreground leading-relaxed border-t border-border/50 pt-3 mt-2">
+                          <span className="font-semibold text-foreground/85">Who it is for: </span>
+                          {who}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="pt-2 mt-auto flex flex-wrap items-center gap-x-3 gap-y-2">
+                      {external ? (
+                        <Button variant="hero" size="sm" className="rounded-full" asChild>
+                          <a href={href}>{cta}</a>
+                        </Button>
+                      ) : (
+                        <Button variant="hero" size="sm" className="rounded-full" asChild>
+                          <Link to={href}>{cta}</Link>
+                        </Button>
+                      )}
+                      {price ? (
+                        <span className="text-sm font-semibold text-muted-foreground tabular-nums">{price}</span>
+                      ) : null}
+                    </div>
+                  </div>
+                </motion.div>
+              ),
+            )}
           </div>
         </div>
       </section>

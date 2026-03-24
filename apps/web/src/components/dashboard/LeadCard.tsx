@@ -5,11 +5,12 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 import { Building2, Mail, Phone, Calendar as CalendarIcon, User, CalendarPlus, FileText, ChevronDown, CheckCircle, CalendarClock } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
-type ClientStatus = 'lead_captured' | 'meeting_scheduled' | 'contract_sent' | 'second_meeting' | 'active_client' | 'inactive';
+type ClientStatus = 'lead_captured' | 'strategy_session_pending' | 'meeting_scheduled' | 'contract_sent' | 'second_meeting' | 'active_client' | 'inactive';
 
 interface Customer {
   id: string;
@@ -30,9 +31,12 @@ interface LeadCardProps {
   onRescheduleMeeting: (customerId: string, date: Date) => void;
   onUpdateStatus: (customerId: string, status: ClientStatus) => void;
   isUpdating?: boolean;
+  /** Latest Strategy Session meeting for this customer (pipeline) */
+  strategySessionMeeting?: { id: string; confirmation_status: string | null } | null;
+  onPromoteStrategySession?: (customerId: string, meetingId: string) => void;
 }
 
-export function LeadCard({ customer, status, meetingDate, onScheduleMeeting, onRescheduleMeeting, onUpdateStatus, isUpdating }: LeadCardProps) {
+export function LeadCard({ customer, status, meetingDate, onScheduleMeeting, onRescheduleMeeting, onUpdateStatus, isUpdating, strategySessionMeeting, onPromoteStrategySession }: LeadCardProps) {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [secondMeetingCalendarOpen, setSecondMeetingCalendarOpen] = useState(false);
   const [rescheduleCalendarOpen, setRescheduleCalendarOpen] = useState(false);
@@ -61,6 +65,46 @@ export function LeadCard({ customer, status, meetingDate, onScheduleMeeting, onR
 
   const renderStatusActions = () => {
     switch (status) {
+      case 'strategy_session_pending':
+        return (
+          <div className="space-y-2 w-full">
+            {strategySessionMeeting ? (
+              <Badge
+                variant={strategySessionMeeting.confirmation_status === "sent" ? "default" : "secondary"}
+                className="text-[10px] font-normal justify-center w-full py-1"
+              >
+                Email: {strategySessionMeeting.confirmation_status ?? "pending"}
+              </Badge>
+            ) : (
+              <span className="text-[10px] text-muted-foreground">No Strategy Session row linked</span>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full h-8 text-xs gap-1"
+              disabled={
+                isUpdating ||
+                !strategySessionMeeting?.id ||
+                strategySessionMeeting.confirmation_status !== "sent" ||
+                !onPromoteStrategySession
+              }
+              onClick={() =>
+                strategySessionMeeting?.id &&
+                onPromoteStrategySession?.(customer.id, strategySessionMeeting.id)
+              }
+            >
+              <CheckCircle className="h-3 w-3" />
+              Confirm & add to Clients
+            </Button>
+            {strategySessionMeeting && strategySessionMeeting.confirmation_status !== "sent" ? (
+              <p className="text-[10px] text-muted-foreground leading-tight">
+                Promoting is available after the confirmation email has been sent.
+              </p>
+            ) : null}
+          </div>
+        );
+
       case 'lead_captured':
         return (
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>

@@ -36,6 +36,7 @@ import Leads from './pages/dashboard/Leads';
 import Clients from './pages/dashboard/Clients';
 import EventsManagement from './pages/dashboard/EventsManagement';
 import Subscribers from './pages/dashboard/Subscribers';
+import StrategySessionCalendarSettings from './pages/dashboard/StrategySessionCalendarSettings';
 import AssetLibrary from './pages/dashboard/AssetLibrary';
 import Reports from './pages/dashboard/Reports';
 import Settings from './pages/dashboard/Settings';
@@ -50,6 +51,7 @@ import { CampaignsIndexPage } from '@/features/campaigns/pages/CampaignsIndexPag
 import { CampaignDetailPage } from '@/features/campaigns/pages/CampaignDetailPage';
 import Events from './pages/Events';
 import Kora from './pages/Kora';
+import StrategySessionBooking from './pages/StrategySessionBooking';
 
 import './index.css';
 
@@ -66,6 +68,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/home" element={<Index />} />
               <Route path="/shop" element={<Shop />} />
               <Route path="/work-with-me" element={<WorkWithMe />} />
+              <Route path="/strategy-session" element={<StrategySessionBooking />} />
               <Route path="/about" element={<About />} />
               <Route path="/the-brief" element={<TheBriefRoute />} />
               <Route path="/the-brief/:id" element={<TheBriefPostRoute />} />
@@ -100,6 +103,11 @@ createRoot(document.getElementById('root')!).render(
                   <Route path="inspired" element={<InspiredProjectListPage />} />
                   <Route path="filming" element={<FilmingSchedule />} />
                   <Route path="meetings" element={<Meetings />} />
+                  <Route path="strategy-session-calendar" element={
+                      <ProtectedRoute allowedRoles={['admin']} requireBlueprint={false}>
+                        <StrategySessionCalendarSettings />
+                      </ProtectedRoute>
+                  } />
                   <Route path="strategy" element={<StrategyUpdates />} />
                   <Route path="analytics" element={<Analytics />} />
                   <Route path="leads" element={

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isToday } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { Briefcase, Calendar, Clock, User, ChevronLeft, ChevronRight, List, CalendarDays } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
@@ -27,17 +28,27 @@ interface Meeting {
   duration_minutes: number;
   status: string;
   created_at: string;
+  service_name: string | null;
+  session_type: string | null;
+  confirmation_status: string | null;
+  booking_status: string | null;
+  admin_confirmed_at: string | null;
+  timezone: string | null;
   customer: {
     first_name: string | null;
     last_name: string | null;
     business_name: string | null;
   } | null;
+  host_user_id: string | null;
+  employee_reference_code: string | null;
+  host_profile: { full_name: string | null } | null;
 }
 
 export default function Meetings() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [hostScope, setHostScope] = useState<"all" | "mine">("all");
 
   const { data: meetings, isLoading } = useQuery({
     queryKey: ["meetings"],
@@ -50,6 +61,9 @@ export default function Meetings() {
             first_name,
             last_name,
             business_name
+          ),
+          host_profile:profiles!meetings_host_user_id_fkey (
+            full_name
           )
         `)
         .order("meeting_date", { ascending: true });
@@ -59,7 +73,13 @@ export default function Meetings() {
     },
   });
 
-  const sortedMeetings = [...(meetings || [])].sort(
+  const visibleMeetings = useMemo(() => {
+    const list = meetings ?? [];
+    if (role !== "admin" || hostScope === "all") return list;
+    return list.filter((m) => m.host_user_id === user?.id);
+  }, [meetings, role, hostScope, user?.id]);
+
+  const sortedMeetings = [...visibleMeetings].sort(
     (a, b) => new Date(a.meeting_date).getTime() - new Date(b.meeting_date).getTime()
   );
 
@@ -98,7 +118,7 @@ export default function Meetings() {
   const emptyDays = Array(startDay).fill(null);
 
   const getMeetingsForDay = (date: Date) => {
-    return meetings?.filter((m) => isSameDay(new Date(m.meeting_date), date)) || [];
+    return visibleMeetings.filter((m) => isSameDay(new Date(m.meeting_date), date));
   };
 
   const selectedDayMeetings = selectedDate ? getMeetingsForDay(selectedDate) : [];
@@ -128,6 +148,13 @@ export default function Meetings() {
           "—"
         )}
       </TableCell>
+      <TableCell className="text-xs">
+        {meeting.host_profile?.full_name
+          ? meeting.host_profile.full_name
+          : meeting.employee_reference_code
+            ? meeting.employee_reference_code
+            : "—"}
+      </TableCell>
       <TableCell>
         <div className="flex items-center gap-1">
           <Calendar className="w-3 h-3 text-muted-foreground" />
@@ -146,6 +173,37 @@ export default function Meetings() {
       <TableCell>
         {getStatusBadge(meeting.status, meeting.meeting_date)}
       </TableCell>
+      <TableCell className="text-xs">
+        {meeting.service_name ? (
+          <Badge variant="outline" className="font-normal">
+            {meeting.service_name}
+          </Badge>
+        ) : (
+          "—"
+        )}
+      </TableCell>
+      <TableCell className="text-xs capitalize">{meeting.session_type || "—"}</TableCell>
+      <TableCell className="text-xs">
+        {meeting.confirmation_status ? (
+          <Badge
+            variant={meeting.confirmation_status === "sent" ? "default" : "secondary"}
+            className="font-normal"
+          >
+            {meeting.confirmation_status}
+          </Badge>
+        ) : (
+          "—"
+        )}
+      </TableCell>
+      <TableCell className="text-xs">
+        {meeting.admin_confirmed_at ? (
+          <Badge variant="outline" className="font-normal">
+            Confirmed
+          </Badge>
+        ) : (
+          "—"
+        )}
+      </TableCell>
     </TableRow>
   );
 
@@ -160,6 +218,23 @@ export default function Meetings() {
             ? "Internal and client meetings in one place."
             : "All meetings, notes, follow-ups, and reminders related to your account."}
         </p>
+        {role === "admin" && (
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <span className="text-sm text-muted-foreground">Strategy hosts</span>
+            <ToggleGroup
+              type="single"
+              value={hostScope}
+              onValueChange={(v) => v && setHostScope(v as "all" | "mine")}
+            >
+              <ToggleGroupItem value="all" aria-label="All hosts">
+                All hosts
+              </ToggleGroupItem>
+              <ToggleGroupItem value="mine" aria-label="My meetings only">
+                Mine
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+        )}
       </div>
 
       {isLoading ? (
@@ -344,9 +419,14 @@ export default function Meetings() {
                       <TableRow>
                         <TableHead>Title</TableHead>
                         <TableHead>Client</TableHead>
+                        <TableHead>Host</TableHead>
                         <TableHead>Date & Time</TableHead>
                         <TableHead>Duration</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead>Service</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Admin</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -380,9 +460,14 @@ export default function Meetings() {
                       <TableRow>
                         <TableHead>Title</TableHead>
                         <TableHead>Client</TableHead>
+                        <TableHead>Host</TableHead>
                         <TableHead>Date & Time</TableHead>
                         <TableHead>Duration</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead>Service</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Admin</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>

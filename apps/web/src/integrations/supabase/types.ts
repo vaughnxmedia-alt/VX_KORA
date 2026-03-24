@@ -320,37 +320,112 @@ export type Database = {
       }
       meetings: {
         Row: {
+          additional_notes: string | null
+          admin_confirmed_at: string | null
+          booking_status: string | null
+          business_name: string | null
+          confirmation_status: string | null
           created_at: string | null
           created_by: string | null
+          current_challenge: string | null
           customer_id: string | null
           description: string | null
           duration_minutes: number | null
+          email: string | null
+          employee_reference_code: string | null
+          full_name: string | null
+          host_user_id: string | null
           id: string
+          industry: string | null
+          in_person_location: string | null
+          internal_notes: string | null
           meeting_date: string
+          offer_summary: string | null
+          payment_status: string | null
+          phone: string | null
+          questionnaire_status: string | null
+          service_name: string | null
+          service_price: number | null
+          session_goal: string | null
+          session_type: string | null
           status: string | null
+          target_audience: string | null
+          timezone: string | null
           title: string
+          updated_at: string | null
+          website_or_social: string | null
         }
         Insert: {
+          additional_notes?: string | null
+          admin_confirmed_at?: string | null
+          booking_status?: string | null
+          business_name?: string | null
+          confirmation_status?: string | null
           created_at?: string | null
           created_by?: string | null
+          current_challenge?: string | null
           customer_id?: string | null
           description?: string | null
           duration_minutes?: number | null
+          email?: string | null
+          employee_reference_code?: string | null
+          full_name?: string | null
+          host_user_id?: string | null
           id?: string
+          industry?: string | null
+          in_person_location?: string | null
+          internal_notes?: string | null
           meeting_date: string
+          offer_summary?: string | null
+          payment_status?: string | null
+          phone?: string | null
+          questionnaire_status?: string | null
+          service_name?: string | null
+          service_price?: number | null
+          session_goal?: string | null
+          session_type?: string | null
           status?: string | null
+          target_audience?: string | null
+          timezone?: string | null
           title: string
+          updated_at?: string | null
+          website_or_social?: string | null
         }
         Update: {
+          additional_notes?: string | null
+          admin_confirmed_at?: string | null
+          booking_status?: string | null
+          business_name?: string | null
+          confirmation_status?: string | null
           created_at?: string | null
           created_by?: string | null
+          current_challenge?: string | null
           customer_id?: string | null
           description?: string | null
           duration_minutes?: number | null
+          email?: string | null
+          employee_reference_code?: string | null
+          full_name?: string | null
+          host_user_id?: string | null
           id?: string
+          industry?: string | null
+          in_person_location?: string | null
+          internal_notes?: string | null
           meeting_date?: string
+          offer_summary?: string | null
+          payment_status?: string | null
+          phone?: string | null
+          questionnaire_status?: string | null
+          service_name?: string | null
+          service_price?: number | null
+          session_goal?: string | null
+          session_type?: string | null
           status?: string | null
+          target_audience?: string | null
+          timezone?: string | null
           title?: string
+          updated_at?: string | null
+          website_or_social?: string | null
         }
         Relationships: [
           {
@@ -358,6 +433,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meetings_host_user_id_fkey"
+            columns: ["host_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -438,6 +520,120 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      strategy_session_hosts: {
+        Row: {
+          active: boolean
+          created_at: string
+          display_name: string
+          id: string
+          is_default_public: boolean
+          reference_code: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          display_name: string
+          id?: string
+          is_default_public?: boolean
+          reference_code: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          display_name?: string
+          id?: string
+          is_default_public?: boolean
+          reference_code?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      strategy_session_host_schedule: {
+        Row: {
+          active: boolean
+          created_at: string
+          day_end: string
+          day_start: string
+          host_user_id: string
+          slot_duration_minutes: number
+          timezone: string
+          updated_at: string
+          weekdays: number[]
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          day_end?: string
+          day_start?: string
+          host_user_id: string
+          slot_duration_minutes?: number
+          timezone?: string
+          updated_at?: string
+          weekdays?: number[]
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          day_end?: string
+          day_start?: string
+          host_user_id?: string
+          slot_duration_minutes?: number
+          timezone?: string
+          updated_at?: string
+          weekdays?: number[]
+        }
+        Relationships: []
+      }
+      strategy_session_schedule_block: {
+        Row: {
+          block_date: string
+          created_at: string
+          host_user_id: string
+          id: string
+        }
+        Insert: {
+          block_date: string
+          created_at?: string
+          host_user_id: string
+          id?: string
+        }
+        Update: {
+          block_date?: string
+          created_at?: string
+          host_user_id?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      strategy_session_schedule_override: {
+        Row: {
+          host_user_id: string
+          id: string
+          is_closed: boolean
+          on_date: string
+          time_windows: Json | null
+        }
+        Insert: {
+          host_user_id: string
+          id?: string
+          is_closed?: boolean
+          on_date: string
+          time_windows?: Json | null
+        }
+        Update: {
+          host_user_id?: string
+          id?: string
+          is_closed?: boolean
+          on_date?: string
+          time_windows?: Json | null
+        }
+        Relationships: []
       }
       subscribers: {
         Row: {
@@ -549,6 +745,7 @@ export type Database = {
         | "meeting_scheduled"
         | "contract_sent"
         | "second_meeting"
+        | "strategy_session_pending"
         | "active_client"
         | "inactive"
       user_role: "admin" | "author" | "client"
@@ -684,6 +881,7 @@ export const Constants = {
         "meeting_scheduled",
         "contract_sent",
         "second_meeting",
+        "strategy_session_pending",
         "active_client",
         "inactive",
       ],

@@ -1,106 +1,48 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { CheckCircle, Calendar, Users, Target, Mic, ArrowLeft, Building, Search, Palette } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import {
+  ArrowLeft,
+  BookOpen,
+  CalendarRange,
+  CheckCircle,
+  LayoutDashboard,
+  Megaphone,
+  MessageCircle,
+  Palette,
+  Sparkles,
+  Star,
+  Target,
+} from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 
-const services = [
-  {
-    icon: Target,
-    title: "Brand Strategy Services",
-    description: "Complete brand overhaul with strategic positioning, messaging framework, and go-to-market strategy.",
-    features: [
-      "3-month brand strategy intensive",
-      "Complete brand audit and competitive analysis",
-      "Messaging hierarchy and brand voice development",
-      "Content strategy and campaign planning",
-      "Monthly strategy sessions"
-    ],
-    price: "Starting at $3,500",
-    duration: "3 months"
-  },
-  {
-    icon: Mic,
-    title: "Launch PR + Media Coaching",
-    description: "Get ready for the spotlight with media training, PR strategy, and launch campaign support.",
-    features: [
-      "Media training and interview prep",
-      "Press kit development",
-      "Launch strategy and timeline",
-      "Media outreach and relationship building",
-      "Crisis communication planning"
-    ],
-    price: "Starting at $2,500",
-    duration: "6 weeks"
-  },
-  {
-    icon: Users,
-    title: "Ongoing PR Retainer",
-    description: "Monthly PR support to keep your brand visible and growing in the marketplace.",
-    features: [
-      "Monthly PR strategy and execution",
-      "Media outreach and placement",
-      "Thought leadership content",
-      "Speaking opportunity coordination",
-      "Monthly performance reporting"
-    ],
-    price: "$1,500/month",
-    duration: "Ongoing"
-  }
-];
+const CREATIVE_CONSULT_MAIL =
+  "mailto:welcome@jahknowspr.com?subject=Creative%20services%20consultation&body=Tell%20us%20about%20your%20project%20(videography%2C%20photography%2C%20branding%2C%20web%2C%20etc.)%3A%0A%0A";
 
-const alaCarteServices = [
-  {
-    icon: Building,
-    title: "Production Services",
-    description: "Professional production services for your brand projects and campaigns.",
-    price: "$175",
-    priceUnit: "per hour",
-    features: [
-      "Project management and coordination",
-      "Creative production oversight",
-      "Quality assurance and delivery",
-      "Flexible scheduling available"
-    ]
-  },
-  {
-    icon: Search,
-    title: "Website Development",
-    description: "Custom websites tailored to your brand and business objectives.",
-    price: "$300 - $2,000",
-    priceUnit: "starting price",
-    features: [
-      "Responsive design and development",
-      "SEO optimization included",
-      "Content management system",
-      "Mobile-first approach"
-    ]
-  },
-  {
-    icon: Palette,
-    title: "Graphic Design",
-    description: "Professional design services for all your brand and marketing needs.",
-    price: "Custom Quote",
-    priceUnit: "per project",
-    features: [
-      "Brand assets and identity design",
-      "Marketing materials creation",
-      "Production graphics",
-      "Print and digital formats"
-    ]
-  }
-];
+const CAMPAIGN_RETAINER_MAIL =
+  "mailto:welcome@jahknowspr.com?subject=Campaign%20%26%20retainer%20inquiry&body=Share%20your%20goals%2C%20timeline%2C%20and%20what%20ongoing%20support%20should%20look%20like%3A%0A%0A";
 
+function WhoItBelongsTo({ children }: { children: string }) {
+  return (
+    <div className="rounded-lg border border-border/50 bg-muted/25 px-4 py-4 md:px-5 md:py-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground mb-2">
+        Who it belongs to
+      </p>
+      <p className="text-sm md:text-base text-foreground leading-relaxed">{children}</p>
+    </div>
+  );
+}
+
+/**
+ * Services (/work-with-me) — JahKnowsPR / KORA offer ladder.
+ */
 const WorkWithMe = () => {
   const navigate = useNavigate();
 
   return (
     <div className="min-h-screen">
-      {/* Back Button */}
       <div className="fixed top-24 left-4 z-50">
-        <Button 
-          variant="outline" 
-          size="sm" 
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => navigate(-1)}
           className="flex items-center gap-2"
         >
@@ -108,220 +50,268 @@ const WorkWithMe = () => {
           Back
         </Button>
       </div>
-      {/* Header */}
-      <section className="bg-gradient-to-r from-primary to-primary/90 text-white py-16 px-4">
-        <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-5xl font-bold mb-6">
-            Let's Build Your Brand Like a Publicist Would
-          </h1>
-          <p className="text-xl text-white/90 leading-relaxed">
-            Ready to go beyond DIY? Work directly with me to build a brand strategy 
-            that positions you as the go-to expert in your industry.
+
+      <section className="bg-gradient-to-r from-primary to-primary/90 text-white py-14 md:py-20 px-4">
+        <div className="max-w-3xl mx-auto text-center space-y-5">
+          <div className="inline-flex items-center gap-2 text-white/90 text-sm uppercase tracking-widest">
+            <Sparkles className="w-4 h-4" aria-hidden />
+            JahKnowsPR · KORA
+          </div>
+          <h1 className="text-3xl md:text-5xl font-bold leading-tight tracking-tight">How we work with you</h1>
+          <p className="text-lg text-white/90 leading-relaxed max-w-2xl mx-auto">
+            A clear ladder: free perspective, a lightweight add-on, your first paid strategy conversation, production
+            when you are ready to execute, ongoing campaigns when you need momentum held, and full platform access when
+            it is earned. Scroll to where you actually belong — then take one step.
           </p>
         </div>
       </section>
 
-      {/* À La Carte Services Section - Now at top */}
-      <section className="pt-8 pb-20 px-4">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-foreground mb-4">
-              À La Carte Services
-            </h2>
-            <p className="text-xl text-muted-foreground">
-              Select individual services tailored to your specific needs
+      {/* 01 · FREE — The Brief */}
+      <section id="the-brief" className="scroll-mt-28 py-20 md:py-28 px-4 border-b border-border/40">
+        <div className="max-w-3xl mx-auto space-y-6">
+          <div className="flex items-center gap-3 text-primary">
+            <BookOpen className="h-8 w-8 shrink-0" aria-hidden />
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">01 · Free</p>
+          </div>
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">The Brief</h2>
+          <div className="space-y-4 text-base md:text-lg text-foreground/90 leading-relaxed">
+            <p>
+              The Brief is our free perspective layer for founders, creatives, and operators who want sharper thinking
+              before they spend money. It gives you strategic insight, clear angles, and real commentary so you can move
+              with more intention.
+            </p>
+            <p>
+              Start here if you are still exploring, learning how we think, or trying to understand what kind of support
+              you actually need. It is free, useful, and built to help you make better decisions before committing to a
+              session, service, or system.
             </p>
           </div>
-          
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
-            {alaCarteServices.map((service, index) => (
-              <Card key={index} className="border-0 shadow-professional hover:shadow-accent transition-all duration-300 group h-full flex flex-col">
-                <CardHeader className="pb-4">
-                  <div className="w-16 h-16 bg-gradient-accent rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                    <service.icon className="w-8 h-8 text-accent-foreground" />
-                  </div>
-                  <CardTitle className="text-2xl font-bold text-foreground">
-                    {service.title}
-                  </CardTitle>
-                  <p className="text-muted-foreground leading-relaxed">
-                    {service.description}
-                  </p>
-                </CardHeader>
+          <WhoItBelongsTo>
+            Founders, creatives, and operators who are still exploring, learning, and watching before making a paid
+            commitment.
+          </WhoItBelongsTo>
+          <Button variant="hero" size="lg" className="mt-2 w-full sm:w-auto" asChild>
+            <Link to="/the-brief">Go to The Brief</Link>
+          </Button>
+        </div>
+      </section>
 
-                <CardContent className="space-y-6 flex-grow flex flex-col">
-                  <div className="flex-grow">
-                    <h4 className="font-semibold text-foreground mb-3">What's Included:</h4>
-                    <ul className="space-y-2">
-                      {service.features.map((feature, featureIndex) => (
-                        <li key={featureIndex} className="flex items-start gap-2">
-                          <CheckCircle className="w-5 h-5 text-accent mt-0.5 flex-shrink-0" />
-                          <span className="text-muted-foreground">{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="border-t pt-4 mt-auto">
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <div className="text-2xl font-bold text-accent">{service.price}</div>
-                        <div className="text-sm text-muted-foreground">{service.priceUnit}</div>
-                      </div>
-                    </div>
-                    
-                    <Button variant="cta" className="w-full" size="lg">
-                      Get Quote
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+      {/* 02 · ADD-ON — Telegram */}
+      <section id="telegram" className="scroll-mt-28 py-20 md:py-28 px-4 bg-muted/20 border-b border-border/40">
+        <div className="max-w-3xl mx-auto space-y-6">
+          <div className="flex items-center gap-3 text-primary">
+            <MessageCircle className="h-8 w-8 shrink-0" aria-hidden />
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">02 · Add-on</p>
           </div>
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Join KORA on Telegram</h2>
+          <div className="space-y-4 text-base md:text-lg text-foreground/90 leading-relaxed">
+            <p>
+              KORA on Telegram gives you light, ongoing support in a faster format. It is designed for people who want
+              ideas, prompts, and useful back-and-forth without logging into a full platform.
+            </p>
+            <p>
+              This is not full system access. It is a simple way to stay connected to KORA in your daily workflow while
+              getting small strategic nudges that keep you moving.
+            </p>
+          </div>
+          <WhoItBelongsTo>
+            People who live in chat, want lightweight support, and want KORA in a simpler day-to-day format.
+          </WhoItBelongsTo>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
+            <Button variant="hero" size="lg" className="w-full sm:w-auto" asChild>
+              <Link to="/kora">Meet KORA in Telegram</Link>
+            </Button>
+            <span className="text-base font-semibold text-muted-foreground tabular-nums">$15/mo</span>
+          </div>
+        </div>
+      </section>
 
-          {/* Contact CTA for À La Carte */}
-          <Card className="border-0 shadow-accent bg-gradient-subtle">
-            <CardContent className="py-8 text-center">
-              <h3 className="text-xl font-semibold mb-4">Ready to Get Started?</h3>
-              <p className="text-muted-foreground mb-6">
-                Contact us to discuss your specific needs and get a custom quote for your project.
+      {/* 03 · PAID SESSION — Strategy Session */}
+      <section id="strategy-session" className="scroll-mt-28 py-20 md:py-28 px-4 border-b border-border/40">
+        <div className="max-w-3xl mx-auto space-y-6">
+          <div className="flex items-center gap-3 text-primary">
+            <Target className="h-8 w-8 shrink-0" aria-hidden />
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">03 · Paid session</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 md:gap-4">
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Strategy Session</h2>
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/50 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-300"
+              title="Bestseller"
+            >
+              <Star
+                className="h-4 w-4 shrink-0 fill-amber-500 text-amber-500 drop-shadow-[0_0_6px_rgba(245,158,11,0.6)]"
+                aria-hidden
+              />
+              Bestseller
+            </span>
+          </div>
+          <p className="text-lg text-muted-foreground">
+            <span className="font-semibold text-primary text-2xl md:text-3xl tabular-nums">$150</span>
+            <span className="mx-2">·</span>
+            60 minutes · Zoom or in person
+          </p>
+          <div className="space-y-4 text-base md:text-lg text-foreground/90 leading-relaxed">
+            <p>
+              The Strategy Session is the first paid step for people who want direct clarity before moving into deeper
+              work. We use it to understand your business, identify what is actually blocking growth, and map the
+              smartest next move.
+            </p>
+            <p>
+              This is a standalone service for founders, creators, and businesses who need focused strategy around
+              positioning, visibility, brand direction, rollout planning, or decision-making. It also helps us determine
+              fit before any backend access, advanced support, or platform invitation.
+            </p>
+            <div className="pt-2">
+              <p className="text-sm font-semibold text-foreground mb-3">What you can expect</p>
+              <ul className="space-y-3">
+                {[
+                  "A structured intake so we come in prepared",
+                  "Clear feedback on your business, brand, and next priorities",
+                  "Direction on what to fix, refine, or build next",
+                  "A realistic fit check before deeper services or system access",
+                ].map((line) => (
+                  <li key={line} className="flex items-start gap-3">
+                    <CheckCircle className="w-5 h-5 text-accent shrink-0 mt-0.5" aria-hidden />
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+          <WhoItBelongsTo>
+            Founders, creators, and businesses who need strategic clarity before investing in deeper services, software
+            access, or long-term support.
+          </WhoItBelongsTo>
+          <Button variant="hero" size="lg" className="mt-2 w-full sm:w-auto" asChild>
+            <Link to="/strategy-session">Book a Strategy Session</Link>
+          </Button>
+        </div>
+      </section>
+
+      {/* 04 · PRODUCTION */}
+      <section id="creative-consultation" className="scroll-mt-28 py-20 md:py-28 px-4 bg-muted/20 border-b border-border/40">
+        <div className="max-w-3xl mx-auto space-y-6">
+          <div className="flex items-center gap-3 text-primary">
+            <Palette className="h-8 w-8 shrink-0" aria-hidden />
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">04 · Production</p>
+          </div>
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Creative Work &amp; Production</h2>
+          <div className="space-y-4 text-base md:text-lg text-foreground/90 leading-relaxed">
+            <p>
+              When you need execution, this is where creative work lives. That includes videography, photography,
+              branding, website work, and other visual or campaign support tied to what you are building.
+            </p>
+            <p>
+              Production is scoped separately based on the project, timeline, and deliverables. This is for clients who
+              already know they need assets, creative direction, or hands-on execution and want a real conversation about
+              what it will take.
+            </p>
+          </div>
+          <WhoItBelongsTo>
+            Clients who need creative execution, brand assets, content production, or hands-on project delivery.
+          </WhoItBelongsTo>
+          <Button variant="hero" size="lg" className="mt-2 w-full sm:w-auto" asChild>
+            <a href={CREATIVE_CONSULT_MAIL}>Book a Creative Consultation</a>
+          </Button>
+        </div>
+      </section>
+
+      {/* 05 · ONGOING — Campaigns & Retainers */}
+      <section id="campaigns-retainers" className="scroll-mt-28 py-20 md:py-28 px-4 border-b border-border/40">
+        <div className="max-w-3xl mx-auto space-y-6">
+          <div className="flex items-center gap-3 text-primary">
+            <Megaphone className="h-8 w-8 shrink-0" aria-hidden />
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">05 · Ongoing</p>
+          </div>
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Campaigns &amp; Retainers</h2>
+          <div className="space-y-4 text-base md:text-lg text-foreground/90 leading-relaxed">
+            <p>
+              Our retainers are for brands that need ongoing strategy, campaign leadership, and consistent movement over
+              time. This is not a one-time call and it is not a one-off deliverable. It is for people who want a
+              strategic partner involved month to month.
+            </p>
+            <p>
+              We use retainers to support launches, visibility campaigns, messaging discipline, planning cadence, and
+              cross-channel coordination so your momentum does not disappear after one good week.
+            </p>
+          </div>
+          <WhoItBelongsTo>
+            Brands, businesses, and teams that need sustained campaign support and ongoing strategic leadership.
+          </WhoItBelongsTo>
+          <Button variant="hero" size="lg" className="mt-2 w-full sm:w-auto" asChild>
+            <a href={CAMPAIGN_RETAINER_MAIL}>Discuss a Campaign Retainer</a>
+          </Button>
+        </div>
+      </section>
+
+      {/* 06 · PLATFORM */}
+      <section id="kora-platform" className="scroll-mt-28 py-20 md:py-28 px-4 bg-muted/20 border-b border-border/40">
+        <div className="max-w-3xl mx-auto space-y-10">
+          <div className="space-y-6">
+            <div className="flex items-center gap-3 text-primary">
+              <LayoutDashboard className="h-8 w-8 shrink-0" aria-hidden />
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">06 · Platform</p>
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight">KORA Full Platform Access</h2>
+            <div className="space-y-4 text-base md:text-lg text-foreground/90 leading-relaxed">
+              <p>
+                KORA is our full system for clients who need strategy, workflow, visibility, and operational support
+                living in one place. It brings together calendars, agents, workflows, and structured support so decisions
+                do not get lost across random tools and scattered conversations.
               </p>
-              <Button variant="hero" size="lg">
-                Contact for Custom Quote
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
-
-      {/* Main Services */}
-      <section className="py-20 px-4 bg-muted/30">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-foreground mb-4">
-              Comprehensive Brand Services
-            </h2>
-            <p className="text-xl text-muted-foreground">
-              Full-service brand strategy and PR packages for complete transformation
-            </p>
+              <p>
+                Platform access is not an impulse purchase. It is offered by invitation after fit, onboarding, and
+                clear alignment on what the system needs to solve for you.
+              </p>
+            </div>
+            <WhoItBelongsTo>
+              Qualified clients who are ready for a deeper system, structured workflow support, and invitation-based
+              platform access.
+            </WhoItBelongsTo>
+            <Button variant="hero" size="lg" className="mt-2 w-full sm:w-auto" asChild>
+              <Link to="/kora">Learn About Full KORA Access</Link>
+            </Button>
           </div>
-          
-          <div className="grid md:grid-cols-1 lg:grid-cols-3 gap-8 mb-16">
-            {services.map((service, index) => (
-              <Card key={index} className="border-0 shadow-professional hover:shadow-accent transition-all duration-300 group h-full flex flex-col">
-                <CardHeader className="pb-4">
-                  <div className="w-16 h-16 bg-gradient-accent rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                    <service.icon className="w-8 h-8 text-accent-foreground" />
-                  </div>
-                  <CardTitle className="text-2xl font-bold text-foreground">
-                    {service.title}
-                  </CardTitle>
-                  <p className="text-muted-foreground leading-relaxed">
-                    {service.description}
-                  </p>
-                </CardHeader>
 
-                <CardContent className="space-y-6 flex-grow flex flex-col">
-                  <div className="flex-grow">
-                    <h4 className="font-semibold text-foreground mb-3">What's Included:</h4>
-                    <ul className="space-y-2">
-                      {service.features.map((feature, featureIndex) => (
-                        <li key={featureIndex} className="flex items-start gap-2">
-                          <CheckCircle className="w-5 h-5 text-accent mt-0.5 flex-shrink-0" />
-                          <span className="text-muted-foreground">{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="border-t pt-4 mt-auto">
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <div className="text-2xl font-bold text-accent">{service.price}</div>
-                        <div className="text-sm text-muted-foreground">{service.duration}</div>
-                      </div>
+          <div className="pt-6 border-t border-border/50">
+            <p className="text-sm text-muted-foreground mb-6">
+              Placeholder previews — replace with real screenshots in{" "}
+              <code className="text-xs bg-muted px-1.5 py-0.5 rounded">public/</code> when ready.
+            </p>
+            <div className="grid gap-8 sm:grid-cols-2 md:grid-cols-3">
+              {[
+                {
+                  title: "Command Center",
+                  caption:
+                    "See priorities, signals, and decisions in one place so your marketing and PR workflow stays focused.",
+                  icon: LayoutDashboard,
+                },
+                {
+                  title: "Agents & Workflows",
+                  caption:
+                    "Purpose-built support systems that reduce busywork and keep execution aligned with strategy.",
+                  icon: Sparkles,
+                },
+                {
+                  title: "Calendar & Campaigns",
+                  caption:
+                    "Plan content, campaigns, and key dates with more structure so your team is not always reacting late.",
+                  icon: CalendarRange,
+                },
+              ].map(({ title, caption, icon: Icon }) => (
+                <div key={title} className="space-y-3">
+                  <div className="relative aspect-[16/10] overflow-hidden rounded-xl bg-muted/40">
+                    <img src="/placeholder.svg" alt="" className="h-full w-full object-cover opacity-80" />
+                    <div className="absolute inset-0 flex items-center justify-center bg-background/30 pointer-events-none">
+                      <Icon className="h-11 w-11 text-primary/90" aria-hidden />
                     </div>
-                    
-                    <Button variant="cta" className="w-full" size="lg">
-                      Learn More
-                    </Button>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {/* 1:1 Call CTA */}
-          <div className="max-w-4xl mx-auto">
-            <Card className="border-0 shadow-accent bg-gradient-subtle">
-              <CardContent className="p-8 md:p-12 text-center">
-                <div className="w-20 h-20 bg-gradient-accent rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Calendar className="w-10 h-10 text-accent-foreground" />
+                  <p className="font-semibold text-sm">{title}</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{caption}</p>
                 </div>
-                
-                <h3 className="text-3xl font-bold text-foreground mb-4">
-                  Not Sure Which Service is Right for You?
-                </h3>
-                <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-                  Book a 1:1 Brand Clarity Call and let's map out exactly what your brand needs 
-                  to go from "just another business" to "the obvious choice."
-                </p>
-
-                <div className="bg-white rounded-xl p-6 mb-8 max-w-md mx-auto shadow-professional">
-                  <div className="text-2xl font-bold text-accent mb-2">$150</div>
-                  <div className="text-muted-foreground mb-4">60-minute strategy session</div>
-                  <ul className="text-left space-y-2 text-sm">
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-accent" />
-                      Brand audit and gap analysis
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-accent" />
-                      Custom action plan
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-accent" />
-                      Service recommendations
-                    </li>
-                  </ul>
-                </div>
-
-                <Button variant="hero" size="lg" className="group">
-                  Book Your Brand Clarity Call
-                  <Calendar className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* Process Section */}
-      <section className="py-20 px-4 bg-muted/30">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-foreground mb-4">
-              My Strategic Process
-            </h2>
-            <p className="text-xl text-muted-foreground">
-              How we'll transform your brand from confused to confident
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-4 gap-8">
-            {[
-              { step: "01", title: "Discovery", description: "Deep dive into your vision, audience, and goals" },
-              { step: "02", title: "Strategy", description: "Build your custom brand blueprint and messaging framework" },
-              { step: "03", title: "Implementation", description: "Launch your new brand with confidence and clarity" },
-              { step: "04", title: "Growth", description: "Scale with ongoing support and strategic adjustments" }
-            ].map((phase, index) => (
-              <div key={index} className="text-center">
-                <div className="w-16 h-16 bg-gradient-accent rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-2xl font-bold text-accent-foreground">{phase.step}</span>
-                </div>
-                <h3 className="text-xl font-semibold text-foreground mb-2">{phase.title}</h3>
-                <p className="text-muted-foreground">{phase.description}</p>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </section>

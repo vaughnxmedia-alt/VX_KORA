@@ -76,6 +76,7 @@ export default function DashboardLayout() {
       calendar: "Content Calendar",
       filming: "Filming Schedule",
       meetings: "Meetings",
+      "strategy-session-calendar": "Strategy Session calendar",
       strategy: "Strategy Updates",
       analytics: "Analytics",
       clients: "Clients",

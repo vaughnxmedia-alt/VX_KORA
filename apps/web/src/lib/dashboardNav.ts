@@ -10,6 +10,7 @@ import {
   FolderOpen,
   Briefcase,
   CalendarDays,
+  CalendarClock,
   UserCheck,
   Target,
   Mail,
@@ -74,6 +75,13 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
     label: "CLIENT MANAGEMENT",
     items: [
       { key: "meetings", title: "Meetings", url: "/dashboard/meetings", icon: Briefcase },
+      {
+        key: "strategy-session-calendar",
+        title: "Strategy Session calendar",
+        url: "/dashboard/strategy-session-calendar",
+        icon: CalendarClock,
+        adminOnly: true,
+      },
       { key: "events", title: "Events", url: "/dashboard/events", icon: CalendarDays, adminOnly: true },
       { key: "clients", title: "Active Clients", url: "/dashboard/clients", icon: UserCheck, adminOnly: true },
     ],
@@ -109,5 +117,6 @@ export const ADMIN_ONLY_KEYS = [
   "clients",
   "admin",
   "sources",
+  "strategy-session-calendar",
 ];
 export const ADMIN_TAB_KEY = "admin";

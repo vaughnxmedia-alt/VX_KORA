@@ -19,6 +19,15 @@ verify_jwt = false
 [functions.kora-generate-strategy]
 verify_jwt = false
 
+[functions.strategy-session-book]
+verify_jwt = false
+
+[functions.strategy-session-availability]
+verify_jwt = false
+
+[functions.strategy-session-hosts]
+verify_jwt = false
+
 [api]
 enabled = true
 # Port to use for the API URL.

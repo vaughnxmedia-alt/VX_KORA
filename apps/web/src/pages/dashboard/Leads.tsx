@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,7 +39,7 @@ interface SocialMediaLink {
   url: string;
 }
 
-type ClientStatus = 'lead_captured' | 'meeting_scheduled' | 'contract_sent' | 'second_meeting' | 'active_client' | 'inactive';
+type ClientStatus = 'lead_captured' | 'strategy_session_pending' | 'meeting_scheduled' | 'contract_sent' | 'second_meeting' | 'active_client' | 'inactive';
 
 interface Customer {
   id: string;
@@ -83,6 +83,13 @@ const STATUS_CONFIG: Record<ClientStatus, {
     borderColor: "border-red-200 dark:border-red-800",
     description: "No Meeting Set"
   },
+  strategy_session_pending: {
+    label: "Strategy Session",
+    color: "text-amber-800 dark:text-amber-400",
+    bgColor: "bg-amber-50 dark:bg-amber-950/30",
+    borderColor: "border-amber-200 dark:border-amber-800",
+    description: "Booked — confirm email & promote"
+  },
   meeting_scheduled: {
     label: "Meeting Scheduled",
     color: "text-blue-700 dark:text-blue-400",
@@ -120,7 +127,7 @@ const STATUS_CONFIG: Record<ClientStatus, {
   }
 };
 
-const STATUS_ORDER: ClientStatus[] = ['lead_captured', 'meeting_scheduled', 'second_meeting', 'contract_sent', 'active_client', 'inactive'];
+const STATUS_ORDER: ClientStatus[] = ['lead_captured', 'strategy_session_pending', 'meeting_scheduled', 'second_meeting', 'contract_sent', 'active_client', 'inactive'];
 
 export default function Leads() {
   const [isLeadDialogOpen, setIsLeadDialogOpen] = useState(false);
@@ -181,6 +188,34 @@ export default function Leads() {
       return data as Meeting[];
     }
   });
+
+  const { data: strategyMeetings } = useQuery({
+    queryKey: ["strategy-session-meetings-pipeline"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("meetings")
+        .select("id, customer_id, confirmation_status, created_at, service_name")
+        .eq("service_name", "Strategy Session")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const strategyMeetingByCustomer = useMemo(() => {
+    const map = new Map<string, { id: string; confirmation_status: string | null }>();
+    for (const m of strategyMeetings ?? []) {
+      const cid = m.customer_id as string | null;
+      if (cid && !map.has(cid)) {
+        map.set(cid, {
+          id: m.id as string,
+          confirmation_status: (m.confirmation_status as string | null) ?? null,
+        });
+      }
+    }
+    return map;
+  }, [strategyMeetings]);
+
   const getLatestMeetingDate = (customerId: string): string | null => {
     const customerMeetings = meetings?.filter(m => m.customer_id === customerId);
     if (customerMeetings && customerMeetings.length > 0) {
@@ -217,6 +252,41 @@ export default function Leads() {
       toast.error("Failed to update status");
     }
   });
+
+  const promoteStrategySessionMutation = useMutation({
+    mutationFn: async ({
+      customerId,
+      meetingId,
+    }: {
+      customerId: string;
+      meetingId: string;
+    }) => {
+      const { error: e1 } = await supabase
+        .from("meetings")
+        .update({
+          admin_confirmed_at: new Date().toISOString(),
+          booking_status: "confirmed",
+        })
+        .eq("id", meetingId);
+      if (e1) throw e1;
+      const { error: e2 } = await supabase
+        .from("customers")
+        .update({ client_status: "active_client" })
+        .eq("id", customerId);
+      if (e2) throw e2;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["customers-pipeline"] });
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      queryClient.invalidateQueries({ queryKey: ["customers-active"] });
+      queryClient.invalidateQueries({ queryKey: ["meetings"] });
+      queryClient.invalidateQueries({ queryKey: ["meetings-for-pipeline"] });
+      queryClient.invalidateQueries({ queryKey: ["strategy-session-meetings-pipeline"] });
+      toast.success("Client added to Clients tab");
+    },
+    onError: () => toast.error("Could not complete promotion"),
+  });
+
   const scheduleMeetingMutation = useMutation({
     mutationFn: async ({
       customerId,
@@ -709,7 +779,7 @@ export default function Leads() {
       </div>
 
       {/* Pipeline Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
         {STATUS_ORDER.map(status => {
         const config = STATUS_CONFIG[status];
         const count = getCustomersByStatus(status).length;
@@ -723,7 +793,7 @@ export default function Leads() {
       </div>
 
       {/* Pipeline Columns */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4">
         {STATUS_ORDER.map(status => {
         const config = STATUS_CONFIG[status];
         const statusCustomers = getCustomersByStatus(status);
@@ -733,7 +803,7 @@ export default function Leads() {
               <div className="space-y-3 min-h-[200px]">
                 {statusCustomers.length === 0 ? <div className="text-center py-8 text-muted-foreground text-sm border-2 border-dashed rounded-lg">
                     No leads
-                  </div> : statusCustomers.map(customer => <LeadCard key={customer.id} customer={customer} status={status} meetingDate={getLatestMeetingDate(customer.id)} onScheduleMeeting={handleScheduleMeeting} onRescheduleMeeting={handleRescheduleMeeting} onUpdateStatus={handleUpdateStatus} isUpdating={updateStatusMutation.isPending || scheduleMeetingMutation.isPending || rescheduleMeetingMutation.isPending} />)}
+                  </div> : statusCustomers.map(customer => <LeadCard key={customer.id} customer={customer} status={status} meetingDate={getLatestMeetingDate(customer.id)} onScheduleMeeting={handleScheduleMeeting} onRescheduleMeeting={handleRescheduleMeeting} onUpdateStatus={handleUpdateStatus} isUpdating={updateStatusMutation.isPending || scheduleMeetingMutation.isPending || rescheduleMeetingMutation.isPending || promoteStrategySessionMutation.isPending} strategySessionMeeting={status === "strategy_session_pending" ? strategyMeetingByCustomer.get(customer.id) ?? null : null} onPromoteStrategySession={handlePromoteStrategySession} />)}
               </div>
             </div>;
       })}
