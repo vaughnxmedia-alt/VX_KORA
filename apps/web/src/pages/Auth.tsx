@@ -27,6 +27,7 @@ const Auth = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+  const allowEmployeeSignup = new URLSearchParams(location.search).get("employeeSignup") === "1";
 
   useEffect(() => {
     // Check if we just completed signup
@@ -42,10 +43,16 @@ const Auth = () => {
         title: "Sign up required",
         description: location.state.message,
       });
-      // Default to signup tab when coming from Brand Blueprint
-      setActiveTab("signup");
+      // Only show signup for the employee invite path.
+      setActiveTab(allowEmployeeSignup ? "signup" : "signin");
     }
-  }, [location.state, toast]);
+  }, [allowEmployeeSignup, location.state, toast]);
+
+  useEffect(() => {
+    if (!allowEmployeeSignup && activeTab === "signup") {
+      setActiveTab("signin");
+    }
+  }, [activeTab, allowEmployeeSignup]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -262,14 +269,18 @@ const Auth = () => {
           <CardHeader>
             <CardTitle>Authentication</CardTitle>
             <CardDescription>
-              Sign in to your account or create a new one
+              {allowEmployeeSignup
+                ? "Sign in to your account or create a new employee account"
+                : "Sign in to your JKPR Portal account"}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className={`grid w-full ${allowEmployeeSignup ? "grid-cols-2" : "grid-cols-1"}`}>
                 <TabsTrigger value="signin" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Sign In</TabsTrigger>
-                <TabsTrigger value="signup" className="data-[state=active]:bg-background data-[state=active]:text-foreground">Sign Up</TabsTrigger>
+                {allowEmployeeSignup ? (
+                  <TabsTrigger value="signup" className="data-[state=active]:bg-background data-[state=active]:text-foreground">Sign Up</TabsTrigger>
+                ) : null}
               </TabsList>
               
               <TabsContent value="signin" className="space-y-4 bg-primary p-6 rounded-lg">
@@ -338,7 +349,8 @@ const Auth = () => {
                 </form>
               </TabsContent>
               
-              <TabsContent value="signup" className="space-y-4 bg-background p-6 rounded-lg border border-border">
+              {allowEmployeeSignup ? (
+                <TabsContent value="signup" className="space-y-4 bg-background p-6 rounded-lg border border-border">
                 <form onSubmit={handleSignUp} className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -427,7 +439,8 @@ const Auth = () => {
                     ) : "Create Account"}
                   </Button>
                 </form>
-              </TabsContent>
+                </TabsContent>
+              ) : null}
             </Tabs>
             
             <div className="mt-6 text-center">

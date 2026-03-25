@@ -671,6 +671,84 @@ export type Database = {
         }
         Relationships: []
       }
+      outbound_email_logs: {
+        Row: {
+          approved_by_user_id: string | null
+          body_html: string | null
+          body_text: string | null
+          channel: string
+          created_at: string
+          customer_id: string | null
+          error_message: string | null
+          from_email: string
+          generated_by: string
+          id: string
+          message_type: string
+          provider_message_id: string | null
+          related_id: string | null
+          related_table: string | null
+          status: string
+          subject: string
+          subscriber_id: string | null
+          to_email: string
+        }
+        Insert: {
+          approved_by_user_id?: string | null
+          body_html?: string | null
+          body_text?: string | null
+          channel?: string
+          created_at?: string
+          customer_id?: string | null
+          error_message?: string | null
+          from_email: string
+          generated_by?: string
+          id?: string
+          message_type: string
+          provider_message_id?: string | null
+          related_id?: string | null
+          related_table?: string | null
+          status?: string
+          subject: string
+          subscriber_id?: string | null
+          to_email: string
+        }
+        Update: {
+          approved_by_user_id?: string | null
+          body_html?: string | null
+          body_text?: string | null
+          channel?: string
+          created_at?: string
+          customer_id?: string | null
+          error_message?: string | null
+          from_email?: string
+          generated_by?: string
+          id?: string
+          message_type?: string
+          provider_message_id?: string | null
+          related_id?: string | null
+          related_table?: string | null
+          status?: string
+          subject?: string
+          subscriber_id?: string | null
+          to_email?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outbound_email_logs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outbound_email_logs_subscriber_id_fkey"
+            columns: ["subscriber_id"]
+            isOneToOne: false
+            referencedRelation: "subscribers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       support_messages: {
         Row: {
           created_at: string

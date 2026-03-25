@@ -90,7 +90,7 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
     label: "GROWTH",
     items: [
       { key: "leads", title: "Leads", url: "/dashboard/leads", icon: Target, adminOnly: true },
-      { key: "subscribers", title: "Subscribers", url: "/dashboard/subscribers", icon: Mail, adminOnly: true },
+      { key: "subscribers", title: "Subscribers", url: "/dashboard/subscribers", icon: Mail },
     ],
   },
   {
@@ -113,7 +113,6 @@ export const ADMIN_ONLY_KEYS = [
   "blog",
   "events",
   "leads",
-  "subscribers",
   "clients",
   "admin",
   "sources",

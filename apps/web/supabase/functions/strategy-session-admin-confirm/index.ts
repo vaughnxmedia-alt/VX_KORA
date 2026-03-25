@@ -9,12 +9,14 @@ import { z } from "https://deno.land/x/zod/mod.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { buildStrategySessionConfirmationHtml } from "../_shared/strategy-session-confirmation-email.ts";
 import { buildStrategySessionInternalNotificationHtml } from "../_shared/strategy-session-internal-notification-email.ts";
+import { logOutboundEmail } from "../_shared/outbound-email-log.ts";
 
 const bodySchema = z.object({
   meetingId: z.string().uuid(),
   /** Optional HTML override from dashboard compose preview (admin JWT only). */
   guestHtml: z.string().max(800_000).optional(),
   guestSubject: z.string().max(998).optional(),
+  generatedBy: z.enum(["human", "gemini", "system"]).optional(),
 });
 
 const FROM_NAME = "Jah Jah";
@@ -90,12 +92,12 @@ serve(async (req) => {
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
-  const { meetingId, guestHtml: guestHtmlRaw, guestSubject: guestSubjectRaw } = parsed.data;
+  const { meetingId, guestHtml: guestHtmlRaw, guestSubject: guestSubjectRaw, generatedBy } = parsed.data;
 
   const { data: meeting, error: mErr } = await supabase
     .from("meetings")
     .select(
-      "id, full_name, business_name, email, phone, meeting_date, session_type, timezone, service_name, booking_status, confirmation_status, host_user_id",
+      "id, customer_id, full_name, business_name, email, phone, meeting_date, session_type, timezone, service_name, booking_status, confirmation_status, host_user_id",
     )
     .eq("id", meetingId)
     .maybeSingle();
@@ -189,20 +191,54 @@ serve(async (req) => {
     meetingId,
     dashboardUrl,
   });
+  const opsSubject = `Strategy Session confirmed — ${businessName}`;
+  const generatedByValue = generatedBy ?? "human";
+  const approvedByUserId = userData.user.id;
 
   const resend = new Resend(RESEND_API_KEY);
   try {
-    await resend.emails.send({
+    const guestSendResult = await resend.emails.send({
       from: `${FROM_NAME} <${FROM_EMAIL}>`,
       to: guestEmail,
       subject: guestSubject,
       html: htmlGuest,
     });
-    await resend.emails.send({
+    await logOutboundEmail(supabase, {
+      messageType: "lead_confirmation",
+      fromEmail: FROM_EMAIL,
+      toEmail: guestEmail,
+      subject: guestSubject,
+      status: "sent",
+      providerMessageId: (guestSendResult as { data?: { id?: string } })?.data?.id ?? null,
+      relatedTable: "meetings",
+      relatedId: meetingId,
+      customerId: (meeting.customer_id as string | null) ?? null,
+      generatedBy: generatedByValue,
+      approvedByUserId,
+      bodyHtml: htmlGuest,
+      bodyText: toPlainText(htmlGuest),
+    });
+
+    const opsSendResult = await resend.emails.send({
       from: `${FROM_NAME} <${FROM_EMAIL}>`,
       to: OPS_EMAIL,
-      subject: `Strategy Session confirmed — ${businessName}`,
+      subject: opsSubject,
       html: htmlOps,
+    });
+    await logOutboundEmail(supabase, {
+      messageType: "lead_ops_notification",
+      fromEmail: FROM_EMAIL,
+      toEmail: OPS_EMAIL,
+      subject: opsSubject,
+      status: "sent",
+      providerMessageId: (opsSendResult as { data?: { id?: string } })?.data?.id ?? null,
+      relatedTable: "meetings",
+      relatedId: meetingId,
+      customerId: (meeting.customer_id as string | null) ?? null,
+      generatedBy: "system",
+      approvedByUserId,
+      bodyHtml: htmlOps,
+      bodyText: toPlainText(htmlOps),
     });
 
     await supabase
@@ -220,6 +256,21 @@ serve(async (req) => {
     );
   } catch (e) {
     console.error("strategy-session-admin-confirm email error:", e);
+    await logOutboundEmail(supabase, {
+      messageType: "lead_confirmation",
+      fromEmail: FROM_EMAIL,
+      toEmail: guestEmail,
+      subject: guestSubject,
+      status: "failed",
+      errorMessage: e instanceof Error ? e.message : "Failed to send confirmation emails",
+      relatedTable: "meetings",
+      relatedId: meetingId,
+      customerId: (meeting.customer_id as string | null) ?? null,
+      generatedBy: generatedByValue,
+      approvedByUserId,
+      bodyHtml: htmlGuest,
+      bodyText: toPlainText(htmlGuest),
+    });
     await supabase.from("meetings").update({ confirmation_status: "failed" }).eq("id", meetingId);
     return new Response(
       JSON.stringify({
@@ -229,3 +280,12 @@ serve(async (req) => {
     );
   }
 });
+
+function toPlainText(html: string): string {
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}

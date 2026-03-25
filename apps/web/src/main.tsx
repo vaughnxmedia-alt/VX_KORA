@@ -136,7 +136,7 @@ createRoot(document.getElementById('root')!).render(
                       </ProtectedRoute>
                   } />
                   <Route path="subscribers" element={
-                      <ProtectedRoute allowedRoles={['admin']}>
+                      <ProtectedRoute allowedRoles={['admin', 'author', 'intern', '3pv']}>
                         <Subscribers />
                       </ProtectedRoute>
                   } />

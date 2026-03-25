@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "resend";
 import { z } from "https://deno.land/x/zod/mod.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { logOutboundEmail } from "../_shared/outbound-email-log.ts";
 
 const FROM_NAME = "Jah Jah";
 const FROM_EMAIL = "welcome@jahknowspr.com";
@@ -96,12 +97,15 @@ serve(async (req) => {
       console.error("Error inserting subscriber:", insertError);
       throw insertError;
     }
+    const emailSubject = "Access Requested — You're on the list ✨";
+    const emailHtml = createEmailHtml(name);
+
     try {
-      await resend.emails.send({
+      const sendResult = await resend.emails.send({
         from: `${FROM_NAME} <${FROM_EMAIL}>`,
         to: email,
-        subject: "Access Requested — You're on the list ✨",
-        html: createEmailHtml(name),
+        subject: emailSubject,
+        html: emailHtml,
       });
       await supabaseAdmin
         .from("subscribers")
@@ -109,8 +113,37 @@ serve(async (req) => {
           email_sent: true,
         })
         .eq("id", subscriber.id);
+
+      await logOutboundEmail(supabaseAdmin, {
+        messageType: "subscriber_verification",
+        fromEmail: FROM_EMAIL,
+        toEmail: email,
+        subject: emailSubject,
+        status: "sent",
+        providerMessageId: (sendResult as { data?: { id?: string } })?.data?.id ?? null,
+        relatedTable: "subscribers",
+        relatedId: subscriber.id,
+        subscriberId: subscriber.id,
+        generatedBy: "system",
+        bodyHtml: emailHtml,
+        bodyText: toPlainText(emailHtml),
+      });
     } catch (emailError) {
       console.error("Failed to send welcome email:", emailError);
+      await logOutboundEmail(supabaseAdmin, {
+        messageType: "subscriber_verification",
+        fromEmail: FROM_EMAIL,
+        toEmail: email,
+        subject: emailSubject,
+        status: "failed",
+        errorMessage: emailError instanceof Error ? emailError.message : "Failed to send subscriber email",
+        relatedTable: "subscribers",
+        relatedId: subscriber.id,
+        subscriberId: subscriber.id,
+        generatedBy: "system",
+        bodyHtml: emailHtml,
+        bodyText: toPlainText(emailHtml),
+      });
     }
     return new Response(
       JSON.stringify({
@@ -166,3 +199,12 @@ const subscriberSchema = z.object({
   name: z.string().min(2, "Name is too short").max(50, "Name is too long"),
   email: z.string().email("Invalid email format"),
 });
+
+function toPlainText(html: string): string {
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}

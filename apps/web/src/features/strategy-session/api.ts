@@ -185,7 +185,7 @@ export async function submitStrategySessionBooking(
 /** Admin-only (dashboard): confirm pending Strategy Session and send guest + ops emails. */
 export async function confirmStrategySessionBooking(
   meetingId: string,
-  opts?: { guestHtml?: string; guestSubject?: string },
+  opts?: { guestHtml?: string; guestSubject?: string; generatedBy?: "human" | "gemini" | "system" },
 ): Promise<{
   ok?: boolean;
   meetingId?: string;
@@ -197,6 +197,7 @@ export async function confirmStrategySessionBooking(
       meetingId,
       ...(opts?.guestHtml !== undefined ? { guestHtml: opts.guestHtml } : {}),
       ...(opts?.guestSubject !== undefined ? { guestSubject: opts.guestSubject } : {}),
+      ...(opts?.generatedBy !== undefined ? { generatedBy: opts.generatedBy } : {}),
     },
   });
   if (error) {
@@ -208,4 +209,35 @@ export async function confirmStrategySessionBooking(
     confirmationStatus?: string;
     error?: string;
   };
+}
+
+export async function generateLeadConfirmationDraft(input: {
+  meetingId?: string;
+  fullName?: string | null;
+  businessName?: string | null;
+  email?: string | null;
+  meetingDate?: string;
+  timezone?: string | null;
+  sessionType?: string | null;
+  hostName?: string | null;
+}): Promise<{ subject: string; bodyHtml: string; rationale?: string; generatedBy: "gemini" }> {
+  const { data, error } = await supabase.functions.invoke("leads-email-draft-generate", {
+    body: {
+      templateType: "lead_confirmation",
+      lead: {
+        meetingId: input.meetingId,
+        fullName: input.fullName ?? undefined,
+        businessName: input.businessName ?? undefined,
+        email: input.email ?? undefined,
+        meetingDate: input.meetingDate,
+        timezone: input.timezone ?? undefined,
+        sessionType: input.sessionType ?? undefined,
+        hostName: input.hostName ?? undefined,
+      },
+    },
+  });
+  if (error) {
+    throw new Error(await messageFromFunctionInvokeError(error));
+  }
+  return (data || {}) as { subject: string; bodyHtml: string; rationale?: string; generatedBy: "gemini" };
 }

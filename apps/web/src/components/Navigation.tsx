@@ -6,7 +6,6 @@ import {
   BookText,
   Home,
   LayoutDashboard,
-  User as UserIcon,
   Briefcase,
   CalendarDays,
   Sparkles,
@@ -215,21 +214,6 @@ const Navigation = () => {
                 <div className="border-t border-border my-4" />
 
                 <div className="space-y-3">
-                  {!isLoading && !user && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full justify-start h-11"
-                      onClick={() => {
-                        navigate("/auth");
-                        setIsOpen(false);
-                      }}
-                    >
-                      <UserIcon className="w-4 h-4 mr-2" />
-                      Log In
-                    </Button>
-                  )}
-
                   {navigationContext !== "app" && (
                     <Button
                       variant="hero"

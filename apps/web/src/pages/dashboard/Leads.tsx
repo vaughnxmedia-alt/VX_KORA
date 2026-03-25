@@ -21,13 +21,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
   BookingConfirmationEmailDialog,
   type PendingBookingForDialog,
 } from "@/components/dashboard/BookingConfirmationEmailDialog";
+import { SentEmailsPanel } from "@/components/dashboard/SentEmailsPanel";
 import { ShareLeadMagnetLinksDialog } from "@/components/dashboard/ShareLeadMagnetLinksDialog";
-import { confirmStrategySessionBooking } from "@/features/strategy-session/api";
+import { confirmStrategySessionBooking, generateLeadConfirmationDraft } from "@/features/strategy-session/api";
 import {
   BOOKING_KINDS,
   BOOKING_KIND_LABEL,
@@ -150,12 +152,14 @@ export default function Leads() {
       meetingId,
       guestHtml,
       guestSubject,
+      generatedBy,
     }: {
       meetingId: string;
       guestHtml: string;
       guestSubject: string;
+      generatedBy: "human" | "gemini";
     }) => {
-      const res = await confirmStrategySessionBooking(meetingId, { guestHtml, guestSubject });
+      const res = await confirmStrategySessionBooking(meetingId, { guestHtml, guestSubject, generatedBy });
       if (!res.ok) {
         throw new Error(res.error || "Confirmation failed");
       }
@@ -165,11 +169,28 @@ export default function Leads() {
       queryClient.invalidateQueries({ queryKey: ["pending-booking-confirmations"] });
       queryClient.invalidateQueries({ queryKey: ["meetings"] });
       queryClient.invalidateQueries({ queryKey: ["meetings-for-pipeline"] });
+      queryClient.invalidateQueries({ queryKey: ["outbound-email-logs"] });
       toast.success("Emails sent — meeting confirmed and visible on the Meetings tab.");
       setComposeOpen(false);
       setSelectedForCompose(null);
     },
     onError: (err: Error) => toast.error(err.message || "Could not confirm booking"),
+  });
+
+  const generateDraftMutation = useMutation({
+    mutationFn: async (row: PendingBookingRow) => {
+      return await generateLeadConfirmationDraft({
+        meetingId: row.id,
+        fullName: row.full_name,
+        businessName: row.business_name,
+        email: row.email,
+        meetingDate: row.meeting_date,
+        timezone: row.timezone,
+        sessionType: row.session_type,
+        hostName: row.host_profile?.full_name,
+      });
+    },
+    onError: (err: Error) => toast.error(err.message || "Could not generate Gemini draft"),
   });
 
   const openCompose = (row: PendingBookingRow) => {
@@ -210,18 +231,6 @@ export default function Leads() {
     return { dateLine, timeLine, where, tz };
   };
 
-  if (pendingLoading) {
-    return (
-      <div className="space-y-6 p-6">
-        <div className="space-y-2">
-          <Skeleton className="h-8 w-64" />
-          <Skeleton className="h-4 w-96" />
-        </div>
-        <Skeleton className="h-72 w-full" />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6 p-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -231,121 +240,147 @@ export default function Leads() {
         <ShareLeadMagnetLinksDialog />
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Booking type</Label>
-          <Select value={kindFilter} onValueChange={(v) => setKindFilter(v as BookingKind | "all")}>
-            <SelectTrigger className="w-[220px]">
-              <SelectValue placeholder="All types" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All types</SelectItem>
-              {BOOKING_KINDS.map((k) => (
-                <SelectItem key={k} value={k}>
-                  {BOOKING_KIND_LABEL[k]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Lead</Label>
-          <Select value={leadFilter} onValueChange={setLeadFilter}>
-            <SelectTrigger className="w-[220px]">
-              <SelectValue placeholder="All leads" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All leads</SelectItem>
-              {leadFilterOptions.map(([id, label]) => (
-                <SelectItem key={id} value={id}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="min-w-[200px] flex-1 space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Search</Label>
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Name, email, business…"
-          />
-        </div>
-      </div>
+      <Tabs defaultValue="pending" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="pending">Pending confirmation</TabsTrigger>
+          <TabsTrigger value="sent-emails">Sent emails</TabsTrigger>
+        </TabsList>
 
-      <div className="rounded-lg border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Type</TableHead>
-              <TableHead>Hosts</TableHead>
-              <TableHead className="min-w-[200px]">Date · Where · Time</TableHead>
-              <TableHead className="w-[140px] text-right">Action</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredRows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="py-12 text-center text-sm text-muted-foreground">
-                  No bookings awaiting confirmation.
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredRows.map((row) => {
-                const kind = normalizeBookingKind(row.booking_kind);
-                const hostName = row.host_profile?.full_name?.trim() || "—";
-                const w = whenParts(row);
-                return (
-                  <TableRow key={row.id}>
-                    <TableCell className="align-top">
-                      <Badge variant="secondary" className="font-normal">
-                        {BOOKING_KIND_LABEL[kind]}
-                      </Badge>
-                      <div className="mt-2 space-y-0.5 border-t border-border/60 pt-2 text-xs text-muted-foreground">
-                        <div className="font-medium text-foreground">{row.full_name || "—"}</div>
-                        {row.business_name ? <div>{row.business_name}</div> : null}
-                        {row.email ? <div className="font-mono">{row.email}</div> : null}
-                        {row.phone ? <div>{row.phone}</div> : null}
-                      </div>
-                    </TableCell>
-                    <TableCell className="align-top">
-                      <div className="font-medium">{hostName}</div>
-                      {row.employee_reference_code ? (
-                        <div className="text-xs text-muted-foreground">Ref · {row.employee_reference_code}</div>
-                      ) : null}
-                    </TableCell>
-                    <TableCell className="align-top text-sm">
-                      <dl className="space-y-1.5">
-                        <div>
-                          <dt className="text-xs font-medium text-muted-foreground">Date</dt>
-                          <dd>{w.dateLine}</dd>
-                        </div>
-                        <div>
-                          <dt className="text-xs font-medium text-muted-foreground">Where</dt>
-                          <dd>{w.where}</dd>
-                        </div>
-                        <div>
-                          <dt className="text-xs font-medium text-muted-foreground">Time</dt>
-                          <dd>
-                            {w.timeLine}{" "}
-                            <span className="text-muted-foreground">({w.tz})</span>
-                          </dd>
-                        </div>
-                      </dl>
-                    </TableCell>
-                    <TableCell className="align-top text-right">
-                      <Button type="button" size="sm" onClick={() => openCompose(row)}>
-                        Review email
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </div>
+        <TabsContent value="pending" className="space-y-4">
+          {pendingLoading ? (
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-3">
+                <Skeleton className="h-10 w-[220px]" />
+                <Skeleton className="h-10 w-[220px]" />
+                <Skeleton className="h-10 min-w-[200px] flex-1" />
+              </div>
+              <Skeleton className="h-72 w-full rounded-lg" />
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Booking type</Label>
+                  <Select value={kindFilter} onValueChange={(v) => setKindFilter(v as BookingKind | "all")}>
+                    <SelectTrigger className="w-[220px]">
+                      <SelectValue placeholder="All types" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All types</SelectItem>
+                      {BOOKING_KINDS.map((k) => (
+                        <SelectItem key={k} value={k}>
+                          {BOOKING_KIND_LABEL[k]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Lead</Label>
+                  <Select value={leadFilter} onValueChange={setLeadFilter}>
+                    <SelectTrigger className="w-[220px]">
+                      <SelectValue placeholder="All leads" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All leads</SelectItem>
+                      {leadFilterOptions.map(([id, label]) => (
+                        <SelectItem key={id} value={id}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="min-w-[200px] flex-1 space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Search</Label>
+                  <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Name, email, business…"
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-lg border bg-card">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Hosts</TableHead>
+                      <TableHead className="min-w-[200px]">Date · Where · Time</TableHead>
+                      <TableHead className="w-[140px] text-right">Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredRows.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="py-12 text-center text-sm text-muted-foreground">
+                          No bookings awaiting confirmation.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredRows.map((row) => {
+                        const kind = normalizeBookingKind(row.booking_kind);
+                        const hostName = row.host_profile?.full_name?.trim() || "—";
+                        const w = whenParts(row);
+                        return (
+                          <TableRow key={row.id}>
+                            <TableCell className="align-top">
+                              <Badge variant="secondary" className="font-normal">
+                                {BOOKING_KIND_LABEL[kind]}
+                              </Badge>
+                              <div className="mt-2 space-y-0.5 border-t border-border/60 pt-2 text-xs text-muted-foreground">
+                                <div className="font-medium text-foreground">{row.full_name || "—"}</div>
+                                {row.business_name ? <div>{row.business_name}</div> : null}
+                                {row.email ? <div className="font-mono">{row.email}</div> : null}
+                                {row.phone ? <div>{row.phone}</div> : null}
+                              </div>
+                            </TableCell>
+                            <TableCell className="align-top">
+                              <div className="font-medium">{hostName}</div>
+                              {row.employee_reference_code ? (
+                                <div className="text-xs text-muted-foreground">Ref · {row.employee_reference_code}</div>
+                              ) : null}
+                            </TableCell>
+                            <TableCell className="align-top text-sm">
+                              <dl className="space-y-1.5">
+                                <div>
+                                  <dt className="text-xs font-medium text-muted-foreground">Date</dt>
+                                  <dd>{w.dateLine}</dd>
+                                </div>
+                                <div>
+                                  <dt className="text-xs font-medium text-muted-foreground">Where</dt>
+                                  <dd>{w.where}</dd>
+                                </div>
+                                <div>
+                                  <dt className="text-xs font-medium text-muted-foreground">Time</dt>
+                                  <dd>
+                                    {w.timeLine}{" "}
+                                    <span className="text-muted-foreground">({w.tz})</span>
+                                  </dd>
+                                </div>
+                              </dl>
+                            </TableCell>
+                            <TableCell className="align-top text-right">
+                              <Button type="button" size="sm" onClick={() => openCompose(row)}>
+                                Review email
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent value="sent-emails">
+          <SentEmailsPanel messageTypesIn={["lead_confirmation", "lead_ops_notification"]} />
+        </TabsContent>
+      </Tabs>
 
       <BookingConfirmationEmailDialog
         open={composeOpen}
@@ -355,12 +390,19 @@ export default function Leads() {
         }}
         meeting={selectedForCompose ? toDialogMeeting(selectedForCompose) : null}
         isSending={confirmStrategySessionMutation.isPending}
-        onSend={async ({ guestHtml, guestSubject }) => {
+        isGeneratingDraft={generateDraftMutation.isPending}
+        onGenerateDraft={async () => {
+          if (!selectedForCompose) return { subject: "", bodyHtml: "" };
+          const draft = await generateDraftMutation.mutateAsync(selectedForCompose);
+          return { subject: draft.subject, bodyHtml: draft.bodyHtml };
+        }}
+        onSend={async ({ guestHtml, guestSubject, generatedBy }) => {
           if (!selectedForCompose) return;
           await confirmStrategySessionMutation.mutateAsync({
             meetingId: selectedForCompose.id,
             guestHtml,
             guestSubject,
+            generatedBy,
           });
         }}
       />

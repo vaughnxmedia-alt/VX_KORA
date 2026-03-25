@@ -45,15 +45,26 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   meeting: PendingBookingForDialog | null;
-  onSend: (payload: { guestHtml: string; guestSubject: string }) => Promise<void>;
+  onSend: (payload: { guestHtml: string; guestSubject: string; generatedBy: "human" | "gemini" }) => Promise<void>;
+  onGenerateDraft: () => Promise<{ subject: string; bodyHtml: string }>;
   isSending: boolean;
+  isGeneratingDraft: boolean;
 };
 
-export function BookingConfirmationEmailDialog({ open, onOpenChange, meeting, onSend, isSending }: Props) {
+export function BookingConfirmationEmailDialog({
+  open,
+  onOpenChange,
+  meeting,
+  onSend,
+  onGenerateDraft,
+  isSending,
+  isGeneratingDraft,
+}: Props) {
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  const [generatedBy, setGeneratedBy] = useState<"human" | "gemini">("human");
 
   useEffect(() => {
     if (!open || !meeting) return;
@@ -91,6 +102,7 @@ export function BookingConfirmationEmailDialog({ open, onOpenChange, meeting, on
       publicSiteUrl: PUBLIC_SITE_URL,
     });
     setBody(html);
+    setGeneratedBy("human");
   }, [open, meeting]);
 
   const handleToolbar = (action: "bold" | "italic" | "li") => {
@@ -104,7 +116,14 @@ export function BookingConfirmationEmailDialog({ open, onOpenChange, meeting, on
 
   const handleSubmit = async () => {
     if (!meeting?.id) return;
-    await onSend({ guestHtml: body, guestSubject: subject });
+    await onSend({ guestHtml: body, guestSubject: subject, generatedBy });
+  };
+
+  const handleGenerateDraft = async () => {
+    const draft = await onGenerateDraft();
+    if (draft.subject?.trim()) setSubject(draft.subject.trim());
+    if (draft.bodyHtml?.trim()) setBody(draft.bodyHtml.trim());
+    setGeneratedBy("gemini");
   };
 
   return (
@@ -214,6 +233,9 @@ export function BookingConfirmationEmailDialog({ open, onOpenChange, meeting, on
         </div>
 
         <DialogFooter className="gap-2 border-t bg-background px-4 py-3 sm:justify-end">
+          <Button type="button" variant="secondary" onClick={handleGenerateDraft} disabled={isGeneratingDraft || isSending || !meeting?.id}>
+            {isGeneratingDraft ? "Generating…" : "Generate with Gemini"}
+          </Button>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSending}>
             Cancel
           </Button>

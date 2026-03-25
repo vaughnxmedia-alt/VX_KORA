@@ -40,8 +40,8 @@ export const Footer = () => {
           <div>
             <h3 className="font-semibold text-primary mb-6">Support</h3>
             <ul className="space-y-3 text-sm">
-              <li><FooterLink to="/auth">Log In</FooterLink></li>
-              <li><FooterLink to="/auth">Client Portal</FooterLink></li>
+              <li><FooterLink to="/auth">JKPR Portal</FooterLink></li>
+              <li><FooterLink to="/kora">Client Portal</FooterLink></li>
               <li>
                 <SupportDialog>
                   <button className="text-muted-foreground hover:text-primary hover:translate-x-1 transition-all duration-200 inline-block">
