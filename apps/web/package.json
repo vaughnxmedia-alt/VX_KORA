@@ -9,7 +9,7 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "deploy:edge-strategy": "npx supabase functions deploy strategy-session-availability strategy-session-book strategy-session-hosts --no-verify-jwt"
+    "deploy:edge-strategy": "npx supabase functions deploy strategy-session-availability strategy-session-book strategy-session-hosts --no-verify-jwt && npx supabase functions deploy strategy-session-admin-confirm"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.988.0",

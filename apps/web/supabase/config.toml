@@ -28,6 +28,9 @@ verify_jwt = false
 [functions.strategy-session-hosts]
 verify_jwt = false
 
+[functions.strategy-session-admin-confirm]
+verify_jwt = true
+
 [api]
 enabled = true
 # Port to use for the API URL.

@@ -54,7 +54,7 @@ CREATE INDEX IF NOT EXISTS idx_intel_telegram_messages_chat ON intel_telegram_me
 -- Tenant profile (enriched customer for intelligence pipeline)
 CREATE TABLE IF NOT EXISTS intel_tenant_profiles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  customer_id TEXT REFERENCES customers(id) ON DELETE CASCADE,
+  customer_id UUID REFERENCES customers(id) ON DELETE CASCADE,
   telegram_id BIGINT UNIQUE,
   telegram_username TEXT,
   business_name TEXT,
@@ -621,9 +621,26 @@ INSERT INTO intel_tenant_profiles (
   business_name,
   is_test_tenant,
   test_notes
-) VALUES 
-  ('juss', 8216104620, 'juss', 'Juss', TRUE, 'Primary test tenant'),
-  ('jahknowspr', 8697293004, 'jahknowspr', 'JahKnowsPR', TRUE, 'Secondary test tenant')
+)
+SELECT c.id, 8216104620, 'juss', 'Juss', TRUE, 'Primary test tenant'
+FROM public.customers c
+WHERE c.telegram_id = 8216104620
+ON CONFLICT (customer_id) DO UPDATE SET
+  is_test_tenant = TRUE,
+  test_notes = EXCLUDED.test_notes,
+  updated_at = NOW();
+
+INSERT INTO intel_tenant_profiles (
+  customer_id,
+  telegram_id,
+  telegram_username,
+  business_name,
+  is_test_tenant,
+  test_notes
+)
+SELECT c.id, 8697293004, 'jahknowspr', 'JahKnowsPR', TRUE, 'Secondary test tenant'
+FROM public.customers c
+WHERE c.telegram_id = 8697293004
 ON CONFLICT (customer_id) DO UPDATE SET
   is_test_tenant = TRUE,
   test_notes = EXCLUDED.test_notes,

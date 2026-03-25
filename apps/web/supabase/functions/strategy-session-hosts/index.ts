@@ -30,7 +30,7 @@ serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const { data, error } = await supabase
       .from("strategy_session_hosts")
-      .select("reference_code, display_name, is_default_public")
+      .select("reference_code, display_name, is_default_public, list_subtitle")
       .eq("active", true)
       .order("display_name", { ascending: true });
 

@@ -14,12 +14,6 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
-const CREATIVE_CONSULT_MAIL =
-  "mailto:welcome@jahknowspr.com?subject=Creative%20services%20consultation&body=Tell%20us%20about%20your%20project%20(videography%2C%20photography%2C%20branding%2C%20web%2C%20etc.)%3A%0A%0A";
-
-const CAMPAIGN_RETAINER_MAIL =
-  "mailto:welcome@jahknowspr.com?subject=Campaign%20%26%20retainer%20inquiry&body=Share%20your%20goals%2C%20timeline%2C%20and%20what%20ongoing%20support%20should%20look%20like%3A%0A%0A";
-
 function WhoItBelongsTo({ children }: { children: string }) {
   return (
     <div className="rounded-lg border border-border/50 bg-muted/25 px-4 py-4 md:px-5 md:py-4">
@@ -212,7 +206,7 @@ const WorkWithMe = () => {
             Clients who need creative execution, brand assets, content production, or hands-on project delivery.
           </WhoItBelongsTo>
           <Button variant="hero" size="lg" className="mt-2 w-full sm:w-auto" asChild>
-            <a href={CREATIVE_CONSULT_MAIL}>Book a Creative Consultation</a>
+            <Link to="/consultation/creative-production">Book a Creative Consultation</Link>
           </Button>
         </div>
       </section>
@@ -240,7 +234,7 @@ const WorkWithMe = () => {
             Brands, businesses, and teams that need sustained campaign support and ongoing strategic leadership.
           </WhoItBelongsTo>
           <Button variant="hero" size="lg" className="mt-2 w-full sm:w-auto" asChild>
-            <a href={CAMPAIGN_RETAINER_MAIL}>Discuss a Campaign Retainer</a>
+            <Link to="/consultation/campaign-retainer">Discuss a Campaign Retainer</Link>
           </Button>
         </div>
       </section>
@@ -270,7 +264,7 @@ const WorkWithMe = () => {
               platform access.
             </WhoItBelongsTo>
             <Button variant="hero" size="lg" className="mt-2 w-full sm:w-auto" asChild>
-              <Link to="/kora">Learn About Full KORA Access</Link>
+              <Link to="/consultation/kora-platform">Apply for full KORA access</Link>
             </Button>
           </div>
 

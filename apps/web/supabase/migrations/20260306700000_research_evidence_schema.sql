@@ -11,10 +11,13 @@
 -- Stores raw research data collected by research agents
 -- ============================================================================
 
+-- v1 shape from intelligence_brain_schema is incompatible with this evidence-oriented model
+DROP TABLE IF EXISTS intel_research_findings CASCADE;
+
 CREATE TABLE IF NOT EXISTS intel_research_findings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   pipeline_run_id UUID REFERENCES intel_pipeline_runs(id) ON DELETE CASCADE,
-  tenant_id UUID REFERENCES tenant_profiles(id) ON DELETE CASCADE,
+  tenant_id UUID REFERENCES intel_tenant_profiles(id) ON DELETE CASCADE,
   
   -- Finding classification
   finding_type TEXT NOT NULL CHECK (finding_type IN (
@@ -75,7 +78,7 @@ CREATE INDEX idx_research_findings_created ON intel_research_findings(created_at
 
 CREATE TABLE IF NOT EXISTS intel_evidence_bundles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID REFERENCES tenant_profiles(id) ON DELETE CASCADE,
+  tenant_id UUID REFERENCES intel_tenant_profiles(id) ON DELETE CASCADE,
   
   -- Link to deliverable
   deliverable_id UUID,
@@ -157,7 +160,7 @@ CREATE INDEX idx_evidence_bundles_confidence ON intel_evidence_bundles(confidenc
 
 CREATE TABLE IF NOT EXISTS intel_research_gaps (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID REFERENCES tenant_profiles(id) ON DELETE CASCADE,
+  tenant_id UUID REFERENCES intel_tenant_profiles(id) ON DELETE CASCADE,
   pipeline_run_id UUID REFERENCES intel_pipeline_runs(id) ON DELETE CASCADE,
   
   -- Gap identification
@@ -196,7 +199,7 @@ CREATE INDEX idx_research_gaps_unresolved ON intel_research_gaps(resolved) WHERE
 
 CREATE TABLE IF NOT EXISTS intel_competitor_profiles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID REFERENCES tenant_profiles(id) ON DELETE CASCADE,
+  tenant_id UUID REFERENCES intel_tenant_profiles(id) ON DELETE CASCADE,
   research_finding_id UUID REFERENCES intel_research_findings(id) ON DELETE SET NULL,
   
   -- Competitor identity
@@ -254,7 +257,7 @@ CREATE INDEX idx_competitor_profiles_tenant ON intel_competitor_profiles(tenant_
 
 CREATE TABLE IF NOT EXISTS intel_audience_research (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID REFERENCES tenant_profiles(id) ON DELETE CASCADE,
+  tenant_id UUID REFERENCES intel_tenant_profiles(id) ON DELETE CASCADE,
   research_finding_id UUID REFERENCES intel_research_findings(id) ON DELETE SET NULL,
   
   -- Demographics with evidence
@@ -328,7 +331,7 @@ CREATE INDEX idx_audience_research_tenant ON intel_audience_research(tenant_id);
 
 CREATE TABLE IF NOT EXISTS intel_market_intelligence (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID REFERENCES tenant_profiles(id) ON DELETE CASCADE,
+  tenant_id UUID REFERENCES intel_tenant_profiles(id) ON DELETE CASCADE,
   research_finding_id UUID REFERENCES intel_research_findings(id) ON DELETE SET NULL,
   
   -- Industry context
@@ -432,7 +435,7 @@ ALTER TABLE intel_market_intelligence ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view own research findings"
   ON intel_research_findings FOR SELECT
   USING (tenant_id IN (
-    SELECT tp.id FROM tenant_profiles tp 
+    SELECT tp.id FROM intel_tenant_profiles tp 
     JOIN customers c ON c.id = tp.customer_id 
     WHERE c.user_id = auth.uid()
   ));
@@ -445,7 +448,7 @@ CREATE POLICY "Service role can manage research findings"
 CREATE POLICY "Users can view own evidence bundles"
   ON intel_evidence_bundles FOR SELECT
   USING (tenant_id IN (
-    SELECT tp.id FROM tenant_profiles tp 
+    SELECT tp.id FROM intel_tenant_profiles tp 
     JOIN customers c ON c.id = tp.customer_id 
     WHERE c.user_id = auth.uid()
   ));
@@ -458,7 +461,7 @@ CREATE POLICY "Service role can manage evidence bundles"
 CREATE POLICY "Users can view own research gaps"
   ON intel_research_gaps FOR SELECT
   USING (tenant_id IN (
-    SELECT tp.id FROM tenant_profiles tp 
+    SELECT tp.id FROM intel_tenant_profiles tp 
     JOIN customers c ON c.id = tp.customer_id 
     WHERE c.user_id = auth.uid()
   ));
@@ -471,7 +474,7 @@ CREATE POLICY "Service role can manage research gaps"
 CREATE POLICY "Users can view own competitor profiles"
   ON intel_competitor_profiles FOR SELECT
   USING (tenant_id IN (
-    SELECT tp.id FROM tenant_profiles tp 
+    SELECT tp.id FROM intel_tenant_profiles tp 
     JOIN customers c ON c.id = tp.customer_id 
     WHERE c.user_id = auth.uid()
   ));
@@ -484,7 +487,7 @@ CREATE POLICY "Service role can manage competitor profiles"
 CREATE POLICY "Users can view own audience research"
   ON intel_audience_research FOR SELECT
   USING (tenant_id IN (
-    SELECT tp.id FROM tenant_profiles tp 
+    SELECT tp.id FROM intel_tenant_profiles tp 
     JOIN customers c ON c.id = tp.customer_id 
     WHERE c.user_id = auth.uid()
   ));
@@ -497,7 +500,7 @@ CREATE POLICY "Service role can manage audience research"
 CREATE POLICY "Users can view own market intelligence"
   ON intel_market_intelligence FOR SELECT
   USING (tenant_id IN (
-    SELECT tp.id FROM tenant_profiles tp 
+    SELECT tp.id FROM intel_tenant_profiles tp 
     JOIN customers c ON c.id = tp.customer_id 
     WHERE c.user_id = auth.uid()
   ));

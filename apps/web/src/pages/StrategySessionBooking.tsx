@@ -1,13 +1,13 @@
 /**
  * Strategy Session ($150) — intake, schedule, confirm. Submits to Edge Function for DB + email.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
 import { format, addDays, startOfMonth, endOfMonth, subMonths, addMonths } from "date-fns";
-import { ArrowLeft, Calendar as CalendarIcon, Check, Loader2, Sparkles } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { ArrowLeft, Calendar as CalendarIcon, Loader2, Sparkles } from "lucide-react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,12 +32,12 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { intakeSchema, TIMEZONES, type IntakeValues } from "@/features/strategy-session/schema";
+import { fetchAvailability, fetchStrategySessionHosts, type DayDiagnostic } from "@/features/strategy-session/api";
 import {
-  fetchAvailability,
-  fetchStrategySessionHosts,
-  submitStrategySessionBooking,
-  type DayDiagnostic,
-} from "@/features/strategy-session/api";
+  writeDraftToStorage,
+  type StrategySessionBookingDraft,
+} from "@/features/strategy-session/strategySessionDraft";
+import { formatStrategyHostListLabel } from "@/features/strategy-session/formatHostListLabel";
 import { toast } from "sonner";
 
 function ymdInTimeZone(d: Date, tz: string): string {
@@ -136,14 +136,15 @@ function describeEmptyDayDiagnostic(d: DayDiagnostic | undefined): string {
 
 export default function StrategySessionBooking() {
   const navigate = useNavigate();
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const strategyPrefillApplied = useRef(false);
+  const [step, setStep] = useState<1 | 2>(1);
   const [timezone, setTimezone] = useState<string>("America/New_York");
   const [selectedDay, setSelectedDay] = useState<Date | undefined>(undefined);
   /** Drives API range so navigating the calendar (e.g. April 2026) loads slots for that month. */
   const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
   const [selectedSlotIso, setSelectedSlotIso] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [done, setDone] = useState<{ meetingId?: string; emailOk: boolean } | null>(null);
 
   const form = useForm<IntakeValues>({
     resolver: zodResolver(intakeSchema),
@@ -165,11 +166,49 @@ export default function StrategySessionBooking() {
     },
   });
 
+  /** e.g. /strategy-session?code=JUSTICE prefills referral from business cards */
+  useEffect(() => {
+    const code = searchParams.get("code")?.trim();
+    if (code) {
+      form.setValue("employeeReferenceCode", code.toUpperCase());
+    }
+  }, [searchParams, form]);
+
+  /** Prefill from short consultation pages via navigate(..., { state: { strategySessionPrefill } }) */
+  useEffect(() => {
+    if (strategyPrefillApplied.current) return;
+    const st = location.state as { strategySessionPrefill?: Partial<IntakeValues> } | null;
+    if (!st?.strategySessionPrefill || typeof st.strategySessionPrefill !== "object") return;
+    strategyPrefillApplied.current = true;
+    const p = st.strategySessionPrefill;
+    (Object.keys(p) as (keyof IntakeValues)[]).forEach((key) => {
+      const val = p[key];
+      if (val !== undefined && val !== null && String(val).length > 0) {
+        form.setValue(key, val as never);
+      }
+    });
+  }, [location.state, form]);
+
   const employeeReferenceCode = form.watch("employeeReferenceCode");
   const hostCodeForAvailability = useMemo(() => {
     const t = employeeReferenceCode?.trim();
     return t ? t.toUpperCase() : undefined;
   }, [employeeReferenceCode]);
+
+  /** e.g. ?kind=creative_consultation — stored on meetings.booking_kind for Leads filters */
+  const bookingKindFromUrl = useMemo(() => {
+    const k = searchParams.get("kind")?.trim().toLowerCase();
+    if (
+      k === "full_program_sales" ||
+      k === "creative_consultation" ||
+      k === "telegram" ||
+      k === "strategy_session" ||
+      k === "campaign_retainer"
+    ) {
+      return k;
+    }
+    return undefined;
+  }, [searchParams]);
 
   /** One month before through two months after the month the user is viewing (inclusive). */
   const rangeStart = format(startOfMonth(subMonths(calendarMonth, 1)), "yyyy-MM-dd");
@@ -266,67 +305,33 @@ export default function StrategySessionBooking() {
     setStep(2);
   });
 
-  const onConfirmBooking = async () => {
-    const values = form.getValues();
+  const handleBookSession = () => {
     if (!selectedSlotIso) {
       toast.error("Choose a time slot");
       return;
     }
-    setSubmitting(true);
+    const values = form.getValues();
+    const draft: StrategySessionBookingDraft = {
+      values,
+      selectedSlotIso,
+      timezone,
+      ...(bookingKindFromUrl ? { bookingKind: bookingKindFromUrl } : {}),
+    };
     try {
-      const res = await submitStrategySessionBooking(values, selectedSlotIso, timezone);
-      if (res.error && !res.meetingId) {
-        toast.error(res.error);
-        return;
-      }
-      setDone({
-        meetingId: res.meetingId,
-        emailOk: res.confirmationStatus === "sent" && res.ok !== false,
-      });
-      if (res.confirmationStatus === "failed" || res.ok === false) {
-        toast.message("Booking saved", {
-          description: res.error || "Confirmation email could not be sent. We’ll follow up manually.",
-        });
-      } else {
-        toast.success("Request received — check your email for next steps.");
-      }
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Something went wrong");
-    } finally {
-      setSubmitting(false);
+      writeDraftToStorage(draft);
+    } catch {
+      toast.error("Could not save your session. Allow storage or try another browser.");
+      return;
     }
+    navigate("/strategy-session/payment", { state: draft });
   };
-
-  if (done) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 py-16 px-4">
-        <div className="max-w-lg mx-auto text-center space-y-6">
-          <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <Check className="h-7 w-7" />
-          </div>
-          <h1 className="text-3xl font-semibold tracking-tight">Thank you</h1>
-          <p className="text-muted-foreground leading-relaxed">
-            {done.emailOk
-              ? "We received your Strategy Session ($150) request. We emailed you with next steps; a team member will confirm your meeting time."
-              : "Your request was saved. Our team will reach out shortly — we couldn’t send the automated email just now."}
-          </p>
-          {done.meetingId && (
-            <p className="text-xs text-muted-foreground font-mono">Reference: {done.meetingId}</p>
-          )}
-          <Button variant="outline" onClick={() => navigate("/work-with-me")}>
-            Back to Services
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <Form {...form}>
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
       <div className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => (step === 1 ? navigate(-1) : setStep((s) => (s - 1) as 1 | 2 | 3))}>
+          <Button variant="ghost" size="sm" onClick={() => (step === 1 ? navigate(-1) : setStep((s) => (s - 1) as 1 | 2))}>
             <ArrowLeft className="h-4 w-4 mr-1" />
             {step === 1 ? "Back" : "Previous"}
           </Button>
@@ -349,7 +354,7 @@ export default function StrategySessionBooking() {
         </div>
 
         <div className="flex justify-center gap-2 text-sm">
-          {[1, 2, 3].map((n) => (
+          {[1, 2].map((n) => (
             <span
               key={n}
               className={cn(
@@ -588,13 +593,14 @@ export default function StrategySessionBooking() {
                       <p className="text-xs text-muted-foreground">
                         {hostDirectory?.length
                           ? `Team: ${hostDirectory
-                              .map((h) =>
-                                h.is_default_public
-                                  ? `${h.display_name} (default)`
-                                  : `${h.display_name} — ${h.reference_code}`,
-                              )
+                              .map((h) => {
+                                const label = formatStrategyHostListLabel(h);
+                                return h.is_default_public ? `${label} (default)` : label;
+                              })
                               .join(" · ")}`
-                          : "Each strategist has their own calendar. Enter their code if you were given one."}
+                          : "Each strategist has their own calendar. Enter their code if you were given one."}{" "}
+                        Leave blank to use the default strategist. Links can include{" "}
+                        <code className="text-[10px]">?code=REFERRAL</code> to prefill this field.
                       </p>
                       <FormMessage />
                     </FormItem>
@@ -707,67 +713,8 @@ export default function StrategySessionBooking() {
                   )}
                 </div>
               </div>
-              <Button
-                type="button"
-                size="lg"
-                disabled={!selectedSlotIso}
-                onClick={() => setStep(3)}
-              >
-                Review and request
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {step === 3 && (
-          <Card className="border shadow-sm">
-            <CardHeader>
-              <CardTitle>Review your request</CardTitle>
-              <CardDescription>
-                $150 Strategy Session — submit your preferred time. A team member will confirm the meeting.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <dl className="grid gap-2 text-sm">
-                <div className="flex justify-between gap-4">
-                  <dt className="text-muted-foreground">Name</dt>
-                  <dd className="font-medium text-right">{form.getValues("fullName")}</dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt className="text-muted-foreground">Business</dt>
-                  <dd className="font-medium text-right">{form.getValues("businessName")}</dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt className="text-muted-foreground">When</dt>
-                  <dd className="font-medium text-right">
-                    {selectedSlotIso
-                      ? new Intl.DateTimeFormat("en-US", {
-                          timeZone: timezone,
-                          weekday: "short",
-                          month: "short",
-                          day: "numeric",
-                          hour: "numeric",
-                          minute: "2-digit",
-                        }).format(new Date(selectedSlotIso))
-                      : "—"}
-                  </dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt className="text-muted-foreground">Type</dt>
-                  <dd className="font-medium text-right">
-                    {form.getValues("sessionType") === "zoom" ? "Zoom" : "In person"}
-                  </dd>
-                </div>
-              </dl>
-              <Button type="button" size="lg" className="w-full sm:w-auto" disabled={submitting} onClick={onConfirmBooking}>
-                {submitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Booking…
-                  </>
-                ) : (
-                  "Submit request"
-                )}
+              <Button type="button" size="lg" disabled={!selectedSlotIso} onClick={handleBookSession}>
+                Book Session
               </Button>
             </CardContent>
           </Card>

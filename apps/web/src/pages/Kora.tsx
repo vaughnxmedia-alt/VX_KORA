@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Sparkles, Brain, Calendar, BarChart3, Target, Video, FileText, Lightbulb, CheckCircle2, Zap, Clock, Users, TrendingUp } from "lucide-react";
+import { ArrowRight, Sparkles, Brain, Lightbulb, CheckCircle2, Zap, Clock, Users, TrendingUp, Layers2, LayoutList } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -61,31 +61,32 @@ const Kora = () => {
       setIsSubmitting(false);
     }
   };
-  const features = [{
-    icon: Brain,
-    title: "AI-Powered Strategy",
-    description: "Get instant PR and marketing recommendations tailored to your brand's positioning and goals."
-  }, {
-    icon: Calendar,
-    title: "Smart Content Calendar",
-    description: "Plan and schedule content across all platforms with AI-optimized timing and messaging."
-  }, {
-    icon: BarChart3,
-    title: "Real-Time Analytics",
-    description: "Track engagement, sentiment, and brand visibility with actionable insights."
-  }, {
-    icon: Target,
-    title: "Audience Intelligence",
-    description: "Understand your target audience deeply with AI-driven demographic and psychographic analysis."
-  }, {
-    icon: Video,
-    title: "Filming Schedule",
-    description: "Organize content shoots with automated scheduling and shot list generation."
-  }, {
-    icon: FileText,
-    title: "Brand Blueprints",
-    description: "Comprehensive brand strategy documents generated and maintained by K.O.R.A."
-  }];
+  const featurePillars = [
+    {
+      principle: "Data first",
+      title: "Brand Intelligence",
+      description:
+        "Research-backed understanding that helps teams make smarter brand decisions before they produce more content.",
+      icon: Brain,
+      items: ["Get Inspired", "Brand Blueprints", "Target Audience", "Brand Strategy", "Intelligence Sources"],
+    },
+    {
+      principle: "Creative second",
+      title: "Creative Planning",
+      description:
+        "Strategic content and campaign development built around audience trust, message clarity, and stronger execution.",
+      icon: Layers2,
+      items: ["Content Strategy", "Campaign Generator", "Campaigns"],
+    },
+    {
+      principle: "Management third",
+      title: "Content Operations",
+      description:
+        "Structured systems for calendars, shoots, publishing, and asset organization so the work stays aligned.",
+      icon: LayoutList,
+      items: ["Content Calendar", "Filming Schedule", "Blog Management", "Asset Library"],
+    },
+  ] as const;
   const benefits = [{
     icon: Zap,
     text: "10x faster strategy development"
@@ -193,53 +194,64 @@ const Kora = () => {
         </div>
       </section>
 
-      {/* Features Grid */}
+      {/* Platform capabilities: intelligence → creative → operations */}
       <section className="py-20 md:py-28 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto">
-          <motion.div initial={{
-          opacity: 0,
-          y: 30
-        }} whileInView={{
-          opacity: 1,
-          y: 0
-        }} viewport={{
-          once: true
-        }} transition={{
-          duration: 0.7
-        }} className="text-center mb-16">
-            <h2 className="text-3xl md:text-5xl font-serif font-bold text-foreground tracking-tight mb-4">
-              Everything You Need<span className="text-gold">.</span>
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7 }}
+            className="text-center mb-14 md:mb-16 space-y-6"
+          >
+            <h2 className="text-3xl md:text-5xl font-serif font-bold text-foreground tracking-tight">
+              What We Bring to the Work<span className="text-gold">.</span>
             </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Early access members get exclusive access to K.O.R.A.'s core features.
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+              This is not a platform built to do everything. It is built to help brands and creative teams do the right
+              things in the right order, with audience trust at the center.
+            </p>
+            <p className="text-base text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+              KORA is data first, creative second, and management third. We start with intelligence, turn it into focused
+              strategy, and support execution with structure so the work stays aligned. Growth and scale may follow, but
+              they are outcomes, not the promise.
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {features.map((feature, index) => <motion.div key={feature.title} initial={{
-            opacity: 0,
-            y: 30
-          }} whileInView={{
-            opacity: 1,
-            y: 0
-          }} viewport={{
-            once: true
-          }} transition={{
-            duration: 0.5,
-            delay: index * 0.1
-          }}>
-                <Card className="h-full bg-background border-border/50 hover:border-primary/30 hover:shadow-lg transition-all duration-300 group">
-                  <CardContent className="p-6 space-y-4">
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                      <feature.icon className="w-6 h-6 text-primary" />
+          <div className="grid lg:grid-cols-3 gap-8">
+            {featurePillars.map((pillar, index) => (
+              <motion.div
+                key={pillar.title}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+              >
+                <Card className="h-full bg-background border-border/50 hover:border-primary/25 hover:shadow-lg transition-all duration-300 group flex flex-col">
+                  <CardContent className="p-6 md:p-7 flex flex-col flex-1 space-y-5">
+                    <div className="space-y-4">
+                      <p className="text-xs font-semibold uppercase tracking-widest text-primary/90">{pillar.principle}</p>
+                      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors">
+                        <pillar.icon className="w-6 h-6 text-primary" />
+                      </div>
+                      <h3 className="text-xl font-semibold text-foreground tracking-tight">{pillar.title}</h3>
+                      <p className="text-muted-foreground text-sm leading-relaxed">{pillar.description}</p>
                     </div>
-                    <h3 className="text-lg font-semibold text-foreground">{feature.title}</h3>
-                    <p className="text-muted-foreground text-sm leading-relaxed">
-                      {feature.description}
-                    </p>
+                    <div className="pt-4 mt-auto border-t border-border/60">
+                      <p className="text-xs font-medium text-foreground/80 mb-3">In the platform</p>
+                      <ul className="space-y-2.5 text-sm text-muted-foreground">
+                        {pillar.items.map((item) => (
+                          <li key={item} className="flex gap-2.5 leading-snug">
+                            <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-gold/80" aria-hidden />
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   </CardContent>
                 </Card>
-              </motion.div>)}
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>

@@ -168,20 +168,26 @@ ALTER TABLE content_intelligence_preferences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE source_recommendations ENABLE ROW LEVEL SECURITY;
 
 -- Service role can do everything
+DROP POLICY IF EXISTS "Service role has full access to intake sessions" ON telegram_intake_sessions;
 CREATE POLICY "Service role has full access to intake sessions" ON telegram_intake_sessions
   FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Service role has full access to brand blueprints" ON brand_blueprints;
 CREATE POLICY "Service role has full access to brand blueprints" ON brand_blueprints
   FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Service role has full access to content strategies" ON content_strategies;
 CREATE POLICY "Service role has full access to content strategies" ON content_strategies
   FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Service role has full access to audience analyses" ON audience_analyses;
 CREATE POLICY "Service role has full access to audience analyses" ON audience_analyses
   FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Service role has full access to content intel prefs" ON content_intelligence_preferences;
 CREATE POLICY "Service role has full access to content intel prefs" ON content_intelligence_preferences
   FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Service role has full access to source recommendations" ON source_recommendations;
 CREATE POLICY "Service role has full access to source recommendations" ON source_recommendations
   FOR ALL USING (true);

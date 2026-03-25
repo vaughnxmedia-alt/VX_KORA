@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { cleanupAuthState } from "@/lib/auth-utils";
 import { useToast } from "@/hooks/use-toast";
@@ -12,7 +12,7 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Settings, LogOut, User as UserIcon } from "lucide-react";
+import { LayoutDashboard, Settings, LogOut, User as UserIcon } from "lucide-react";
 import { User } from "@supabase/supabase-js";
 
 interface AccountNavigationProps {
@@ -25,7 +25,11 @@ interface AccountNavigationProps {
 
 export const AccountNavigation: React.FC<AccountNavigationProps> = ({ user, align = "end", className, onLinkClick, showUserDetails = false }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+  const dashboardActive =
+    location.pathname === "/dashboard" ||
+    (location.pathname.startsWith("/dashboard/") && !location.pathname.startsWith("/dashboard/settings"));
 
   const handleLogout = async () => {
     try {
@@ -83,7 +87,14 @@ export const AccountNavigation: React.FC<AccountNavigationProps> = ({ user, alig
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => handleNavigation('/dashboard/settings')}>
+        <DropdownMenuItem
+          onClick={() => handleNavigation("/dashboard")}
+          className={dashboardActive ? "bg-accent text-accent-foreground" : undefined}
+        >
+          <LayoutDashboard className="w-4 h-4 mr-2" />
+          Dashboard
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleNavigation("/dashboard/settings")}>
           <Settings className="w-4 h-4 mr-2" />
           Account Settings
         </DropdownMenuItem>

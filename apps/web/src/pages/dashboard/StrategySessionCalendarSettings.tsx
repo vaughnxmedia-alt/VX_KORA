@@ -20,11 +20,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { TIMEZONES } from "@/features/strategy-session/schema";
 import { toast } from "sonner";
 import { CalendarClock, Loader2 } from "lucide-react";
+import { formatStrategyHostListLabel } from "@/features/strategy-session/formatHostListLabel";
 
 type HostRow = {
   user_id: string;
   display_name: string;
   reference_code: string;
+  is_default_public: boolean;
+  can_view_all_meetings: boolean;
+  list_subtitle: string | null;
 };
 
 const ISO_DAYS: { n: number; label: string }[] = [
@@ -49,13 +53,22 @@ export default function StrategySessionCalendarSettings() {
   const [slotDuration, setSlotDuration] = useState(60);
   const [blockedText, setBlockedText] = useState("");
   const [overridesJson, setOverridesJson] = useState("[]");
+  const [newReferenceCode, setNewReferenceCode] = useState("");
+  const [newDisplayName, setNewDisplayName] = useState("");
+  const [newHostUserId, setNewHostUserId] = useState("");
+  const [newHostIsDefault, setNewHostIsDefault] = useState(false);
+  const [newListSubtitle, setNewListSubtitle] = useState("");
+  const [canViewAllMeetings, setCanViewAllMeetings] = useState(false);
+  const [hostListSubtitle, setHostListSubtitle] = useState("");
 
   const { data: hosts, isLoading: hostsLoading } = useQuery({
     queryKey: ["strategy-session-hosts-admin"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("strategy_session_hosts")
-        .select("user_id, display_name, reference_code")
+        .select(
+          "user_id, display_name, reference_code, is_default_public, can_view_all_meetings, list_subtitle",
+        )
         .eq("active", true)
         .order("display_name");
       if (error) throw error;
@@ -63,9 +76,81 @@ export default function StrategySessionCalendarSettings() {
     },
   });
 
+  const { data: profilePickList } = useQuery({
+    queryKey: ["profiles-for-strategy-host-add"],
+    queryFn: async () => {
+      const { data: roles, error } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .in("role", ["admin", "author"]);
+      if (error) throw error;
+      const ids = [...new Set((roles ?? []).map((r) => r.user_id as string))];
+      if (ids.length === 0) return [];
+      const { data: profs, error: pErr } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", ids)
+        .order("full_name");
+      if (pErr) throw pErr;
+      return profs ?? [];
+    },
+    enabled: role === "admin",
+  });
+
+  const addHostMutation = useMutation({
+    mutationFn: async () => {
+      const code = newReferenceCode.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+      if (code.length < 2 || code.length > 32) {
+        throw new Error("Reference code must be 2–32 letters or numbers.");
+      }
+      if (!newDisplayName.trim()) throw new Error("Display name is required.");
+      if (!newHostUserId) throw new Error("Choose a team member (auth profile).");
+      const taken = hosts?.some((h) => h.reference_code === code);
+      if (taken) throw new Error("That reference code is already in use.");
+      if (hosts?.some((h) => h.user_id === newHostUserId)) {
+        throw new Error("That person is already a strategy session host.");
+      }
+      if (newHostIsDefault) {
+        const { error: u0 } = await supabase
+          .from("strategy_session_hosts")
+          .update({ is_default_public: false })
+          .eq("is_default_public", true);
+        if (u0) throw u0;
+      }
+      const { error: ins } = await supabase.from("strategy_session_hosts").insert({
+        reference_code: code,
+        user_id: newHostUserId,
+        display_name: newDisplayName.trim(),
+        list_subtitle: newListSubtitle.trim() || null,
+        is_default_public: newHostIsDefault,
+        active: true,
+      });
+      if (ins) throw ins;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["strategy-session-hosts-admin"] });
+      queryClient.invalidateQueries({ queryKey: ["strategy-session-hosts"] });
+      setNewReferenceCode("");
+      setNewDisplayName("");
+      setNewListSubtitle("");
+      setNewHostUserId("");
+      setNewHostIsDefault(false);
+      toast.success("Strategist added — set their hours below.");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not add host"),
+  });
+
   useEffect(() => {
     if (!hostUserId && hosts?.[0]?.user_id) {
       setHostUserId(hosts[0].user_id);
+    }
+  }, [hosts, hostUserId]);
+
+  useEffect(() => {
+    const h = hosts?.find((x) => x.user_id === hostUserId);
+    if (h) {
+      setCanViewAllMeetings(!!h.can_view_all_meetings);
+      setHostListSubtitle(h.list_subtitle ?? "");
     }
   }, [hosts, hostUserId]);
 
@@ -199,9 +284,23 @@ export default function StrategySessionCalendarSettings() {
         );
         if (insO) throw insO;
       }
+
+      const { error: hostOvErr } = await supabase
+        .from("strategy_session_hosts")
+        .update({
+          can_view_all_meetings: canViewAllMeetings,
+          list_subtitle: hostListSubtitle.trim() || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("user_id", hostUserId);
+      if (hostOvErr) throw hostOvErr;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["strategy-session-host-schedule"] });
+      queryClient.invalidateQueries({ queryKey: ["strategy-session-hosts-admin"] });
+      queryClient.invalidateQueries({ queryKey: ["strategy-session-hosts"] });
+      queryClient.invalidateQueries({ queryKey: ["my-strategy-host-flags"] });
+      queryClient.invalidateQueries({ queryKey: ["strategy-session-hosts-meetings-filter"] });
       toast.success("Strategy session calendar saved");
     },
     onError: (e) => {
@@ -211,7 +310,7 @@ export default function StrategySessionCalendarSettings() {
 
   const selectedHostLabel = useMemo(() => {
     const h = hosts?.find((x) => x.user_id === hostUserId);
-    return h ? `${h.display_name} (${h.reference_code})` : "";
+    return h ? formatStrategyHostListLabel(h) : "";
   }, [hosts, hostUserId]);
 
   if (role !== "admin") {
@@ -229,6 +328,83 @@ export default function StrategySessionCalendarSettings() {
           </p>
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Strategists and referral codes</CardTitle>
+          <CardDescription>
+            Public booking with no code uses the host marked <strong>default</strong>. Each row maps a referral code
+            (business card) to a team member. Add admins or authors who take Strategy Sessions.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-ref-code">Reference code</Label>
+              <Input
+                id="new-ref-code"
+                placeholder="e.g. ALEX"
+                value={newReferenceCode}
+                onChange={(e) => setNewReferenceCode(e.target.value.toUpperCase())}
+                autoComplete="off"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-display">Display name</Label>
+              <Input
+                id="new-display"
+                placeholder="Name on booking UI"
+                value={newDisplayName}
+                onChange={(e) => setNewDisplayName(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="new-subtitle">Brand or nickname (optional)</Label>
+            <Input
+              id="new-subtitle"
+              placeholder="e.g. Jahknowspr or Juss — shown in parentheses, not the referral code"
+              value={newListSubtitle}
+              onChange={(e) => setNewListSubtitle(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Team member</Label>
+            <Select value={newHostUserId || undefined} onValueChange={setNewHostUserId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Choose profile (admin/author)" />
+              </SelectTrigger>
+              <SelectContent>
+                {(profilePickList ?? []).map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {(p.full_name || "No name") + ` · ${p.id.slice(0, 8)}…`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch id="new-default" checked={newHostIsDefault} onCheckedChange={setNewHostIsDefault} />
+            <Label htmlFor="new-default">Default host (no referral code on public booking)</Label>
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={addHostMutation.isPending}
+            onClick={() => addHostMutation.mutate()}
+          >
+            {addHostMutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Adding…
+              </>
+            ) : (
+              "Add strategist"
+            )}
+          </Button>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -260,12 +436,45 @@ export default function StrategySessionCalendarSettings() {
                   <SelectContent>
                     {(hosts ?? []).map((h) => (
                       <SelectItem key={h.user_id} value={h.user_id}>
-                        {h.display_name} — {h.reference_code}
+                        {formatStrategyHostListLabel(h)}
+                        {h.is_default_public ? " · default" : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
+
+              {hostUserId && (
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="host-list-subtitle">Brand or nickname (optional)</Label>
+                    <Input
+                      id="host-list-subtitle"
+                      placeholder="e.g. Jahknowspr or Juss"
+                      value={hostListSubtitle}
+                      onChange={(e) => setHostListSubtitle(e.target.value)}
+                      autoComplete="off"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Shown in parentheses next to the display name in Meetings and booking. Referral code stays separate.
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-3 rounded-md border p-3">
+                    <Switch
+                      id="can-view-all-meetings"
+                      checked={canViewAllMeetings}
+                      onCheckedChange={setCanViewAllMeetings}
+                    />
+                    <div className="space-y-1">
+                      <Label htmlFor="can-view-all-meetings">Owner: view all team meetings</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Enables the Meetings dashboard filter for every strategist (bookings stay on each host; default
+                        host counts like any other).
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {hostUserId && (
                 <>

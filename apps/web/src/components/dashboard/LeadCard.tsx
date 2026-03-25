@@ -32,11 +32,28 @@ interface LeadCardProps {
   onUpdateStatus: (customerId: string, status: ClientStatus) => void;
   isUpdating?: boolean;
   /** Latest Strategy Session meeting for this customer (pipeline) */
-  strategySessionMeeting?: { id: string; confirmation_status: string | null } | null;
+  strategySessionMeeting?: {
+    id: string;
+    confirmation_status: string | null;
+    booking_status?: string | null;
+  } | null;
+  /** Sends guest + ops confirmation emails (admin Edge Function). */
+  onConfirmStrategySession?: (meetingId: string) => void;
   onPromoteStrategySession?: (customerId: string, meetingId: string) => void;
 }
 
-export function LeadCard({ customer, status, meetingDate, onScheduleMeeting, onRescheduleMeeting, onUpdateStatus, isUpdating, strategySessionMeeting, onPromoteStrategySession }: LeadCardProps) {
+export function LeadCard({
+  customer,
+  status,
+  meetingDate,
+  onScheduleMeeting,
+  onRescheduleMeeting,
+  onUpdateStatus,
+  isUpdating,
+  strategySessionMeeting,
+  onConfirmStrategySession,
+  onPromoteStrategySession,
+}: LeadCardProps) {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [secondMeetingCalendarOpen, setSecondMeetingCalendarOpen] = useState(false);
   const [rescheduleCalendarOpen, setRescheduleCalendarOpen] = useState(false);
@@ -73,11 +90,31 @@ export function LeadCard({ customer, status, meetingDate, onScheduleMeeting, onR
                 variant={strategySessionMeeting.confirmation_status === "sent" ? "default" : "secondary"}
                 className="text-[10px] font-normal justify-center w-full py-1"
               >
-                Email: {strategySessionMeeting.confirmation_status ?? "pending"}
+                {strategySessionMeeting.confirmation_status === "sent"
+                  ? "Confirmation emails sent"
+                  : "Awaiting your confirmation"}
               </Badge>
             ) : (
               <span className="text-[10px] text-muted-foreground">No Strategy Session row linked</span>
             )}
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              className="w-full h-8 text-xs gap-1"
+              disabled={
+                isUpdating ||
+                !strategySessionMeeting?.id ||
+                strategySessionMeeting.confirmation_status === "sent" ||
+                !onConfirmStrategySession
+              }
+              onClick={() =>
+                strategySessionMeeting?.id && onConfirmStrategySession?.(strategySessionMeeting.id)
+              }
+            >
+              <CheckCircle className="h-3 w-3" />
+              Confirm meeting and send emails
+            </Button>
             <Button
               type="button"
               variant="outline"
@@ -94,12 +131,12 @@ export function LeadCard({ customer, status, meetingDate, onScheduleMeeting, onR
                 onPromoteStrategySession?.(customer.id, strategySessionMeeting.id)
               }
             >
-              <CheckCircle className="h-3 w-3" />
-              Confirm & add to Clients
+              Add to Clients
             </Button>
             {strategySessionMeeting && strategySessionMeeting.confirmation_status !== "sent" ? (
               <p className="text-[10px] text-muted-foreground leading-tight">
-                Promoting is available after the confirmation email has been sent.
+                Confirm to send HTML emails: guest from <span className="font-mono">welcome@jahknowspr.com</span>{" "}
+                (Jah Jah); team copy to ops. Then add to Clients.
               </p>
             ) : null}
           </div>

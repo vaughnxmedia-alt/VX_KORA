@@ -322,6 +322,7 @@ export type Database = {
         Row: {
           additional_notes: string | null
           admin_confirmed_at: string | null
+          booking_kind: string
           booking_status: string | null
           business_name: string | null
           confirmation_status: string | null
@@ -358,6 +359,7 @@ export type Database = {
         Insert: {
           additional_notes?: string | null
           admin_confirmed_at?: string | null
+          booking_kind?: string
           booking_status?: string | null
           business_name?: string | null
           confirmation_status?: string | null
@@ -394,6 +396,7 @@ export type Database = {
         Update: {
           additional_notes?: string | null
           admin_confirmed_at?: string | null
+          booking_kind?: string
           booking_status?: string | null
           business_name?: string | null
           confirmation_status?: string | null
@@ -524,30 +527,36 @@ export type Database = {
       strategy_session_hosts: {
         Row: {
           active: boolean
+          can_view_all_meetings: boolean
           created_at: string
           display_name: string
           id: string
           is_default_public: boolean
+          list_subtitle: string | null
           reference_code: string
           updated_at: string
           user_id: string
         }
         Insert: {
           active?: boolean
+          can_view_all_meetings?: boolean
           created_at?: string
           display_name: string
           id?: string
           is_default_public?: boolean
+          list_subtitle?: string | null
           reference_code: string
           updated_at?: string
           user_id: string
         }
         Update: {
           active?: boolean
+          can_view_all_meetings?: boolean
           created_at?: string
           display_name?: string
           id?: string
           is_default_public?: boolean
+          list_subtitle?: string | null
           reference_code?: string
           updated_at?: string
           user_id?: string

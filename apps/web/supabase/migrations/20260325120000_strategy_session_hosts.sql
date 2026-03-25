@@ -43,7 +43,7 @@ COMMENT ON COLUMN public.meetings.employee_reference_code IS 'Normalized code th
 DROP INDEX IF EXISTS public.idx_meetings_strategy_session_slot_minute;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_meetings_strategy_session_slot_per_host
-  ON public.meetings (host_user_id, date_trunc('minute', meeting_date))
+  ON public.meetings (host_user_id, public.strategy_session_meeting_minute_utc(meeting_date))
   WHERE COALESCE(service_name, '') = 'Strategy Session'
     AND host_user_id IS NOT NULL;
 

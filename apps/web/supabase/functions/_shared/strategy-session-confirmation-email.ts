@@ -33,7 +33,7 @@ export function buildStrategySessionConfirmationHtml(params: {
 
   return `
 <div style="font-family: Georgia, 'Times New Roman', serif; max-width: 600px; margin: 0 auto; padding: 24px; line-height: 1.65; color: #1a1a1a;">
-  <h2 style="color: #0f172a; margin-bottom: 12px;">Your Strategy Session is booked</h2>
+  <h2 style="color: #0f172a; margin-bottom: 12px;">Your Strategy Session is confirmed</h2>
   <p>Hi ${escapeHtml(fullName)},</p>
   <p>Thank you for booking a <strong>paid Strategy Session ($150)</strong> with JahKnowsPR / KORA for <strong>${escapeHtml(businessName)}</strong>. This session is designed to qualify fit, capture your business context, and give you a clear path forward — before any backend software access, Telegram bot, or premium retainers.</p>
 

@@ -1,24 +1,18 @@
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { 
-  Menu, 
-  X, 
-  LogOut, 
-  BookText, 
-  Home, 
-  MessageCircle,
+import {
+  Menu,
+  X,
+  BookText,
+  Home,
   LayoutDashboard,
   User as UserIcon,
-  Settings,
   Briefcase,
   CalendarDays,
-  Sparkles
+  Sparkles,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "./AuthProvider";
-import { supabase } from "@/integrations/supabase/client";
-import { cleanupAuthState } from "@/lib/auth-utils";
-import { useToast } from "@/hooks/use-toast";
 import { Logo } from "@/components/Logo";
 import { AccountNavigation } from "./AccountNavigation";
 
@@ -27,7 +21,6 @@ const Navigation = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isLoading, hasTheBriefAccess } = useAuth();
-  const { toast } = useToast();
   
   // Smart navigation context detection
   const navigationContext = useMemo(() => {
@@ -81,33 +74,6 @@ const Navigation = () => {
       }
     }
     setIsOpen(false);
-  };
-
-  const handleLogout = async () => {
-    try {
-      // Clean up auth state first
-      cleanupAuthState();
-      
-      // Attempt global sign out
-      try {
-        await supabase.auth.signOut({ scope: 'global' });
-      } catch {
-        // Continue even if this fails
-        console.log('Global signout failed, continuing with cleanup');
-      }
-      
-      toast({
-        title: "Signed out successfully",
-        description: "You have been logged out.",
-      });
-      
-      // Force page reload for clean state
-      window.location.href = '/';
-    } catch (error) {
-      console.error('Error signing out:', error);
-      // Force reload anyway
-      window.location.href = '/';
-    }
   };
 
   // Get current page indicator for styling
@@ -165,38 +131,20 @@ const Navigation = () => {
               
               {/* User Actions */}
               <div className="flex items-center gap-2 ml-4 pl-4 border-l border-border">
-                
-                {user && (
-                  <Button 
-                    variant={isActiveRoute("/dashboard") ? "secondary" : "ghost"} 
-                    size="sm" 
-                    onClick={() => navigate('/dashboard')}
-                    className="whitespace-nowrap"
-                  >
-                    <LayoutDashboard className="w-4 h-4 mr-1.5" />
-                    Dashboard
-                  </Button>
-                )}
-
-                
                 {!isLoading && user && (
                   <AccountNavigation user={user} className="hover:bg-transparent hover:text-foreground" />
                 )}
                 
                 {/* CTA Button - Context Aware */}
                 {navigationContext !== 'app' && (
-                  <Button 
-                    variant="hero" 
-                    size="default" 
-                    onClick={() => {
-                      const element = document.getElementById('contact');
-                      if (element) {
-                        element.scrollIntoView({ behavior: 'smooth' });
-                      }
-                    }}
+                  <Button
+                    variant="hero"
+                    size="default"
+                    onClick={() => navigate("/strategy-session")}
                     className="shadow-lg hover:shadow-xl transition-shadow whitespace-nowrap"
                   >
-                    Book Consultation
+                    <CalendarDays className="h-4 w-4" />
+                    Book Strategy Session
                   </Button>
                 )}
               </div>
@@ -224,7 +172,7 @@ const Navigation = () => {
           {/* Mobile Navigation Menu */}
           {isOpen && (
             <div className="lg:hidden">
-              <div className="px-2 pt-2 pb-4 space-y-2 bg-background/98 backdrop-blur-sm border-t border-border">
+              <div className="px-2 pt-6 pb-6 space-y-2 bg-background/98 backdrop-blur-sm border-t border-border">
                 {/* Navigation Items */}
                 {navigationItems.map((item) => {
                   const Icon = item.icon;
@@ -251,31 +199,29 @@ const Navigation = () => {
                 
                 {user && (
                   <>
-                    <div className="border-t border-border my-3" />
-                    <Button 
-                      variant={isActiveRoute("/dashboard") ? "secondary" : "ghost"} 
-                      size="sm" 
-                      className="w-full justify-start" 
-                      onClick={() => handleNavClick({ name: "Dashboard", route: "/dashboard", type: "route" })}
-                    >
-                      <LayoutDashboard className="w-4 h-4 mr-2" />
-                      Dashboard
-                    </Button>
+                    <div className="border-t border-border my-4" />
+                    <div className="px-1">
+                      <AccountNavigation
+                        user={user}
+                        align="start"
+                        showUserDetails
+                        onLinkClick={() => setIsOpen(false)}
+                        className="h-auto min-h-11 w-full justify-start rounded-lg border border-border px-3 py-2.5 hover:bg-accent/10"
+                      />
+                    </div>
                   </>
                 )}
 
-                {/* Divider */}
-                <div className="border-t border-border my-3" />
-                
-                {/* User Actions */}
-                <div className="space-y-2">
+                <div className="border-t border-border my-4" />
+
+                <div className="space-y-3">
                   {!isLoading && !user && (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-full justify-start" 
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-start h-11"
                       onClick={() => {
-                        navigate('/auth');
+                        navigate("/auth");
                         setIsOpen(false);
                       }}
                     >
@@ -283,53 +229,20 @@ const Navigation = () => {
                       Log In
                     </Button>
                   )}
-                  
-                  {!isLoading && user && (
-                    <>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="w-full justify-start" 
-                        onClick={() => {
-                          navigate('/dashboard/settings');
-                          setIsOpen(false);
-                        }}
-                      >
-                         <Settings className="w-4 h-4 mr-2" />
-                         Account Settings
-                      </Button>
-                      
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="w-full justify-start text-red-600 border-red-200 hover:bg-red-50" 
-                        onClick={() => {
-                          handleLogout();
-                          setIsOpen(false);
-                        }}
-                      >
-                        <LogOut className="w-4 h-4 mr-2" />
-                        Sign Out
-                      </Button>
-                    </>
-                  )}
-                  
-                  {/* CTA Button */}
-                  {navigationContext !== 'app' && (
-                      <Button 
-                        variant="hero" 
-                        size="lg" 
-                        className="w-full mt-4" 
-                        onClick={() => {
-                          const element = document.getElementById('contact');
-                          if (element) {
-                            element.scrollIntoView({ behavior: 'smooth' });
-                          }
-                          setIsOpen(false);
-                        }}
-                      >
-                        Book Consultation
-                      </Button>
+
+                  {navigationContext !== "app" && (
+                    <Button
+                      variant="hero"
+                      size="lg"
+                      className="w-full h-12"
+                      onClick={() => {
+                        navigate("/strategy-session");
+                        setIsOpen(false);
+                      }}
+                    >
+                      <CalendarDays className="h-4 w-4" />
+                      Book Strategy Session
+                    </Button>
                   )}
                 </div>
               </div>

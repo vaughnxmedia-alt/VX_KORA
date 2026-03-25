@@ -26,6 +26,8 @@
 --   - Private client data
 --   - Never cross-referenced
 
+CREATE EXTENSION IF NOT EXISTS vector;
+
 -- ============================================================================
 -- CORE FRAMEWORKS
 -- ============================================================================
@@ -782,6 +784,6 @@ VALUES
       '{{',
       '}}'
     ],
-    ARRAY[]
+    ARRAY[]::TEXT[]
   )
 ON CONFLICT (slug) DO NOTHING;

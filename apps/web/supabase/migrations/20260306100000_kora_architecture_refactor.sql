@@ -218,8 +218,12 @@ CREATE TABLE IF NOT EXISTS public.kora_events_queue (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_kora_events_date ON public.kora_events_queue(event_date);
-CREATE INDEX idx_kora_events_status ON public.kora_events_queue(status);
+-- Free names if a previous run created these on the queue table before `kora_events` indexes
+DROP INDEX IF EXISTS idx_kora_events_date;
+DROP INDEX IF EXISTS idx_kora_events_status;
+
+CREATE INDEX IF NOT EXISTS idx_kora_events_queue_date ON public.kora_events_queue(event_date);
+CREATE INDEX IF NOT EXISTS idx_kora_events_queue_status ON public.kora_events_queue(status);
 
 -- =============================================================================
 -- INGEST RUNS (Track ingestion jobs)
@@ -389,11 +393,23 @@ CREATE TABLE IF NOT EXISTS public.kora_events (
     processed_at TIMESTAMPTZ
 );
 
-CREATE INDEX idx_kora_events_type ON public.kora_events(event_type);
-CREATE INDEX idx_kora_events_status ON public.kora_events(status);
-CREATE INDEX idx_kora_events_tenant ON public.kora_events(tenant_id);
-CREATE INDEX idx_kora_events_correlation ON public.kora_events(correlation_id);
-CREATE INDEX idx_kora_events_pending ON public.kora_events(created_at ASC) WHERE status = 'pending';
+-- Legacy `kora_events` may predate this migration; IF NOT EXISTS skips CREATE TABLE and leaves missing columns.
+ALTER TABLE public.kora_events ADD COLUMN IF NOT EXISTS event_type TEXT NOT NULL DEFAULT 'unknown';
+ALTER TABLE public.kora_events ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending';
+ALTER TABLE public.kora_events ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES public.customers(id) ON DELETE SET NULL;
+ALTER TABLE public.kora_events ADD COLUMN IF NOT EXISTS agent_id TEXT;
+ALTER TABLE public.kora_events ADD COLUMN IF NOT EXISTS correlation_id UUID;
+ALTER TABLE public.kora_events ADD COLUMN IF NOT EXISTS payload JSONB NOT NULL DEFAULT '{}';
+ALTER TABLE public.kora_events ADD COLUMN IF NOT EXISTS result JSONB;
+ALTER TABLE public.kora_events ADD COLUMN IF NOT EXISTS error_message TEXT;
+ALTER TABLE public.kora_events ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE public.kora_events ADD COLUMN IF NOT EXISTS processed_at TIMESTAMPTZ;
+
+CREATE INDEX IF NOT EXISTS idx_kora_events_type ON public.kora_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_kora_events_status ON public.kora_events(status);
+CREATE INDEX IF NOT EXISTS idx_kora_events_tenant ON public.kora_events(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_kora_events_correlation ON public.kora_events(correlation_id);
+CREATE INDEX IF NOT EXISTS idx_kora_events_pending ON public.kora_events(created_at ASC) WHERE status = 'pending';
 
 -- =============================================================================
 -- AGENT CONFIGURATIONS
@@ -730,7 +746,7 @@ INSERT INTO public.kora_intelligence_filters (
 ) VALUES (
     'JahKnowsPR Home Profile',
     'Default intelligence filter profile optimized for PR, marketing, and creator economy insights',
-    NULL, -- Global default, not tied to a specific tenant
+    (SELECT id FROM public.customers ORDER BY created_at LIMIT 1),
     true,
     true,
     -- include_topics

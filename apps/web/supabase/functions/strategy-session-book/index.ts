@@ -1,18 +1,13 @@
 /**
- * Public Strategy Session booking: upsert lead customer, insert meeting, send Resend confirmation.
- * Uses service role — never expose keys to the browser except via this Edge Function.
+ * Public Strategy Session booking: upsert lead customer + meeting (pending until admin confirms in Leads).
+ * Confirmation emails are sent by strategy-session-admin-confirm.
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { Resend } from "resend";
 import { z } from "https://deno.land/x/zod/mod.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
-import { buildStrategySessionConfirmationHtml } from "../_shared/strategy-session-confirmation-email.ts";
 import { resolveStrategySessionHost } from "../_shared/strategy-session-resolve-host.ts";
 import { isSlotBookableForHost } from "../_shared/strategy-session-schedule.ts";
-
-const FROM_NAME = "Jah Jah";
-const DEFAULT_FROM_EMAIL = "welcome@jahknowspr.com";
 
 const bookSchema = z.object({
   fullName: z.string().min(2).max(200),
@@ -34,6 +29,16 @@ const bookSchema = z.object({
   timezone: z.string().min(2).max(80),
   /** Maps to strategy_session_hosts.reference_code (optional — default public host if omitted) */
   employeeReferenceCode: z.string().max(32).optional(),
+  /** Dashboard / Leads filter label — stored on meetings.booking_kind */
+  bookingKind: z
+    .enum([
+      "full_program_sales",
+      "creative_consultation",
+      "telegram",
+      "strategy_session",
+      "campaign_retainer",
+    ])
+    .optional(),
 });
 
 function splitName(full: string): { first: string; last: string | null } {
@@ -56,16 +61,10 @@ serve(async (req) => {
   }
 
   try {
-    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const PUBLIC_SITE_URL = (Deno.env.get("PUBLIC_SITE_URL") || "https://jahknowspr.com").replace(
-      /\/$/,
-      "",
-    );
-    const FROM_EMAIL = Deno.env.get("STRATEGY_SESSION_FROM_EMAIL") || DEFAULT_FROM_EMAIL;
 
-    if (!RESEND_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       return new Response(
         JSON.stringify({
           error: "Server configuration incomplete. Try again later.",
@@ -95,7 +94,6 @@ serve(async (req) => {
     const envFallbackHost = Deno.env.get("STRATEGY_SESSION_DEFAULT_HOST_USER_ID") || undefined;
 
     let hostUserId: string;
-    let hostDisplayName: string;
     let employeeRefNormalized: string | null;
     try {
       const resolved = await resolveStrategySessionHost(
@@ -104,7 +102,6 @@ serve(async (req) => {
         envFallbackHost,
       );
       hostUserId = resolved.userId;
-      hostDisplayName = resolved.displayName;
       employeeRefNormalized = resolved.normalizedCode;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -203,9 +200,11 @@ serve(async (req) => {
       in_person_location: p.sessionType === "in_person" ? (p.inPersonLocation || null) : null,
       timezone: p.timezone,
       service_name: "Strategy Session",
+      booking_kind: p.bookingKind ?? "full_program_sales",
       service_price: 150,
       questionnaire_status: "completed",
-      booking_status: "booked",
+      /** Held until Jocelyn confirms in Leads; then confirmation emails go out */
+      booking_status: "pending",
       payment_status: "unpaid",
       confirmation_status: "pending",
       internal_notes: null,
@@ -232,70 +231,17 @@ serve(async (req) => {
 
     const meetingId = meetingRow!.id as string;
 
-    const dateFmt = new Intl.DateTimeFormat("en-US", {
-      timeZone: p.timezone,
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    }).format(slotDate);
-    const timeFmt = new Intl.DateTimeFormat("en-US", {
-      timeZone: p.timezone,
-      hour: "numeric",
-      minute: "2-digit",
-    }).format(slotDate);
-
-    const html = buildStrategySessionConfirmationHtml({
-      fullName: p.fullName,
-      businessName: p.businessName,
-      sessionType: p.sessionType,
-      meetingDateFormatted: dateFmt,
-      meetingTimeFormatted: timeFmt,
-      timezoneLabel: p.timezone,
-      hostDisplayName,
-      questionnaireUrl: `${PUBLIC_SITE_URL}/strategy-session`,
-      publicSiteUrl: PUBLIC_SITE_URL,
-    });
-
-    const resend = new Resend(RESEND_API_KEY);
-    try {
-      await resend.emails.send({
-        from: `${FROM_NAME} <${FROM_EMAIL}>`,
-        to: emailNorm,
-        subject: "Confirmed — Your Strategy Session ($150) is booked",
-        html,
-      });
-      await supabase
-        .from("meetings")
-        .update({ confirmation_status: "sent" })
-        .eq("id", meetingId);
-
-      return new Response(
-        JSON.stringify({
-          ok: true,
-          meetingId,
-          confirmationStatus: "sent",
-        }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    } catch (emailErr) {
-      console.error("Strategy session confirmation email failed:", emailErr);
-      await supabase
-        .from("meetings")
-        .update({ confirmation_status: "failed" })
-        .eq("id", meetingId);
-
-      return new Response(
-        JSON.stringify({
-          ok: false,
-          meetingId,
-          confirmationStatus: "failed",
-          error:
-            "Your session was saved but we could not send the confirmation email. Our team will follow up.",
-        }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
+    /** Confirmation emails are sent from strategy-session-admin-confirm after team approval (Leads). */
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        meetingId,
+        confirmationStatus: "pending_approval",
+        message:
+          "Request received. Our team will confirm your time and email you shortly.",
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   } catch (e) {
     console.error(e);
     return new Response(

@@ -16,9 +16,16 @@ import {
 } from "@/components/ui/table";
 import { Briefcase, Calendar, Clock, User, ChevronLeft, ChevronRight, List, CalendarDays } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import { formatStrategyHostListLabel } from "@/features/strategy-session/formatHostListLabel";
 
 interface Meeting {
   id: string;
@@ -48,7 +55,40 @@ export default function Meetings() {
   const { role, user } = useAuth();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [hostScope, setHostScope] = useState<"all" | "mine">("all");
+  /** "all" or strategy host auth user id */
+  const [hostFilterUserId, setHostFilterUserId] = useState<string>("all");
+
+  const { data: myHostFlags } = useQuery({
+    queryKey: ["my-strategy-host-flags", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("strategy_session_hosts")
+        .select("can_view_all_meetings")
+        .eq("user_id", user!.id)
+        .eq("active", true)
+        .maybeSingle();
+      if (error) throw error;
+      return data as { can_view_all_meetings: boolean } | null;
+    },
+    enabled: !!user?.id && role !== "admin",
+  });
+
+  const canFilterMeetingsByHost =
+    role === "admin" || !!myHostFlags?.can_view_all_meetings;
+
+  const { data: strategyHosts } = useQuery({
+    queryKey: ["strategy-session-hosts-meetings-filter"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("strategy_session_hosts")
+        .select("user_id, display_name, reference_code, list_subtitle")
+        .eq("active", true)
+        .order("display_name");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user && canFilterMeetingsByHost,
+  });
 
   const { data: meetings, isLoading } = useQuery({
     queryKey: ["meetings"],
@@ -75,9 +115,9 @@ export default function Meetings() {
 
   const visibleMeetings = useMemo(() => {
     const list = meetings ?? [];
-    if (role !== "admin" || hostScope === "all") return list;
-    return list.filter((m) => m.host_user_id === user?.id);
-  }, [meetings, role, hostScope, user?.id]);
+    if (!canFilterMeetingsByHost || hostFilterUserId === "all") return list;
+    return list.filter((m) => m.host_user_id === hostFilterUserId);
+  }, [meetings, canFilterMeetingsByHost, hostFilterUserId]);
 
   const sortedMeetings = [...visibleMeetings].sort(
     (a, b) => new Date(a.meeting_date).getTime() - new Date(b.meeting_date).getTime()
@@ -211,28 +251,36 @@ export default function Meetings() {
     <div className="space-y-6">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-primary mb-4">
-          {role === 'admin' ? 'Global Meetings' : 'Meetings'}
+          {canFilterMeetingsByHost ? "Global Meetings" : "Meetings"}
         </h1>
         <p className="text-lg text-muted-foreground">
-          {role === 'admin' 
-            ? "Internal and client meetings in one place."
+          {canFilterMeetingsByHost
+            ? "Internal and client meetings in one place. Filter by strategist to compare volume across hosts."
             : "All meetings, notes, follow-ups, and reminders related to your account."}
         </p>
-        {role === "admin" && (
+        {canFilterMeetingsByHost && (
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            <span className="text-sm text-muted-foreground">Strategy hosts</span>
-            <ToggleGroup
-              type="single"
-              value={hostScope}
-              onValueChange={(v) => v && setHostScope(v as "all" | "mine")}
+            <span className="text-sm text-muted-foreground">Strategy host</span>
+            <Select
+              value={hostFilterUserId}
+              onValueChange={(v) => setHostFilterUserId(v)}
             >
-              <ToggleGroupItem value="all" aria-label="All hosts">
-                All hosts
-              </ToggleGroupItem>
-              <ToggleGroupItem value="mine" aria-label="My meetings only">
-                Mine
-              </ToggleGroupItem>
-            </ToggleGroup>
+              <SelectTrigger className="w-[min(100%,280px)]">
+                <SelectValue placeholder="Choose host" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All hosts</SelectItem>
+                {(strategyHosts ?? []).map((h) => (
+                  <SelectItem key={h.user_id} value={h.user_id}>
+                    {formatStrategyHostListLabel(h)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="text-xs text-muted-foreground max-w-xl">
+              Filter by who owns the booking (includes Jocelyn’s default-public bookings; same data, no separate
+              bucket).
+            </span>
           </div>
         )}
       </div>

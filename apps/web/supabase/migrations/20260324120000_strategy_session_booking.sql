@@ -35,9 +35,19 @@ COMMENT ON COLUMN public.meetings.payment_status IS 'unpaid | paid | pending';
 COMMENT ON COLUMN public.meetings.confirmation_status IS 'pending | sent | failed';
 COMMENT ON COLUMN public.meetings.admin_confirmed_at IS 'Set when admin confirms the booking in dashboard; required before promoting to active_client.';
 
+-- Immutable minute bucket for indexing (date_trunc(timestamptz) is not IMMUTABLE and cannot be used in indexes)
+CREATE OR REPLACE FUNCTION public.strategy_session_meeting_minute_utc(ts timestamptz)
+RETURNS bigint
+LANGUAGE sql
+IMMUTABLE
+PARALLEL SAFE
+AS $$
+  SELECT (floor(extract(epoch FROM ts) / 60))::bigint
+$$;
+
 -- Prevent double-booking: one Strategy Session per minute bucket (discrete slots align to minutes)
 CREATE UNIQUE INDEX IF NOT EXISTS idx_meetings_strategy_session_slot_minute
-  ON public.meetings (date_trunc('minute', meeting_date))
+  ON public.meetings (public.strategy_session_meeting_minute_utc(meeting_date))
   WHERE COALESCE(service_name, '') = 'Strategy Session';
 
 -- updated_at trigger (reuse pattern if exists; else create)

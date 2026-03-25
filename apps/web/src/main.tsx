@@ -52,6 +52,11 @@ import { CampaignDetailPage } from '@/features/campaigns/pages/CampaignDetailPag
 import Events from './pages/Events';
 import Kora from './pages/Kora';
 import StrategySessionBooking from './pages/StrategySessionBooking';
+import StrategySessionPayment from './pages/StrategySessionPayment';
+import StrategySessionThankYou from './pages/StrategySessionThankYou';
+import CreativeProductionConsultation from './pages/consultations/CreativeProductionConsultation';
+import CampaignRetainerConsultation from './pages/consultations/CampaignRetainerConsultation';
+import KoraPlatformConsultation from './pages/consultations/KoraPlatformConsultation';
 
 import './index.css';
 
@@ -69,6 +74,11 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/shop" element={<Shop />} />
               <Route path="/work-with-me" element={<WorkWithMe />} />
               <Route path="/strategy-session" element={<StrategySessionBooking />} />
+              <Route path="/strategy-session/payment" element={<StrategySessionPayment />} />
+              <Route path="/strategy-session/thank-you" element={<StrategySessionThankYou />} />
+              <Route path="/consultation/creative-production" element={<CreativeProductionConsultation />} />
+              <Route path="/consultation/campaign-retainer" element={<CampaignRetainerConsultation />} />
+              <Route path="/consultation/kora-platform" element={<KoraPlatformConsultation />} />
               <Route path="/about" element={<About />} />
               <Route path="/the-brief" element={<TheBriefRoute />} />
               <Route path="/the-brief/:id" element={<TheBriefPostRoute />} />

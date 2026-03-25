@@ -63,16 +63,18 @@ CREATE TABLE IF NOT EXISTS strategy_approvals (
 ALTER TABLE strategy_approvals ENABLE ROW LEVEL SECURITY;
 
 -- RLS policies
+DROP POLICY IF EXISTS "Users can view their own approval history" ON strategy_approvals;
 CREATE POLICY "Users can view their own approval history"
 ON strategy_approvals
 FOR SELECT
 TO authenticated
 USING (
   client_id IN (
-    SELECT id FROM customers WHERE user_id = auth.uid()
+    SELECT id::text FROM customers WHERE user_id = auth.uid()
   )
 );
 
+DROP POLICY IF EXISTS "Service role full access strategy approvals" ON strategy_approvals;
 CREATE POLICY "Service role full access strategy approvals"
 ON strategy_approvals
 FOR ALL

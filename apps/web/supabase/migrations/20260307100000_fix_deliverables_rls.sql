@@ -8,6 +8,24 @@
 -- Note: These policies allow all access which only works for service_role
 -- We need to add proper user-scoped policies
 
+DROP POLICY IF EXISTS "Users can view their own brand blueprints" ON brand_blueprints;
+DROP POLICY IF EXISTS "Admins can view all brand blueprints" ON brand_blueprints;
+DROP POLICY IF EXISTS "Admins can manage all brand blueprints" ON brand_blueprints;
+DROP POLICY IF EXISTS "Users can view their own content strategies" ON content_strategies;
+DROP POLICY IF EXISTS "Admins can view all content strategies" ON content_strategies;
+DROP POLICY IF EXISTS "Admins can manage all content strategies" ON content_strategies;
+DROP POLICY IF EXISTS "Users can view their own audience analyses" ON audience_analyses;
+DROP POLICY IF EXISTS "Admins can view all audience analyses" ON audience_analyses;
+DROP POLICY IF EXISTS "Admins can manage all audience analyses" ON audience_analyses;
+DROP POLICY IF EXISTS "Users can view their own content intel prefs" ON content_intelligence_preferences;
+DROP POLICY IF EXISTS "Admins can manage all content intel prefs" ON content_intelligence_preferences;
+DROP POLICY IF EXISTS "Users can view their own source recommendations" ON source_recommendations;
+DROP POLICY IF EXISTS "Users can update their own source recommendations" ON source_recommendations;
+DROP POLICY IF EXISTS "Admins can manage all source recommendations" ON source_recommendations;
+DROP POLICY IF EXISTS "Users can view their own intake sessions" ON telegram_intake_sessions;
+DROP POLICY IF EXISTS "Admins can view all intake sessions" ON telegram_intake_sessions;
+DROP POLICY IF EXISTS "Admins can manage all intake sessions" ON telegram_intake_sessions;
+
 -- =============================================================================
 -- BRAND BLUEPRINTS - User Access Policies
 -- =============================================================================

@@ -13,13 +13,33 @@ export async function messageFromFunctionInvokeError(error: unknown): Promise<st
       const body = (await error.context.clone().json()) as {
         code?: string;
         message?: string;
+        error?: string;
       };
-      const m = typeof body?.message === "string" ? body.message : "";
-      if (m) {
-        if (body?.code === "NOT_FOUND" || /not found/i.test(m)) {
-          return `${m} Deploy Strategy Session functions: from apps/web run npm run deploy:edge-strategy (requires Supabase CLI + login).`;
+      const edgeDetail =
+        typeof body?.error === "string"
+          ? body.error
+          : typeof body?.message === "string"
+            ? body.message
+            : "";
+      if (edgeDetail) {
+        if (body?.code === "NOT_FOUND" || /not found/i.test(edgeDetail)) {
+          return `${edgeDetail} Deploy Strategy Session functions: from apps/web run npm run deploy:edge-strategy (requires Supabase CLI + login).`;
         }
-        return `${error.message}: ${m}`;
+        // Edge functions return { error: "..." } for 4xx/5xx bodies
+        if (/scheduling is temporarily unavailable|try again later/i.test(edgeDetail)) {
+          return (
+            "Scheduling is temporarily unavailable. Ensure a default strategist exists in the database " +
+            "(strategy_session_hosts with is_default_public, or set STRATEGY_SESSION_DEFAULT_HOST_USER_ID on Edge Functions). " +
+            "If this persists, contact us."
+          );
+        }
+        if (error.context.status === 400 && /invalid employee|reference code/i.test(edgeDetail)) {
+          return (
+            "That referral code was not recognized. Leave the code blank for the default schedule, " +
+            "or use the code from your card."
+          );
+        }
+        return `${error.message}: ${edgeDetail}`;
       }
     } catch {
       /* ignore JSON parse */
@@ -72,6 +92,8 @@ export type StrategySessionHostOption = {
   reference_code: string;
   display_name: string;
   is_default_public: boolean;
+  /** Optional brand or nickname shown in parentheses next to display_name. */
+  list_subtitle?: string | null;
 };
 
 export async function fetchStrategySessionHosts(): Promise<StrategySessionHostOption[]> {
@@ -112,6 +134,14 @@ export async function submitStrategySessionBooking(
   intake: IntakeValues,
   slotStartIso: string,
   timezone: string,
+  options?: {
+    bookingKind?:
+      | "full_program_sales"
+      | "creative_consultation"
+      | "telegram"
+      | "strategy_session"
+      | "campaign_retainer";
+  },
 ): Promise<{
   ok?: boolean;
   meetingId?: string;
@@ -137,6 +167,36 @@ export async function submitStrategySessionBooking(
       slotStart: slotStartIso,
       timezone,
       ...(code ? { employeeReferenceCode: code.toUpperCase() } : {}),
+      ...(options?.bookingKind ? { bookingKind: options.bookingKind } : {}),
+    },
+  });
+  if (error) {
+    throw new Error(await messageFromFunctionInvokeError(error));
+  }
+  return (data || {}) as {
+    ok?: boolean;
+    meetingId?: string;
+    confirmationStatus?: string;
+    message?: string;
+    error?: string;
+  };
+}
+
+/** Admin-only (dashboard): confirm pending Strategy Session and send guest + ops emails. */
+export async function confirmStrategySessionBooking(
+  meetingId: string,
+  opts?: { guestHtml?: string; guestSubject?: string },
+): Promise<{
+  ok?: boolean;
+  meetingId?: string;
+  confirmationStatus?: string;
+  error?: string;
+}> {
+  const { data, error } = await supabase.functions.invoke("strategy-session-admin-confirm", {
+    body: {
+      meetingId,
+      ...(opts?.guestHtml !== undefined ? { guestHtml: opts.guestHtml } : {}),
+      ...(opts?.guestSubject !== undefined ? { guestSubject: opts.guestSubject } : {}),
     },
   });
   if (error) {
