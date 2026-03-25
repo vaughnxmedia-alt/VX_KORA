@@ -6,9 +6,9 @@
   "scripts": {
     "dev:web": "npm run dev --workspace=apps/web",
     "deploy:edge-strategy": "npm run deploy:edge-strategy --workspace=apps/web",
-    "dev:admin": "npm run dev --workspace=workers/ingest/kora-admin",
+    "dev:admin": "npm run dev --workspace=apps/mission-control",
     "build:web": "npm run build --workspace=apps/web",
-    "build:admin": "npm run build --workspace=workers/ingest/kora-admin",
+    "build:admin": "npm run build --workspace=apps/mission-control",
     "send-insights": "npm run send-insights --workspace=@kora/telegram-bot",
     "insights:trigger-server": "npm run insights:trigger-server --workspace=@kora/telegram-bot",
     "send-test-report": "npm run send-test-report --workspace=@kora/telegram-bot"

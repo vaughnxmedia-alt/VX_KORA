@@ -43,7 +43,7 @@ The primary KORA marketing platform with:
 
 **Tech Stack:** React, TypeScript, Vite, Tailwind CSS, shadcn/ui, Supabase
 
-### Mission Control (`workers/ingest/kora-admin`)
+### Mission Control (`apps/mission-control`)
 Internal admin dashboard for monitoring and controlling:
 - Global RSS ingestion
 - Tenant distribution and routing
@@ -71,7 +71,7 @@ npm run dev
 
 **Run Mission Control:**
 ```bash
-cd workers/ingest/kora-admin
+cd apps/mission-control
 npm install
 npm run dev
 ```

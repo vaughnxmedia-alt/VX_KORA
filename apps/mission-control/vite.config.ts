@@ -4,7 +4,8 @@ import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  // Cast to avoid Vite type duplication issues across monorepo workspaces.
+  plugins: [react(), tailwindcss()] as any,
   server: {
     host: "::",
     port: 5173,
@@ -14,4 +15,4 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
-})
+} as any)
