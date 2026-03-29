@@ -1,0 +1,14 @@
+# Supabase CLI — use from directory: VX_KORA/
+# Run: cd VX_KORA && supabase link --project-ref <ref>
+# Deploy: supabase functions deploy <name>
+
+[functions.google-calendar-callback]
+enabled = true
+verify_jwt = true
+import_map = "./functions/google-calendar-callback/deno.json"
+entrypoint = "./functions/google-calendar-callback/index.ts"
+
+[functions.save-integration-api-key]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/save-integration-api-key/index.ts"
