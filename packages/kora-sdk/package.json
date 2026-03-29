@@ -1,0 +1,50 @@
+{
+  "name": "@kora/sdk",
+  "version": "1.0.0",
+  "description": "Shared types, contracts, and utilities for the KORA intelligence system",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./types": {
+      "import": "./dist/types/index.mjs",
+      "require": "./dist/types/index.js",
+      "types": "./dist/types/index.d.ts"
+    },
+    "./events": {
+      "import": "./dist/events/index.mjs",
+      "require": "./dist/events/index.js",
+      "types": "./dist/events/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.3.0"
+  },
+  "peerDependencies": {
+    "typescript": ">=5.0.0"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "keywords": [
+    "kora",
+    "sdk",
+    "types",
+    "intelligence",
+    "agents"
+  ],
+  "author": "VaughnX Technology LLC",
+  "license": "PROPRIETARY"
+}
