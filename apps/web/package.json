@@ -56,7 +56,7 @@
     "input-otp": "^1.2.4",
     "jspdf": "^4.2.0",
     "lucide-react": "^0.462.0",
-    "luxon": "^3.5.0",
+    "luxon": "^3.7.2",
     "motion": "^12.23.25",
     "next-themes": "^0.3.0",
     "react": "^18.3.1",

@@ -134,7 +134,7 @@ export default function StrategySessionBooking() {
   const [searchParams] = useSearchParams();
   const strategyPrefillApplied = useRef(false);
   const [step, setStep] = useState<1 | 2>(1);
-  const [timezone, setTimezone] = useState<string>("America/New_York");
+  const [timezone, setTimezone] = useState<string>("America/Chicago");
   const [selectedDay, setSelectedDay] = useState<Date | undefined>(undefined);
   /** Drives API range so navigating the calendar (e.g. April 2026) loads slots for that month. */
   const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
@@ -272,20 +272,6 @@ export default function StrategySessionBooking() {
     if (!selectedDay || !availability?.clientDayDiagnostics) return undefined;
     return availability.clientDayDiagnostics[selectedCivilYmdInTz(selectedDay, timezone)];
   }, [selectedDay, availability?.clientDayDiagnostics, timezone]);
-
-  const scheduleBlurb = useMemo(() => {
-    const s = availability?.schedule;
-    if (!s?.weekdays?.length) {
-      return "Pick an open day, then a time. Strategy sessions are typically Tuesday–Thursday, 9:00am–5:00pm Eastern.";
-    }
-    const names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    const days = s.weekdays
-      .slice()
-      .sort((a, b) => a - b)
-      .map((n) => names[n - 1])
-      .join(", ");
-    return `${days} · ${s.dayStart}–${s.dayEnd} (${availability?.timezone ?? "host timezone"}) · ${s.slotDurationMinutes} min slots. Times below show in your selected timezone.`;
-  }, [availability?.schedule, availability?.timezone]);
 
   const onIntakeNext = form.handleSubmit(() => {
     const firstOpen = nextOpenDayOnOrAfter(new Date(), DEFAULT_OPEN_WEEKDAYS);
@@ -565,7 +551,7 @@ export default function StrategySessionBooking() {
           <Card className="border shadow-sm">
             <CardHeader>
               <CardTitle>Choose date & time</CardTitle>
-              <CardDescription>{scheduleBlurb}</CardDescription>
+              <CardDescription>All Strategy sessions will be Tue-Thur 9am-5pm.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
                 <FormField
@@ -584,18 +570,6 @@ export default function StrategySessionBooking() {
                           }}
                         />
                       </FormControl>
-                      <p className="text-xs text-muted-foreground">
-                        {hostDirectory?.length
-                          ? `Team: ${hostDirectory
-                              .map((h) => {
-                                const label = formatStrategyHostListLabel(h);
-                                return h.is_default_public ? `${label} (default)` : label;
-                              })
-                              .join(" · ")}`
-                          : "Each strategist has their own calendar. Enter their code if you were given one."}{" "}
-                        Leave blank to use the default strategist. Links can include{" "}
-                        <code className="text-[10px]">?code=REFERRAL</code> to prefill this field.
-                      </p>
                       <FormMessage />
                     </FormItem>
                   )}
