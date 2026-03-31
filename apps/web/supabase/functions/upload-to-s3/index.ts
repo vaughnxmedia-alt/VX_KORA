@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { crypto } from "https://deno.land/std@0.168.0/crypto/mod.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // CORS configuration
 const allowedOrigins = [
@@ -161,11 +162,52 @@ serve(async (req) => {
       );
     }
 
-    // Verify authentication
+    // Verify authentication (defense in depth; function should also enforce verify_jwt=true)
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(
         JSON.stringify({ error: "Unauthorized. Please sign in." }),
+        {
+          status: 401,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+    if (!token) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized. Please sign in." }),
+        {
+          status: 401,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return new Response(
+        JSON.stringify({ error: "Server auth configuration missing." }),
+        {
+          status: 500,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const { data: authData, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !authData?.user?.id) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized. Invalid session." }),
         {
           status: 401,
           headers: {

@@ -8,7 +8,7 @@ project_id = "jahknows-pr"
 verify_jwt = false
 
 [functions.upload-to-s3]
-verify_jwt = false
+verify_jwt = true
 
 [functions.telegram-notify]
 verify_jwt = false
@@ -33,6 +33,18 @@ verify_jwt = false
 
 [functions.strategy-session-admin-confirm]
 verify_jwt = true
+
+[functions.pr-assistant-chat]
+verify_jwt = true
+
+[functions.leads-email-draft-generate]
+verify_jwt = true
+
+[functions.new-subscriber]
+verify_jwt = false
+
+[functions.check-brief-access]
+verify_jwt = false
 
 [api]
 enabled = true

@@ -8,6 +8,7 @@ import MDEditor from '@uiw/react-md-editor';
 import { useToast } from "@/components/ui/use-toast";
 import rehypeSlug from 'rehype-slug';
 import rehypeAutolinkHeadings from 'rehype-autolink-headings';
+import rehypeSanitize from "rehype-sanitize";
 
 type BlogPostType = {
   id: string;
@@ -132,7 +133,7 @@ const updateBlogPostSEO = (post: BlogPostType) => {
 };
 
 // Helper function to convert video URLs to embed URLs
-const getEmbedUrl = (url: string): string => {
+const getEmbedUrl = (url: string): string | null => {
   // YouTube
   const youtubeMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([^&\s]+)/);
   if (youtubeMatch) {
@@ -145,7 +146,7 @@ const getEmbedUrl = (url: string): string => {
     return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
   }
   
-  return url;
+  return null;
 };
 
 const BlogPost = () => {
@@ -478,15 +479,19 @@ const BlogPost = () => {
         {post.video_url && post.video_type && (
           <div className="blog-editorial-container mb-16">
             {post.video_type === "embed" ? (
-              <div className="aspect-video rounded-xl overflow-hidden shadow-lg">
-                <iframe
-                  src={getEmbedUrl(post.video_url)}
-                  className="w-full h-full"
-                  allowFullScreen
-                  title="Video"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                />
-              </div>
+              getEmbedUrl(post.video_url) ? (
+                <div className="aspect-video rounded-xl overflow-hidden shadow-lg">
+                  <iframe
+                    src={getEmbedUrl(post.video_url) ?? ""}
+                    className="w-full h-full"
+                    allowFullScreen
+                    title="Video"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  />
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Unsupported embed URL.</p>
+              )
             ) : (
               <video
                 src={post.video_url}
@@ -517,7 +522,7 @@ const BlogPost = () => {
             data-color-mode="light">
             <MDEditor.Markdown 
               source={post.content} 
-              rehypePlugins={[[rehypeSlug], [rehypeAutolinkHeadings, { behavior: 'prepend' }]]}
+              rehypePlugins={[[rehypeSanitize], [rehypeSlug], [rehypeAutolinkHeadings, { behavior: 'prepend' }]]}
             />
           </div>
 

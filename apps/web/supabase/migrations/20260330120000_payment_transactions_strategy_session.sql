@@ -42,6 +42,7 @@ COMMENT ON COLUMN public.meetings.payment_transaction_id IS
 ALTER TABLE public.payment_transactions ENABLE ROW LEVEL SECURITY;
 
 -- Inserts/updates only via service role (Edge). Authenticated admins may read for support.
+DROP POLICY IF EXISTS "Admins can select payment_transactions" ON public.payment_transactions;
 CREATE POLICY "Admins can select payment_transactions"
   ON public.payment_transactions
   FOR SELECT

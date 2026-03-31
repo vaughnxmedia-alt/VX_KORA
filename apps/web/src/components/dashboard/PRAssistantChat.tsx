@@ -4,14 +4,15 @@ import { Input } from "@/components/ui/input";
 import { Send, Loader2, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
+import rehypeSanitize from "rehype-sanitize";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseUrl } from "@/integrations/supabase/client";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
 }
-const CHAT_URL = "https://cjgqicpuwbflypcnhuak.supabase.co/functions/v1/pr-assistant-chat";
+const CHAT_URL = `${supabaseUrl}/functions/v1/pr-assistant-chat`;
 const SUGGESTED_PROMPTS = [{
   title: "Create a Script",
   description: "True to my brand voice",
@@ -228,7 +229,7 @@ export function PRAssistantChat() {
                   </div>}
                 <div className={cn("max-w-[80%] rounded-2xl px-4 py-3", message.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted")}>
                   {message.role === "assistant" ? <div className="prose prose-sm dark:prose-invert max-w-none">
-                      <ReactMarkdown>{message.content || "..."}</ReactMarkdown>
+                      <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{message.content || "..."}</ReactMarkdown>
                     </div> : <p className="text-sm">{message.content}</p>}
                 </div>
               </div>)}

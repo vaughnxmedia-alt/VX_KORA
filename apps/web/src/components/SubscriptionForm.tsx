@@ -53,12 +53,9 @@ export const SubscriptionForm = () => {
       });
     } else {
       if (data?.alreadySubscribed) {
-        sonnerToast.success("Welcome back.", {
-          description: "You already have access. Redirecting you now...",
+        sonnerToast.success("Request received.", {
+          description: "If this email is already registered, access remains active.",
         });
-        if (data?.access_token) {
-          localStorage.setItem('theBriefAccessToken', data.access_token);
-        }
       } else {
         sonnerToast.success("Request received.", {
           description: "You will receive The Brief as new editions are released.",

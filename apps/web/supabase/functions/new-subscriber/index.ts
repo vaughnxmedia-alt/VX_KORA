@@ -72,18 +72,11 @@ serve(async (req) => {
       .single();
     if (insertError) {
       if (insertError.code === "23505") {
-        console.log("Email already subscribed, granting access:", email);
-        // Retrieve existing access token for returning subscribers
-        const { data: existingSub } = await supabaseAdmin
-          .from("subscribers")
-          .select("access_token")
-          .eq("email", email)
-          .single();
+        // Do not disclose existing access tokens or subscriber existence details.
         return new Response(
           JSON.stringify({
-            message: "Welcome back! You already have access.",
+            message: "Subscription request received.",
             alreadySubscribed: true,
-            access_token: existingSub?.access_token || null,
           }),
           {
             status: 200,
