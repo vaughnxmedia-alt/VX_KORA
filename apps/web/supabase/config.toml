@@ -46,6 +46,24 @@ verify_jwt = false
 [functions.check-brief-access]
 verify_jwt = false
 
+[functions.social-oauth-start]
+verify_jwt = true
+
+[functions.social-oauth-callback]
+verify_jwt = false
+
+[functions.social-publish-enqueue]
+verify_jwt = true
+
+[functions.social-token-refresh]
+verify_jwt = true
+
+[functions.social-publish-worker]
+verify_jwt = false
+
+[functions.social-meta-analytics-fetch]
+verify_jwt = true
+
 [api]
 enabled = true
 # Port to use for the API URL.

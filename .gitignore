@@ -62,3 +62,4 @@ coverage/
 
 # macOS resource forks
 ._*
+.vercel

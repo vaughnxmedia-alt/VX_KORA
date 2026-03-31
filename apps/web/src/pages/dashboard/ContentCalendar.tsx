@@ -3,16 +3,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useAuth } from "@/components/AuthProvider";
 import { NewPostDialog } from "@/components/dashboard/NewPostDialog";
 import { PRAssistantChat } from "@/components/dashboard/PRAssistantChat";
-import { ChevronLeft, ChevronRight, Settings, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Settings, Loader2, CheckCircle2, Link2 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths } from "date-fns";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { uploadToS3 } from "@/lib/s3Upload";
+import { useNavigate } from "react-router-dom";
 
 interface ContentCalendar {
   id: string;
@@ -29,6 +33,14 @@ interface ScheduledPost {
   scheduled_time: string;
   status: string;
   calendar_id: string;
+  post_type?: "social" | "blog";
+  blog_post_id?: string | null;
+}
+
+interface BlogPostLite {
+  id: string;
+  title: string;
+  published_date: string;
 }
 
 const PLATFORM_ICONS: Record<string, string> = {
@@ -48,10 +60,18 @@ interface ActiveClient {
 }
 
 export default function ContentCalendar() {
-  const { role } = useAuth();
+  const navigate = useNavigate();
+  const { role, user } = useAuth();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedCalendarId, setSelectedCalendarId] = useState<string>("");
+  const [connectionsOpen, setConnectionsOpen] = useState(false);
+  const [scheduleBlogOpen, setScheduleBlogOpen] = useState(false);
+  const [calendarViewFilter, setCalendarViewFilter] = useState<"all" | "social" | "blog">("all");
+  const [selectedBlogPostId, setSelectedBlogPostId] = useState("");
+  const [blogScheduleDate, setBlogScheduleDate] = useState("");
+  const [blogScheduleTime, setBlogScheduleTime] = useState("12:00");
+  const [connectingMeta, setConnectingMeta] = useState(false);
 
   // Fetch all calendars
   const { data: calendars = [], isLoading: calendarsLoading, refetch: refetchCalendars } = useQuery({
@@ -80,6 +100,38 @@ export default function ContentCalendar() {
       if (error) throw error;
       return data as ActiveClient[];
     },
+  });
+
+  const { data: orgMembership } = useQuery({
+    queryKey: ["publishing-org-membership", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .from("organization_users")
+        .select("organization_id")
+        .eq("user_id", user.id)
+        .limit(1)
+        .single();
+      if (error) return null;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  const { data: connectedMetaAccounts = [], refetch: refetchMetaAccounts } = useQuery({
+    queryKey: ["connected-meta-accounts", orgMembership?.organization_id],
+    queryFn: async () => {
+      if (!orgMembership?.organization_id) return [];
+      const { data, error } = await supabase
+        .from("social_accounts")
+        .select("id,account_type,account_name,status,username")
+        .eq("organization_id", orgMembership.organization_id)
+        .eq("provider", "meta")
+        .order("account_type");
+      if (error) return [];
+      return data || [];
+    },
+    enabled: !!orgMembership?.organization_id,
   });
 
   // Create missing calendars for active clients
@@ -131,6 +183,18 @@ export default function ContentCalendar() {
       return data as ScheduledPost[];
     },
     enabled: !!selectedCalendarId,
+  });
+
+  const { data: blogPosts = [] } = useQuery({
+    queryKey: ["blog-posts-for-scheduling"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("blog_posts")
+        .select("id, title, published_date")
+        .order("published_date", { ascending: false });
+      if (error) throw error;
+      return (data || []) as BlogPostLite[];
+    },
   });
 
   const handlePostCreated = async (post: any) => {
@@ -248,9 +312,11 @@ export default function ContentCalendar() {
   };
 
   const getPostsForDate = (date: Date) => {
-    return scheduledPosts.filter(post => 
+    const byDay = scheduledPosts.filter((post) =>
       isSameDay(new Date(post.scheduled_date), date)
     );
+    if (calendarViewFilter === "all") return byDay;
+    return byDay.filter((p) => (p.post_type || "social") === calendarViewFilter);
   };
 
   const selectedCalendar = calendars.find(c => c.id === selectedCalendarId);
@@ -272,6 +338,110 @@ export default function ContentCalendar() {
       </div>
     );
   }
+
+  const connectMeta = async () => {
+    if (!orgMembership?.organization_id) {
+      toast({
+        title: "Organization not found",
+        description: "Could not determine your organization for social connections.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setConnectingMeta(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("social-oauth-start", {
+        body: { provider: "meta", organizationId: orgMembership.organization_id },
+      });
+      if (error || !data?.authUrl) {
+        throw new Error((data && data.error) || error?.message || "Could not start Meta OAuth.");
+      }
+      window.location.href = data.authUrl as string;
+    } catch (e) {
+      toast({
+        title: "Meta connect failed",
+        description: e instanceof Error ? e.message : "Unexpected error",
+        variant: "destructive",
+      });
+    } finally {
+      setConnectingMeta(false);
+    }
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    const state = params.get("state");
+    if (!code || !state) return;
+    if (window.location.pathname !== "/dashboard/calendar") return;
+
+    const run = async () => {
+      const { data, error } = await supabase.functions.invoke("social-oauth-callback", {
+        body: { provider: "meta", code, state },
+      });
+      if (error || data?.error) {
+        toast({
+          title: "Meta connection failed",
+          description: data?.error || error?.message || "OAuth callback could not complete.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Meta connected",
+          description: "Facebook Pages and linked Instagram accounts were discovered.",
+        });
+        refetchMetaAccounts();
+        setConnectionsOpen(true);
+      }
+      const clean = new URL(window.location.href);
+      clean.searchParams.delete("code");
+      clean.searchParams.delete("state");
+      window.history.replaceState({}, "", clean.toString());
+    };
+    run();
+  }, [refetchMetaAccounts]);
+
+  const scheduleBlogPost = async () => {
+    if (!selectedCalendarId || !selectedBlogPostId || !blogScheduleDate || !blogScheduleTime) {
+      toast({
+        title: "Missing details",
+        description: "Select a blog post, date, and time.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const selectedPost = blogPosts.find((p) => p.id === selectedBlogPostId);
+    const { error } = await supabase.from("scheduled_posts").insert({
+      calendar_id: selectedCalendarId,
+      caption: selectedPost ? `Blog: ${selectedPost.title}` : "Blog post",
+      platforms: [],
+      scheduled_date: blogScheduleDate,
+      scheduled_time: blogScheduleTime,
+      status: "scheduled",
+      post_type: "blog",
+      blog_post_id: selectedBlogPostId,
+    });
+
+    if (error) {
+      toast({
+        title: "Could not schedule blog",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "Blog scheduled",
+      description: "Blog publishing schedule was added to the calendar.",
+    });
+    setScheduleBlogOpen(false);
+    setSelectedBlogPostId("");
+    setBlogScheduleDate("");
+    setBlogScheduleTime("12:00");
+    refetchPosts();
+  };
 
   return (
     <div className="space-y-6">
@@ -312,11 +482,39 @@ export default function ContentCalendar() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="icon">
+          <Button variant="outline" onClick={() => setConnectionsOpen(true)}>
             <Settings className="w-4 h-4" />
+            Connections
+          </Button>
+          <Button variant="outline" onClick={() => setScheduleBlogOpen(true)}>
+            Schedule Blog
           </Button>
           <NewPostDialog onPostCreated={handlePostCreated} />
         </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Button
+          variant={calendarViewFilter === "all" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setCalendarViewFilter("all")}
+        >
+          All
+        </Button>
+        <Button
+          variant={calendarViewFilter === "social" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setCalendarViewFilter("social")}
+        >
+          Social
+        </Button>
+        <Button
+          variant={calendarViewFilter === "blog" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setCalendarViewFilter("blog")}
+        >
+          Blog
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -390,13 +588,17 @@ export default function ContentCalendar() {
                           key={post.id}
                           className="text-xs p-1 rounded bg-primary/10 truncate"
                         >
-                          <div className="flex gap-0.5 mb-0.5">
-                            {post.platforms.slice(0, 3).map((p) => (
-                              <span key={p} className="text-[10px]">
-                                {PLATFORM_ICONS[p]}
-                              </span>
-                            ))}
-                          </div>
+                          {(post.post_type || "social") === "blog" ? (
+                            <div className="text-[10px] mb-0.5">📝 Blog</div>
+                          ) : (
+                            <div className="flex gap-0.5 mb-0.5">
+                              {post.platforms.slice(0, 3).map((p) => (
+                                <span key={p} className="text-[10px]">
+                                  {PLATFORM_ICONS[p]}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                           <span className="text-muted-foreground">
                             {post.scheduled_time}
                           </span>
@@ -447,17 +649,34 @@ export default function ContentCalendar() {
                           <p className="text-sm text-muted-foreground line-clamp-2">
                             {post.caption || "No caption"}
                           </p>
-                          <div className="flex flex-wrap gap-1">
-                            {post.platforms.map((platform) => (
-                              <Badge
-                                key={platform}
-                                variant="outline"
-                                className="text-xs gap-1"
+                          {(post.post_type || "social") === "blog" ? (
+                            <div className="flex items-center justify-between">
+                              <Badge variant="outline" className="text-xs">📝 Blog</Badge>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  navigate(
+                                    `/dashboard/blog${post.blog_post_id ? `?postId=${post.blog_post_id}` : ""}`
+                                  )
+                                }
                               >
-                                {PLATFORM_ICONS[platform]} {platform}
-                              </Badge>
-                            ))}
-                          </div>
+                                Open in Blog Management
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap gap-1">
+                              {post.platforms.map((platform) => (
+                                <Badge
+                                  key={platform}
+                                  variant="outline"
+                                  className="text-xs gap-1"
+                                >
+                                  {PLATFORM_ICONS[platform]} {platform}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -516,6 +735,124 @@ export default function ContentCalendar() {
           <PRAssistantChat />
         </div>
       </Card>
+
+      <Dialog open={connectionsOpen} onOpenChange={setConnectionsOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Social API Connections</DialogTitle>
+            <DialogDescription>
+              Connect Meta and select eligible Facebook + Instagram professional accounts.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+            <div className="rounded-lg border p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium flex items-center gap-2">
+                  <Link2 className="h-4 w-4" />
+                  Meta (Facebook + Instagram)
+                </h3>
+                <Button onClick={connectMeta} disabled={connectingMeta}>
+                  {connectingMeta ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Connecting...
+                    </>
+                  ) : (
+                    "Connect Meta"
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Requires a Facebook account, managed Page access, and a linked Instagram professional account for IG publishing.
+              </p>
+            </div>
+
+            <div className="rounded-lg border p-4 space-y-2">
+              <div className="font-medium">Connected Accounts</div>
+              {connectedMetaAccounts.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No Meta accounts connected yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {connectedMetaAccounts.map((account) => (
+                    <div key={account.id} className="flex items-center justify-between rounded-md border p-2">
+                      <div>
+                        <div className="text-sm font-medium">{account.account_name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {account.account_type === "facebook_page" ? "Facebook Page" : "Instagram Professional"}
+                          {account.username ? ` · @${account.username}` : ""}
+                        </div>
+                      </div>
+                      <Badge variant={account.status === "connected" ? "default" : "secondary"} className="gap-1">
+                        <CheckCircle2 className="h-3 w-3" />
+                        {account.status}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConnectionsOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={scheduleBlogOpen} onOpenChange={setScheduleBlogOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Schedule Blog</DialogTitle>
+            <DialogDescription>
+              Choose an existing blog post and schedule it in the calendar. Editing remains in Blog Management.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Blog Post</Label>
+              <Select value={selectedBlogPostId} onValueChange={setSelectedBlogPostId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select blog post" />
+                </SelectTrigger>
+                <SelectContent>
+                  {blogPosts.map((post) => (
+                    <SelectItem key={post.id} value={post.id}>
+                      {post.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Publish Date</Label>
+                <Input
+                  type="date"
+                  value={blogScheduleDate}
+                  onChange={(e) => setBlogScheduleDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Publish Time</Label>
+                <Input
+                  type="time"
+                  value={blogScheduleTime}
+                  onChange={(e) => setBlogScheduleTime(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setScheduleBlogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={scheduleBlogPost}>Save Blog Schedule</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

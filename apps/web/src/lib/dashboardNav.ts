@@ -47,17 +47,16 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
   {
     label: "STRATEGY",
     items: [
-      { key: "inspired", title: "Get Inspired", url: "/dashboard/get-inspired", icon: Sparkles },
       { key: "blueprints", title: "Brand Blueprints", url: "/dashboard/blueprints", icon: FileText },
       { key: "audience", title: "Target Audience", url: "/dashboard/audience", icon: Users },
       { key: "strategy", title: "Brand Strategy", url: "/dashboard/strategy", icon: Lightbulb },
-      { key: "sources", title: "Intelligence Sources", url: "/dashboard/sources", icon: Globe, adminOnly: true },
+      { key: "content-strategy", title: "Content Strategy", url: "/dashboard/content-strategy", icon: Layers },
     ],
   },
   {
-    label: "KORA AI",
+    label: "CAMPAIGN MANAGEMENT",
     items: [
-      { key: "content-strategy", title: "Content Strategy", url: "/dashboard/content-strategy", icon: Layers },
+      { key: "inspired", title: "Get Inspired", url: "/dashboard/get-inspired", icon: Sparkles },
       { key: "campaign-generator", title: "Campaign Generator", url: "/dashboard/campaign-generator", icon: Wand2 },
       { key: "campaigns", title: "Campaigns", url: "/dashboard/campaigns", icon: Megaphone },
     ],
@@ -67,7 +66,7 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
     items: [
       { key: "calendar", title: "Content Calendar", url: "/dashboard/calendar", icon: Calendar },
       { key: "filming", title: "Filming Schedule", url: "/dashboard/filming", icon: Video },
-      { key: "blog", title: "Blog Management", url: "/dashboard/blog", icon: BookText, adminOnly: true },
+      { key: "blog", title: "Blog Management", url: "/dashboard/blog", icon: BookText },
       { key: "assets", title: "Asset Library", url: "/dashboard/assets", icon: FolderOpen },
     ],
   },
@@ -96,6 +95,7 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
   {
     label: "PERFORMANCE",
     items: [
+      { key: "sources", title: "Intelligence Sources", url: "/dashboard/sources", icon: Globe, adminOnly: true },
       { key: "analytics", title: "Analytics", url: "/dashboard/analytics", icon: BarChart3 },
       { key: "reports", title: "Reports", url: "/dashboard/reports", icon: FileBarChart },
     ],
@@ -110,7 +110,6 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
 ];
 
 export const ADMIN_ONLY_KEYS = [
-  "blog",
   "events",
   "leads",
   "clients",
