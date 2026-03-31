@@ -1,6 +1,7 @@
 import type { IntakeValues } from "@/features/strategy-session/schema";
 
 export const STRATEGY_SESSION_DRAFT_KEY = "kora_strategy_session_booking_draft";
+export const STRATEGY_SESSION_PAYMENT_PROOF_KEY = "kora_strategy_session_square_payment";
 
 export type StrategySessionBookingDraft = {
   values: IntakeValues;
@@ -12,6 +13,11 @@ export type StrategySessionBookingDraft = {
     | "telegram"
     | "strategy_session"
     | "campaign_retainer";
+};
+
+/** Stored after Square charge succeeds; required for strategy-session-book. */
+export type StrategySessionPaymentProof = {
+  squarePaymentId: string;
 };
 
 export function readDraftFromStorage(): StrategySessionBookingDraft | null {
@@ -32,12 +38,26 @@ export function clearDraftFromStorage(): void {
   sessionStorage.removeItem(STRATEGY_SESSION_DRAFT_KEY);
 }
 
-/** Append Lemon Squeezy checkout email prefill when URL is configured. */
-export function buildLemonCheckoutUrl(checkoutBaseUrl: string, email: string): string {
-  const trimmed = checkoutBaseUrl.trim();
-  if (!trimmed) return "";
-  const sep = trimmed.includes("?") ? "&" : "?";
-  const q = new URLSearchParams();
-  q.set("checkout[email]", email.trim());
-  return `${trimmed}${sep}${q.toString()}`;
+export function readPaymentProofFromStorage(): StrategySessionPaymentProof | null {
+  try {
+    const raw = sessionStorage.getItem(STRATEGY_SESSION_PAYMENT_PROOF_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as StrategySessionPaymentProof;
+  } catch {
+    return null;
+  }
+}
+
+export function writePaymentProofToStorage(proof: StrategySessionPaymentProof): void {
+  sessionStorage.setItem(STRATEGY_SESSION_PAYMENT_PROOF_KEY, JSON.stringify(proof));
+}
+
+export function clearPaymentProofFromStorage(): void {
+  sessionStorage.removeItem(STRATEGY_SESSION_PAYMENT_PROOF_KEY);
+}
+
+/** Clear draft + payment (after successful booking or abandoned flow). */
+export function clearStrategySessionBookingStorage(): void {
+  clearDraftFromStorage();
+  clearPaymentProofFromStorage();
 }

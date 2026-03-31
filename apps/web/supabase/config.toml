@@ -28,6 +28,9 @@ verify_jwt = false
 [functions.strategy-session-hosts]
 verify_jwt = false
 
+[functions.square-strategy-session-payment]
+verify_jwt = false
+
 [functions.strategy-session-admin-confirm]
 verify_jwt = true
 

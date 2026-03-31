@@ -3,10 +3,26 @@ import {
   FunctionsHttpError,
   FunctionsRelayError,
 } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseIsConfigured } from "@/integrations/supabase/client";
 import type { IntakeValues } from "./schema";
 
-/** Turns Supabase Functions invoke errors into actionable text (e.g. NOT_FOUND → deploy hint). */
+function ensureSupabaseForEdgeFunctions() {
+  if (!supabaseIsConfigured) {
+    if (import.meta.env.DEV) {
+      console.warn(
+        "[strategy-session] Missing VITE_SUPABASE_URL or key in .env — Edge Functions will not run. See apps/web/.env.example.",
+      );
+    }
+    throw new Error(
+      "Scheduling is temporarily unavailable. Please try again later or contact us.",
+    );
+  }
+}
+
+const SCHEDULING_UNAVAILABLE =
+  "Scheduling is temporarily unavailable. Please try again later or contact us.";
+
+/** Turns Supabase Functions invoke errors into text suitable for end users (details only in dev console). */
 export async function messageFromFunctionInvokeError(error: unknown): Promise<string> {
   if (error instanceof FunctionsHttpError) {
     try {
@@ -23,15 +39,13 @@ export async function messageFromFunctionInvokeError(error: unknown): Promise<st
             : "";
       if (edgeDetail) {
         if (body?.code === "NOT_FOUND" || /not found/i.test(edgeDetail)) {
-          return `${edgeDetail} Deploy Strategy Session functions: from apps/web run npm run deploy:edge-strategy (requires Supabase CLI + login).`;
+          if (import.meta.env.DEV) {
+            console.warn("[strategy-session] Edge function missing or not deployed.", edgeDetail);
+          }
+          return SCHEDULING_UNAVAILABLE;
         }
-        // Edge functions return { error: "..." } for 4xx/5xx bodies
         if (/scheduling is temporarily unavailable|try again later/i.test(edgeDetail)) {
-          return (
-            "Scheduling is temporarily unavailable. Ensure a default strategist exists in the database " +
-            "(strategy_session_hosts with is_default_public, or set STRATEGY_SESSION_DEFAULT_HOST_USER_ID on Edge Functions). " +
-            "If this persists, contact us."
-          );
+          return SCHEDULING_UNAVAILABLE;
         }
         if (error.context.status === 400 && /invalid employee|reference code/i.test(edgeDetail)) {
           return (
@@ -39,23 +53,39 @@ export async function messageFromFunctionInvokeError(error: unknown): Promise<st
             "or use the code from your card."
           );
         }
-        return `${error.message}: ${edgeDetail}`;
+        if (import.meta.env.DEV) {
+          return `${error.message}: ${edgeDetail}`;
+        }
+        return SCHEDULING_UNAVAILABLE;
       }
     } catch {
       /* ignore JSON parse */
     }
-    return error.message;
+    return import.meta.env.DEV ? error.message : SCHEDULING_UNAVAILABLE;
   }
   if (error instanceof FunctionsRelayError) {
-    return `${error.message} The function may be missing, crashing on boot, or unreachable. Deploy or check Edge Function logs in Supabase Dashboard.`;
+    if (import.meta.env.DEV) {
+      console.warn("[strategy-session] Function relay error.", error.message);
+    }
+    return SCHEDULING_UNAVAILABLE;
   }
   if (error instanceof FunctionsFetchError) {
     const c = error.context;
     const extra = c instanceof Error ? c.message : "";
-    return extra ? `${error.message} — ${extra}` : error.message;
+    const base = extra ? `${error.message} — ${extra}` : error.message;
+    if (/failed to fetch|networkerror|load failed/i.test(base)) {
+      if (import.meta.env.DEV) {
+        console.warn(
+          "[strategy-session] Function fetch failed — check .env (real Supabase URL + VITE_ keys), deploy edge functions, CORS/origin.",
+          base,
+        );
+      }
+      return SCHEDULING_UNAVAILABLE;
+    }
+    return import.meta.env.DEV ? base : SCHEDULING_UNAVAILABLE;
   }
-  if (error instanceof Error) return error.message;
-  return "Unknown error";
+  if (error instanceof Error) return import.meta.env.DEV ? error.message : SCHEDULING_UNAVAILABLE;
+  return import.meta.env.DEV ? "Unknown error" : SCHEDULING_UNAVAILABLE;
 }
 
 export type AvailabilitySlot = { start: string; label: string };
@@ -115,6 +145,7 @@ export async function fetchAvailability(params: {
   hostCode?: string;
   includeDiagnostics?: boolean;
 }): Promise<StrategySessionAvailabilityResponse> {
+  ensureSupabaseForEdgeFunctions();
   const { data, error } = await supabase.functions.invoke("strategy-session-availability", {
     body: {
       start: params.start,
@@ -130,11 +161,41 @@ export async function fetchAvailability(params: {
   return data as StrategySessionAvailabilityResponse;
 }
 
+export async function processSquareStrategySessionPayment(input: {
+  sourceId: string;
+  idempotencyKey: string;
+  buyerEmail?: string;
+}): Promise<{
+  ok?: boolean;
+  squarePaymentId?: string;
+  status?: string;
+  error?: string;
+}> {
+  ensureSupabaseForEdgeFunctions();
+  const { data, error } = await supabase.functions.invoke("square-strategy-session-payment", {
+    body: {
+      sourceId: input.sourceId,
+      idempotencyKey: input.idempotencyKey,
+      ...(input.buyerEmail?.trim() ? { buyerEmail: input.buyerEmail.trim() } : {}),
+    },
+  });
+  if (error) {
+    throw new Error(await messageFromFunctionInvokeError(error));
+  }
+  return (data || {}) as {
+    ok?: boolean;
+    squarePaymentId?: string;
+    status?: string;
+    error?: string;
+  };
+}
+
 export async function submitStrategySessionBooking(
   intake: IntakeValues,
   slotStartIso: string,
   timezone: string,
   options?: {
+    squarePaymentId: string;
     bookingKind?:
       | "full_program_sales"
       | "creative_consultation"
@@ -148,6 +209,10 @@ export async function submitStrategySessionBooking(
   confirmationStatus?: string;
   error?: string;
 }> {
+  if (!options?.squarePaymentId?.trim()) {
+    throw new Error("Payment is required to complete booking.");
+  }
+  ensureSupabaseForEdgeFunctions();
   const code = intake.employeeReferenceCode?.trim();
   const { data, error } = await supabase.functions.invoke("strategy-session-book", {
     body: {
@@ -166,6 +231,7 @@ export async function submitStrategySessionBooking(
       additionalNotes: intake.additionalNotes || "",
       slotStart: slotStartIso,
       timezone,
+      squarePaymentId: options.squarePaymentId.trim(),
       ...(code ? { employeeReferenceCode: code.toUpperCase() } : {}),
       ...(options?.bookingKind ? { bookingKind: options.bookingKind } : {}),
     },

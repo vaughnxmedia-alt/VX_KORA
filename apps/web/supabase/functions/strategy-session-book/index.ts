@@ -39,6 +39,8 @@ const bookSchema = z.object({
       "campaign_retainer",
     ])
     .optional(),
+  /** Square payment id from square-strategy-session-payment (CreatePayment response) */
+  squarePaymentId: z.string().min(4).max(128),
 });
 
 function splitName(full: string): { first: string; last: string | null } {
@@ -130,6 +132,39 @@ serve(async (req) => {
       });
     }
 
+    const { data: payRow, error: payErr } = await supabase
+      .from("payment_transactions")
+      .select("id, amount_cents, meeting_id")
+      .eq("provider", "square")
+      .eq("external_payment_id", p.squarePaymentId.trim())
+      .maybeSingle();
+
+    if (payErr) throw payErr;
+    if (!payRow) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "No matching payment found. Complete payment on the previous step, then try again.",
+        }),
+        { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    if (payRow.meeting_id) {
+      return new Response(
+        JSON.stringify({
+          error: "This payment is already linked to a booking.",
+          meetingId: payRow.meeting_id,
+        }),
+        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    if (payRow.amount_cents !== 15000) {
+      return new Response(
+        JSON.stringify({ error: "Payment amount does not match Strategy Session pricing." }),
+        { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const { first, last } = splitName(p.fullName);
     const emailNorm = p.email.trim().toLowerCase();
 
@@ -205,7 +240,8 @@ serve(async (req) => {
       questionnaire_status: "completed",
       /** Held until Jocelyn confirms in Leads; then confirmation emails go out */
       booking_status: "pending",
-      payment_status: "unpaid",
+      payment_status: "paid",
+      payment_transaction_id: payRow.id,
       confirmation_status: "pending",
       internal_notes: null,
       additional_notes: p.additionalNotes || null,
@@ -230,6 +266,12 @@ serve(async (req) => {
     }
 
     const meetingId = meetingRow!.id as string;
+
+    const { error: linkPayErr } = await supabase
+      .from("payment_transactions")
+      .update({ meeting_id: meetingId })
+      .eq("id", payRow.id);
+    if (linkPayErr) throw linkPayErr;
 
     /** Confirmation emails are sent from strategy-session-admin-confirm after team approval (Leads). */
     return new Response(

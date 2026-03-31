@@ -4,12 +4,13 @@ import { Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { submitStrategySessionBooking } from "@/features/strategy-session/api";
 import {
-  clearDraftFromStorage,
+  clearStrategySessionBookingStorage,
   readDraftFromStorage,
+  readPaymentProofFromStorage,
   type StrategySessionBookingDraft,
 } from "@/features/strategy-session/strategySessionDraft";
 
-type Status = "loading" | "success" | "error" | "missing";
+type Status = "loading" | "success" | "error" | "missing" | "missing_payment";
 
 export default function StrategySessionThankYou() {
   const [status, setStatus] = useState<Status>("loading");
@@ -25,8 +26,13 @@ export default function StrategySessionThankYou() {
 
     (async () => {
       const draft: StrategySessionBookingDraft | null = readDraftFromStorage();
+      const proof = readPaymentProofFromStorage();
       if (!draft?.values || !draft.selectedSlotIso || !draft.timezone) {
         if (!cancelled) setStatus("missing");
+        return;
+      }
+      if (!proof?.squarePaymentId) {
+        if (!cancelled) setStatus("missing_payment");
         return;
       }
 
@@ -35,7 +41,10 @@ export default function StrategySessionThankYou() {
           draft.values,
           draft.selectedSlotIso,
           draft.timezone,
-          draft.bookingKind ? { bookingKind: draft.bookingKind } : undefined,
+          {
+            squarePaymentId: proof.squarePaymentId,
+            ...(draft.bookingKind ? { bookingKind: draft.bookingKind } : {}),
+          },
         );
         if (cancelled) return;
         if (!res.ok && !res.meetingId) {
@@ -43,7 +52,7 @@ export default function StrategySessionThankYou() {
           setErrorMessage(res.error || "Could not save your booking.");
           return;
         }
-        clearDraftFromStorage();
+        clearStrategySessionBookingStorage();
         setMeetingId(res.meetingId);
         setStatus("success");
       } catch (e) {
@@ -74,6 +83,20 @@ export default function StrategySessionThankYou() {
         <p className="text-muted-foreground mb-4">No booking data found. Start from the Strategy Session form.</p>
         <Button asChild>
           <Link to="/strategy-session">Book a Strategy Session</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  if (status === "missing_payment") {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-16 text-center space-y-4">
+        <p className="text-muted-foreground">
+          We couldn&apos;t find your completed payment for this session. Return to the payment step, finish checkout, and
+          you&apos;ll be brought back here automatically.
+        </p>
+        <Button asChild>
+          <Link to="/strategy-session/payment">Back to payment</Link>
         </Button>
       </div>
     );

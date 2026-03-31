@@ -19,7 +19,7 @@ import SignupConfirmation from './pages/SignupConfirmation';
 import NotFound from './pages/NotFound';
 import ProtectedRoute from './components/ProtectedRoute';
 import TheBriefRoute from './components/TheBriefRoute';
- import TheBriefPostRoute from './components/TheBriefPostRoute';
+import TheBriefPostRoute from './components/TheBriefPostRoute';
 import DashboardLayout from './components/dashboard/DashboardLayout';
 
 // Dashboard Pages

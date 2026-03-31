@@ -9,7 +9,7 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "deploy:edge-strategy": "npx supabase functions deploy strategy-session-availability strategy-session-book strategy-session-hosts --no-verify-jwt && npx supabase functions deploy strategy-session-admin-confirm"
+    "deploy:edge-strategy": "npx supabase functions deploy strategy-session-availability strategy-session-book strategy-session-hosts square-strategy-session-payment --no-verify-jwt && npx supabase functions deploy strategy-session-admin-confirm"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.988.0",
@@ -56,6 +56,7 @@
     "input-otp": "^1.2.4",
     "jspdf": "^4.2.0",
     "lucide-react": "^0.462.0",
+    "luxon": "^3.5.0",
     "motion": "^12.23.25",
     "next-themes": "^0.3.0",
     "react": "^18.3.1",
@@ -76,6 +77,7 @@
   "devDependencies": {
     "@eslint/js": "^9.9.0",
     "@tailwindcss/typography": "^0.5.15",
+    "@types/luxon": "^3.4.2",
     "@types/node": "^22.5.5",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",

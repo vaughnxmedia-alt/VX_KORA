@@ -70,7 +70,8 @@ export function buildFallbackSchedule(hostUserId: string): EffectiveSchedule {
     hostUserId,
     active: true,
     timezone: "America/New_York",
-    weekdays: [1, 2, 3, 4],
+    /** Tue–Thu (Luxon 2–4), 9am–5pm ET — day_end exclusive; 18:00 → last 60m slot starts 5:00pm */
+    weekdays: [2, 3, 4],
     dayStart: "09:00",
     dayEnd: "18:00",
     slotDurationMinutes: 60,
@@ -113,7 +114,7 @@ export async function loadEffectiveSchedule(
   const wdRaw = row.weekdays as unknown;
   const weekdays = Array.isArray(wdRaw)
     ? (wdRaw as number[]).map((n) => Number(n)).filter((n) => n >= 1 && n <= 7)
-    : [1, 2, 3, 4];
+    : [2, 3, 4];
 
   const blocks = new Set<string>(
     (blocksRes.data || []).map((r) => String(r.block_date)),
@@ -135,7 +136,7 @@ export async function loadEffectiveSchedule(
     hostUserId,
     active: !!row.active,
     timezone: String(row.timezone || "America/New_York"),
-    weekdays: weekdays.length ? weekdays : [1, 2, 3, 4],
+    weekdays: weekdays.length ? weekdays : [2, 3, 4],
     dayStart: toHHmm(String(row.day_start ?? "09:00")),
     dayEnd: toHHmm(String(row.day_end ?? "18:00")),
     slotDurationMinutes: Math.max(

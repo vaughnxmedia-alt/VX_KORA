@@ -47,7 +47,7 @@ export default function StrategySessionCalendarSettings() {
   const [hostUserId, setHostUserId] = useState<string | null>(null);
   const [active, setActive] = useState(true);
   const [timezone, setTimezone] = useState("America/New_York");
-  const [weekdays, setWeekdays] = useState<number[]>([1, 2, 3, 4]);
+  const [weekdays, setWeekdays] = useState<number[]>([2, 3, 4]);
   const [dayStart, setDayStart] = useState("09:00");
   const [dayEnd, setDayEnd] = useState("18:00");
   const [slotDuration, setSlotDuration] = useState(60);
@@ -187,7 +187,7 @@ export default function StrategySessionCalendarSettings() {
       setTimezone(String(d.schedule.timezone ?? "America/New_York"));
       const wd = d.schedule.weekdays as number[] | null;
       setWeekdays(
-        Array.isArray(wd) && wd.length ? wd.map((n) => Number(n)) : [1, 2, 3, 4],
+        Array.isArray(wd) && wd.length ? wd.map((n) => Number(n)) : [2, 3, 4],
       );
       const ds = String(d.schedule.day_start ?? "09:00").slice(0, 5);
       const de = String(d.schedule.day_end ?? "18:00").slice(0, 5);
@@ -197,7 +197,7 @@ export default function StrategySessionCalendarSettings() {
     } else {
       setActive(true);
       setTimezone("America/New_York");
-      setWeekdays([1, 2, 3, 4]);
+      setWeekdays([2, 3, 4]);
       setDayStart("09:00");
       setDayEnd("18:00");
       setSlotDuration(60);

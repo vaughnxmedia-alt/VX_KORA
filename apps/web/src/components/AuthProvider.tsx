@@ -12,7 +12,10 @@ export type AuthContextType = {
   user: User | null;
   profile: UserProfile | null;
   session: Session | null;
+  /** Supabase session restore only — does not wait on Brief access checks. */
   isLoading: boolean;
+  /** True while verifying `theBriefAccessToken` (The Brief routes may wait on this). */
+  isBriefAccessLoading: boolean;
   role: UserRole | null;
   hasTheBriefAccess: boolean;
 };
@@ -22,6 +25,7 @@ export const AuthContext = createContext<AuthContextType>({
   profile: null,
   session: null,
   isLoading: true,
+  isBriefAccessLoading: false,
   role: null,
   hasTheBriefAccess: false,
 });
@@ -102,7 +106,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const checkAccess = async () => {
-      setIsCheckingAccess(true);
       const privilegedRoles = ['admin', 'author'];
       if (role && privilegedRoles.includes(role)) {
         setHasTheBriefAccess(true);
@@ -111,28 +114,41 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       const accessToken = localStorage.getItem('theBriefAccessToken');
-      if (accessToken) {
-        try {
-          const { data, error } = await supabase.functions.invoke(
-            'check-brief-access',
-            { body: { access_token: accessToken } }
-          );
+      if (!accessToken) {
+        setHasTheBriefAccess(false);
+        setIsCheckingAccess(false);
+        return;
+      }
 
-          if (error) throw error;
-          if (data && data.hasAccess) {
-            setHasTheBriefAccess(true);
-          } else {
-            localStorage.removeItem('theBriefAccessToken');
-            setHasTheBriefAccess(false);
-          }
-        } catch (error) {
-          console.error('Error checking Brief access:', error);
+      setIsCheckingAccess(true);
+      const BRIEF_CHECK_MS = 12_000;
+      try {
+        const result = await Promise.race([
+          supabase.functions.invoke('check-brief-access', {
+            body: { access_token: accessToken },
+          }),
+          new Promise<never>((_, reject) =>
+            setTimeout(
+              () => reject(new Error('check-brief-access timed out')),
+              BRIEF_CHECK_MS
+            )
+          ),
+        ]);
+
+        const { data, error } = result;
+        if (error) throw error;
+        if (data && data.hasAccess) {
+          setHasTheBriefAccess(true);
+        } else {
+          localStorage.removeItem('theBriefAccessToken');
           setHasTheBriefAccess(false);
         }
-      } else {
+      } catch (error) {
+        console.error('Error checking Brief access:', error);
         setHasTheBriefAccess(false);
+      } finally {
+        setIsCheckingAccess(false);
       }
-      setIsCheckingAccess(false);
     };
 
     if (!isLoading) {
@@ -142,7 +158,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
 
   return (
-    <AuthContext.Provider value={{ user, profile, session, isLoading: isLoading || isCheckingAccess, role, hasTheBriefAccess }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        profile,
+        session,
+        isLoading,
+        isBriefAccessLoading: isCheckingAccess,
+        role,
+        hasTheBriefAccess,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

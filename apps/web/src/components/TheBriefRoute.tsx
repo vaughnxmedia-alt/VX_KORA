@@ -4,9 +4,9 @@ import TheBriefAccessWall from './TheBriefAccessWall';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const TheBriefRoute = () => {
-  const { hasTheBriefAccess, isLoading } = useAuth();
+  const { hasTheBriefAccess, isLoading, isBriefAccessLoading } = useAuth();
 
-  if (isLoading) {
+  if (isLoading || isBriefAccessLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="space-y-8">

@@ -343,6 +343,7 @@ export type Database = {
           meeting_date: string
           offer_summary: string | null
           payment_status: string | null
+          payment_transaction_id: string | null
           phone: string | null
           questionnaire_status: string | null
           service_name: string | null
@@ -380,6 +381,7 @@ export type Database = {
           meeting_date: string
           offer_summary?: string | null
           payment_status?: string | null
+          payment_transaction_id?: string | null
           phone?: string | null
           questionnaire_status?: string | null
           service_name?: string | null
@@ -417,6 +419,7 @@ export type Database = {
           meeting_date?: string
           offer_summary?: string | null
           payment_status?: string | null
+          payment_transaction_id?: string | null
           phone?: string | null
           questionnaire_status?: string | null
           service_name?: string | null
@@ -443,6 +446,63 @@ export type Database = {
             columns: ["host_user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meetings_payment_transaction_id_fkey"
+            columns: ["payment_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "payment_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_transactions: {
+        Row: {
+          amount_cents: number
+          buyer_email: string | null
+          created_at: string
+          currency: string
+          external_payment_id: string
+          id: string
+          idempotency_key: string | null
+          meeting_id: string | null
+          provider: string
+          raw_status: string | null
+          square_location_id: string | null
+        }
+        Insert: {
+          amount_cents: number
+          buyer_email?: string | null
+          created_at?: string
+          currency?: string
+          external_payment_id: string
+          id?: string
+          idempotency_key?: string | null
+          meeting_id?: string | null
+          provider?: string
+          raw_status?: string | null
+          square_location_id?: string | null
+        }
+        Update: {
+          amount_cents?: number
+          buyer_email?: string | null
+          created_at?: string
+          currency?: string
+          external_payment_id?: string
+          id?: string
+          idempotency_key?: string | null
+          meeting_id?: string | null
+          provider?: string
+          raw_status?: string | null
+          square_location_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_transactions_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
             referencedColumns: ["id"]
           },
         ]

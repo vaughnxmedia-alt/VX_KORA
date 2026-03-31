@@ -1,8 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
-
-// Supabase URL and anon key (from client.ts)
-const SUPABASE_URL = "https://cjgqicpuwbflypcnhuak.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqZ3FpY3B1d2JmbHlwY25odWFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU0NDMzMjUsImV4cCI6MjA3MTAxOTMyNX0.fNRj09zksV_3BPRlFqb3zAKOtg5Yf_f08wXbUbi4ks0";
+import { supabase, supabaseUrl, supabasePublishableKey } from "@/integrations/supabase/client";
 
 export interface UploadToS3Options {
   file: File;
@@ -34,12 +30,12 @@ export const uploadToS3 = async ({
     }
 
     // 1) Ask Edge Function for a presigned URL (metadata only)
-    const response = await fetch(`${SUPABASE_URL}/functions/v1/upload-to-s3`, {
+    const response = await fetch(`${supabaseUrl}/functions/v1/upload-to-s3`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${session.access_token}`,
-        apikey: SUPABASE_ANON_KEY,
+        apikey: supabasePublishableKey,
       },
       body: JSON.stringify({
         fileName: file.name,

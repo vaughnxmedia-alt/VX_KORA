@@ -4,7 +4,7 @@ node_modules.bad.*/
 .pnp/
 .pnp.js
 
-# Env and secrets
+# Env and secrets (never commit real credentials)
 .env
 .env.*
 .env.local
@@ -12,6 +12,22 @@ node_modules.bad.*/
 .env.test.local
 .env.production.local
 !.env.example
+!**/.env.example
+.envrc
+.direnv/
+
+# Key material and credential files
+*.pem
+*.p12
+*.pfx
+*-private-key.json
+credentials.json
+**/google-credentials.json
+.secrets/
+secrets/
+
+# Supabase local (may contain connection strings)
+**/.supabase/
 
 # OS / editor
 .DS_Store

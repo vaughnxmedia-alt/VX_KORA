@@ -251,12 +251,12 @@ export default function Meetings() {
     <div className="space-y-6">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-primary mb-4">
-          {canFilterMeetingsByHost ? "Global Meetings" : "Meetings"}
+          {canFilterMeetingsByHost ? "Meetings (all strategists)" : "Meetings"}
         </h1>
         <p className="text-lg text-muted-foreground">
           {canFilterMeetingsByHost
-            ? "Internal and client meetings in one place. Filter by strategist to compare volume across hosts."
-            : "All meetings, notes, follow-ups, and reminders related to your account."}
+            ? "Internal and client meetings. Use the filter to view one strategist’s calendar or everyone together. Public Strategy Session bookings without a code go to Jocelyn’s calendar; the “All strategists” view is for oversight roles only."
+            : "Meetings assigned to you (including public Strategy Sessions booked on your calendar)."}
         </p>
         {canFilterMeetingsByHost && (
           <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -269,7 +269,7 @@ export default function Meetings() {
                 <SelectValue placeholder="Choose host" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All hosts</SelectItem>
+                <SelectItem value="all">All strategists</SelectItem>
                 {(strategyHosts ?? []).map((h) => (
                   <SelectItem key={h.user_id} value={h.user_id}>
                     {formatStrategyHostListLabel(h)}
@@ -278,8 +278,8 @@ export default function Meetings() {
               </SelectContent>
             </Select>
             <span className="text-xs text-muted-foreground max-w-xl">
-              Filter by who owns the booking (includes Jocelyn’s default-public bookings; same data, no separate
-              bucket).
+              Bookings are owned by the strategist’s calendar (default public sessions route to Jocelyn). Admins and
+              strategists with oversight access can see every host here.
             </span>
           </div>
         )}

@@ -34,46 +34,42 @@ import { cn } from "@/lib/utils";
 import { intakeSchema, TIMEZONES, type IntakeValues } from "@/features/strategy-session/schema";
 import { fetchAvailability, fetchStrategySessionHosts, type DayDiagnostic } from "@/features/strategy-session/api";
 import {
+  clearPaymentProofFromStorage,
   writeDraftToStorage,
   type StrategySessionBookingDraft,
 } from "@/features/strategy-session/strategySessionDraft";
 import { formatStrategyHostListLabel } from "@/features/strategy-session/formatHostListLabel";
 import { toast } from "sonner";
+import { DateTime } from "luxon";
+import { supabaseIsConfigured } from "@/integrations/supabase/client";
 
-function ymdInTimeZone(d: Date, tz: string): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: tz,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(d);
+/**
+ * Calendar Y/M/D from the picker interpreted as that civil date in `tz` (matches how slot labels use `timezone`).
+ * Avoids browser-midnight vs booking-TZ mismatches that hid all time buttons.
+ */
+function selectedCivilYmdInTz(selected: Date, tz: string): string {
+  return DateTime.fromObject(
+    {
+      year: selected.getFullYear(),
+      month: selected.getMonth() + 1,
+      day: selected.getDate(),
+    },
+    { zone: tz },
+  ).toFormat("yyyy-MM-dd");
 }
 
-/** Noon on the picker cell’s local civil day — avoids zone-boundary midnight shifting the date. */
-function localNoonFromPickerDate(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0, 0);
+function slotStartYmdInTz(iso: string, tz: string): string {
+  return DateTime.fromISO(iso, { setZone: true }).setZone(tz).toFormat("yyyy-MM-dd");
+}
+
+function sameCalendarDayInTz(iso: string, selected: Date, tz: string): boolean {
+  return slotStartYmdInTz(iso, tz) === selectedCivilYmdInTz(selected, tz);
 }
 
 /** Luxon ISO weekday Mon=1 .. Sun=7 for the calendar grid (react-day-picker is browser-local). */
 function localLuxonWeekday(d: Date): number {
   const js = d.getDay();
   return js === 0 ? 7 : js;
-}
-
-function slotCalendarYmdInTz(iso: string, tz: string): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: tz,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date(iso));
-}
-
-/** Same civil day in the booking timezone (must match slot filtering). */
-function sameCalendarDayInTz(iso: string, selected: Date, tz: string): boolean {
-  return (
-    slotCalendarYmdInTz(iso, tz) === ymdInTimeZone(localNoonFromPickerDate(selected), tz)
-  );
 }
 
 function todayYmdInBookingTz(timeZone: string): string {
@@ -86,10 +82,7 @@ function todayYmdInBookingTz(timeZone: string): string {
 }
 
 function isPickerDayBeforeBookingToday(date: Date, timeZone: string): boolean {
-  return (
-    ymdInTimeZone(localNoonFromPickerDate(date), timeZone) <
-    todayYmdInBookingTz(timeZone)
-  );
+  return selectedCivilYmdInTz(date, timeZone) < todayYmdInBookingTz(timeZone);
 }
 
 /** First local calendar day on or after `from` whose column weekday matches `openWeekdays` (server uses same Mon=1..Sun=7). */
@@ -103,11 +96,12 @@ function nextOpenDayOnOrAfter(from: Date, openWeekdays: number[]): Date {
   return d;
 }
 
-const DEFAULT_OPEN_WEEKDAYS = [1, 2, 3, 4];
+/** Tue–Thu (matches server Luxon weekdays 2–4) */
+const DEFAULT_OPEN_WEEKDAYS = [2, 3, 4];
 
 function describeEmptyDayDiagnostic(d: DayDiagnostic | undefined): string {
   if (!d) {
-    return "No open times in the loaded range, or times may not match your timezone. Try another day or change month.";
+    return "No open times for this day. Choose another Tuesday–Thursday in this month, or use the arrows to load a different month.";
   }
   const r = d.reasons;
   if (r.includes("WEEKDAY_CLOSED")) {
@@ -218,6 +212,7 @@ export default function StrategySessionBooking() {
     queryKey: ["strategy-session-hosts"],
     queryFn: fetchStrategySessionHosts,
     staleTime: 600_000,
+    enabled: supabaseIsConfigured,
   });
 
   const {
@@ -242,7 +237,7 @@ export default function StrategySessionBooking() {
         hostCode: hostCodeForAvailability,
         includeDiagnostics: true,
       }),
-    enabled: step >= 2,
+    enabled: supabaseIsConfigured && step >= 2,
     staleTime: 60_000,
   });
 
@@ -275,15 +270,13 @@ export default function StrategySessionBooking() {
 
   const selectedDayDiag = useMemo(() => {
     if (!selectedDay || !availability?.clientDayDiagnostics) return undefined;
-    return availability.clientDayDiagnostics[
-      ymdInTimeZone(localNoonFromPickerDate(selectedDay), timezone)
-    ];
+    return availability.clientDayDiagnostics[selectedCivilYmdInTz(selectedDay, timezone)];
   }, [selectedDay, availability?.clientDayDiagnostics, timezone]);
 
   const scheduleBlurb = useMemo(() => {
     const s = availability?.schedule;
     if (!s?.weekdays?.length) {
-      return "Pick an open day, then a time. Each strategist can have their own hours (set in the dashboard).";
+      return "Pick an open day, then a time. Strategy sessions are typically Tuesday–Thursday, 9:00am–5:00pm Eastern.";
     }
     const names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const days = s.weekdays
@@ -318,6 +311,7 @@ export default function StrategySessionBooking() {
       ...(bookingKindFromUrl ? { bookingKind: bookingKindFromUrl } : {}),
     };
     try {
+      clearPaymentProofFromStorage();
       writeDraftToStorage(draft);
     } catch {
       toast.error("Could not save your session. Allow storage or try another browser.");
@@ -676,30 +670,15 @@ export default function StrategySessionBooking() {
                     </div>
                   ) : !selectedDay ? (
                     <p className="text-sm text-muted-foreground py-4">Pick a date.</p>
-                  ) : !availability?.schedule?.active ? (
-                    <p className="text-sm text-destructive py-4 leading-relaxed">
-                      This strategist’s session calendar is currently closed. Please try again later or contact the
-                      team.
-                    </p>
-                  ) : slotsForDay.length === 0 ? (
-                    <div className="text-sm text-muted-foreground py-4 leading-relaxed space-y-2">
-                      <p>{describeEmptyDayDiagnostic(selectedDayDiag)}</p>
-                      {selectedDayDiag && (
-                        <p className="text-xs font-mono opacity-80">
-                          Debug: {selectedDayDiag.reasons.join(", ")} · candidates{" "}
-                          {selectedDayDiag.candidateSlots}, past {selectedDayDiag.removedPast}, booked{" "}
-                          {selectedDayDiag.removedBooked}
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
+                  ) : slotsForDay.length > 0 ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {slotsForDay.map((s) => (
                         <Button
                           key={s.start}
                           type="button"
                           variant={selectedSlotIso === s.start ? "default" : "outline"}
                           size="sm"
+                          className="min-h-11 w-full justify-center font-medium tabular-nums"
                           onClick={() => setSelectedSlotIso(s.start)}
                         >
                           {new Intl.DateTimeFormat("en-US", {
@@ -710,12 +689,25 @@ export default function StrategySessionBooking() {
                         </Button>
                       ))}
                     </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground py-4 leading-relaxed space-y-2">
+                      <p>{describeEmptyDayDiagnostic(selectedDayDiag)}</p>
+                      {selectedDayDiag && (
+                        <p className="text-xs font-mono opacity-80">
+                          Debug: {selectedDayDiag.reasons.join(", ")} · candidates{" "}
+                          {selectedDayDiag.candidateSlots}, past {selectedDayDiag.removedPast}, booked{" "}
+                          {selectedDayDiag.removedBooked}
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
-              <Button type="button" size="lg" disabled={!selectedSlotIso} onClick={handleBookSession}>
-                Book Session
-              </Button>
+              <div className="space-y-2">
+                <Button type="button" size="lg" disabled={!selectedSlotIso} onClick={handleBookSession}>
+                  Book Session
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}
