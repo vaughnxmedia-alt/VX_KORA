@@ -4,81 +4,75 @@
 
 K.O.R.A is an AI-powered marketing intelligence platform that automates content strategy, market research, and campaign creation through a network of specialized agents.
 
-## Project Structure
+**Single repository:** the public marketing site, Mission Control admin UI, shared packages, Supabase (under `apps/web`), and workers all live in this repo (`VX_KORA`). There is no separate Mission Control repo.
+
+## Project structure
 
 ```
 VX_KORA/
 ├── apps/
-│   └── web/                    # Main marketing site and dashboard
-│       ├── src/
-│       │   ├── components/     # React components
-│       │   ├── pages/          # Page routes
-│       │   └── integrations/   # Supabase client
-│       └── supabase/           # Edge functions and migrations
-│
-├── packages/
-│   └── kora-sdk/               # Shared SDK and utilities
-│
-├── services/                   # Microservices (future)
-│
+│   ├── web/                 # Main marketing site + customer dashboard (Vite/React)
+│   │   ├── src/
+│   │   └── supabase/        # Edge functions, migrations (shared backend surface)
+│   └── mission-control/     # Mission Control internal admin (Vite/React; npm package name: kora-admin)
+├── packages/                # Shared libraries (e.g. kora-sdk, publishing-*)
+├── services/
+│   └── telegram-bot/        # Telegram / insights tooling (workspace package)
 └── workers/
-    ├── ingest/                 # Data ingestion pipeline
-    │   ├── kora-admin/         # Mission Control dashboard
-    │   ├── kora-rag-service/   # RAG embeddings and chat
-    │   ├── src/                # RSS feed ingestion agent
-    │   └── supabase/           # Database migrations
-    │
-    └── intake-recorder/        # Client intake processing
+    └── agents/              # Agent TypeScript sources (not an npm workspace; no package.json here)
 ```
+
+**Important:** Mission Control is **`apps/mission-control`**, not `workers/ingest/kora-admin`. That old path was removed when the app was moved into `apps/`; Vercel and any scripts must use `apps/mission-control`.
 
 ## Applications
 
-### Main Web App (`apps/web`)
-The primary KORA marketing platform with:
-- User dashboard
-- Blog system
-- AI PR assistant chat
-- Brief management
-- File uploads to S3
+### Main web app (`apps/web`)
 
-**Tech Stack:** React, TypeScript, Vite, Tailwind CSS, shadcn/ui, Supabase
+The primary JahKnowsPR / KORA marketing surface and app shell: blog, strategy session booking, dashboard areas, PR assistant, Supabase client, etc.
+
+**Tech stack:** React, TypeScript, Vite, Tailwind CSS, shadcn/ui, Supabase
+
+**Local dev:** `npm run dev:web` (from repo root) or `cd apps/web && npm run dev`
 
 ### Mission Control (`apps/mission-control`)
-Internal admin dashboard for monitoring and controlling:
-- Global RSS ingestion
-- Tenant distribution and routing
-- Event queue processing
-- RAG knowledge base updates
-- Content strategy generation
 
-**Tech Stack:** React, TypeScript, Vite, Tailwind CSS, shadcn/ui
+Internal admin dashboard (package name **`kora-admin`** in `package.json` only). Same repo as the main site.
 
-## Getting Started
+**Tech stack:** React, TypeScript, Vite, Tailwind CSS, Radix/shadcn-style UI
+
+**Local dev:** `npm run dev:admin` (from repo root) or `cd apps/mission-control && npm run dev`
+
+## Deployment (Vercel)
+
+Create **two Vercel projects** (or more) from **this same GitHub repo**, each with the correct **Root Directory**:
+
+| Vercel project        | Root Directory           | Framework |
+|-----------------------|--------------------------|-----------|
+| Main site             | `apps/web`               | Vite      |
+| Mission Control       | `apps/mission-control`   | Vite      |
+
+**Output directory:** `dist` (Vite default) for both.  
+**Do not** set Root Directory to `workers/ingest/kora-admin` — that folder is not in this repository.
+
+## Getting started
 
 ### Prerequisites
+
 - Node.js 18+
-- npm or pnpm
-- Supabase account
+- npm
+- Supabase account (for full app behavior)
 
-### Development
+### Install
 
-**Run the main web app:**
+From the repository root:
+
 ```bash
-cd apps/web
 npm install
-npm run dev
 ```
 
-**Run Mission Control:**
-```bash
-cd apps/mission-control
-npm install
-npm run dev
-```
+### Environment variables
 
-### Environment Variables
-
-Create `.env` files in each project directory. See `.env.example` files for required variables.
+Create `.env` files as needed. See each app’s `.env.example` where present.
 
 ## Architecture
 

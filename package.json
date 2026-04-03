@@ -17,8 +17,7 @@
   "workspaces": [
     "apps/*",
     "packages/*",
-    "services/*",
-    "workers/ingest/*"
+    "services/*"
   ],
   "keywords": ["kora", "ai", "rag", "agents", "marketing"],
   "author": "VaughnX Technology LLC",
