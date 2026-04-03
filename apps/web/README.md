@@ -1,73 +1,28 @@
- # Welcome to your Lovable project
+# JahKnowsPR web (apps/web)
 
-## Project info
+Public marketing site and signed-in dashboard for **JahKnowsPR** — brand intelligence, PR, Creative Hub, and K.O.R.A.
 
-**URL**: https://lovable.dev/projects/2cc8df24-d8b6-4a99-9972-b5c8b4767994
+## Local development
 
-## How can I edit this code?
-
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/2cc8df24-d8b6-4a99-9972-b5c8b4767994) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+From the monorepo root:
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+npm install
+npm run dev:web
 ```
 
-**Edit a file directly in GitHub**
+Vite serves the app (see `vite.config.ts` for host/port). Copy `apps/web/.env.example` to `apps/web/.env` and set Supabase keys from **Project Settings → API**.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Build
 
-**Use GitHub Codespaces**
+```sh
+npm run build:web
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Supabase
 
-## What technologies are used for this project?
+Migrations and Edge Functions live under `apps/web/supabase/`. Deploy functions and run migrations against your Supabase project with the Supabase CLI (see repo root `package.json` `supabase` script).
 
-This project is built with:
+## Site URL
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/2cc8df24-d8b6-4a99-9972-b5c8b4767994) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+Production canonical URLs use **https://jahknowspr.com**. For Edge Functions that build absolute links (e.g. `og-meta`), set the **`SITE_URL`** secret to your public origin if it differs.

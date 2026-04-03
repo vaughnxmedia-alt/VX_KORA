@@ -1,5 +1,5 @@
+/** Production + known preview hosts. Unknown browser origins fall back to primary site. */
 const allowedOrigins = [
-  "https://developing-site.lovable.app",
   "https://jahknowspr.com",
   "https://www.jahknowspr.com",
   "http://localhost:5173",
@@ -44,7 +44,7 @@ export function getCorsHeaders(req?: Request) {
 
 // Backwards-compatible static export for simple cases
 export const corsHeaders = {
-  "Access-Control-Allow-Origin": "https://developing-site.lovable.app",
+  "Access-Control-Allow-Origin": "https://jahknowspr.com",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",

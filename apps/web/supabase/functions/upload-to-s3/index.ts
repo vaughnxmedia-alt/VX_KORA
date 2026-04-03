@@ -4,7 +4,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // CORS configuration
 const allowedOrigins = [
-  "https://developing-site.lovable.app",
   "https://jahknowspr.com",
   "https://www.jahknowspr.com",
   "http://localhost:8080",

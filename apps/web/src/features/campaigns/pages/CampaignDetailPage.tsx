@@ -1,5 +1,8 @@
 import React, { useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Loader2 } from "lucide-react";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -34,6 +37,10 @@ import { AnalyticsTab } from "../components/tabs/AnalyticsTab";
 import { OptimizationTab } from "../components/tabs/OptimizationTab";
 import { PRTab } from "../components/tabs/PRTab";
 import type { Campaign, CampaignStatus, WhiteboardConnection } from "../types";
+import { OperationalCampaignDetail } from "../components/OperationalCampaignDetail";
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const STATUS_OPTIONS: CampaignStatus[] = [
   "Draft",
@@ -57,6 +64,41 @@ export function CampaignDetailPage() {
   const { currentUser, isAdmin } = useMockAuth();
   const { getCampaignById, updateCampaign } = useCampaignsStore();
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
+
+  const isUuid = campaignId ? UUID_RE.test(campaignId) : false;
+
+  const { data: opCampaign, isLoading: opLoading } = useQuery({
+    queryKey: ["operational-campaign", campaignId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("campaigns").select("*").eq("id", campaignId!).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!campaignId && isUuid,
+  });
+
+  if (campaignId && isUuid && opLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (campaignId && isUuid && opCampaign) {
+    return <OperationalCampaignDetail campaign={opCampaign} />;
+  }
+
+  if (campaignId && isUuid && !opCampaign) {
+    return (
+      <div className="p-6">
+        <p className="text-muted-foreground">Campaign not found.</p>
+        <Button asChild variant="link" className="mt-2">
+          <Link to="/dashboard/campaigns">Back to Campaigns</Link>
+        </Button>
+      </div>
+    );
+  }
 
   const campaign = campaignId ? getCampaignById(campaignId) : undefined;
 

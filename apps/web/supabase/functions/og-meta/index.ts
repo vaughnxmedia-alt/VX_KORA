@@ -1,19 +1,9 @@
+/**
+ * Open Graph / crawler HTML for blog posts.
+ * Optional secret: SITE_URL — public site origin for canonical links (default https://jahknowspr.com).
+ */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const allowedOrigins = [
-  "https://developing-site.lovable.app",
-  "https://jahknowspr.com",
-  "https://www.jahknowspr.com",
-];
-
-function getCorsHeaders(req?: Request) {
-  const origin = req?.headers.get("Origin") || "";
-  const allowedOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
-  return {
-    "Access-Control-Allow-Origin": allowedOrigin,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  };
-}
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 // Social media crawler user agents
 const crawlerPatterns = [
@@ -33,6 +23,34 @@ const crawlerPatterns = [
 function isCrawler(userAgent: string): boolean {
   const ua = userAgent.toLowerCase();
   return crawlerPatterns.some(pattern => ua.includes(pattern.toLowerCase()));
+}
+
+/** Match DB RLS: published, not hidden, and schedule instant reached. */
+function isPostPubliclyShareable(post: {
+  published_date: string | null;
+  publish_scheduled_at?: string | null;
+  status?: string | null;
+  is_hidden?: boolean | null;
+}): boolean {
+  if (post.is_hidden === true) return false;
+  if ((post.status ?? "published") !== "published") return false;
+  if (!post.published_date) return false;
+  const scheduled = post.publish_scheduled_at?.trim();
+  if (scheduled) {
+    return new Date(scheduled).getTime() <= Date.now();
+  }
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = formatter.formatToParts(new Date());
+  const y = parts.find((p) => p.type === "year")!.value;
+  const m = parts.find((p) => p.type === "month")!.value;
+  const d = parts.find((p) => p.type === "day")!.value;
+  const todayNy = `${y}-${m}-${d}`;
+  return post.published_date <= todayNy;
 }
 
 // HTML entity encoding to prevent XSS
@@ -80,7 +98,7 @@ Deno.serve(async (req) => {
     // Fetch the blog post
     const { data: post, error } = await supabase
       .from('blog_posts')
-      .select('id, title, description, excerpt, cover_image_url, author_name, published_date, category')
+      .select('id, title, description, excerpt, cover_image_url, author_name, published_date, publish_scheduled_at, category, status, is_hidden')
       .eq('id', postId)
       .single();
 
@@ -89,10 +107,14 @@ Deno.serve(async (req) => {
       return new Response('Post not found', { status: 404, headers: corsHeaders });
     }
 
+    if (!isPostPubliclyShareable(post)) {
+      return new Response('Post not available', { status: 404, headers: corsHeaders });
+    }
+
     console.log(`Found post: ${post.title}`);
 
     // Get the site URL from environment or construct it
-    const siteUrl = Deno.env.get('SITE_URL') || 'https://developing-site.lovable.app';
+    const siteUrl = Deno.env.get("SITE_URL") || "https://jahknowspr.com";
     const postUrl = `${siteUrl}/the-brief/${post.id}`;
     const imageUrl = post.cover_image_url || `${siteUrl}/logo.svg`;
     const description = post.description || post.excerpt || `Read ${post.title} on The Brief`;

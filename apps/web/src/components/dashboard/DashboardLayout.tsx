@@ -86,8 +86,11 @@ export default function DashboardLayout() {
       subscribers: "Subscribers",
       events: "Events",
       leads: "Leads",
-      "content-strategy": "Content Strategy",
-      campaigns: "Campaign Generator"
+      campaigns: "Campaigns",
+      "creative-hub": "Creative Hub",
+      logistics: "Logistics",
+      "get-inspired": "Get Inspired",
+      inspired: "Get Inspired",
     };
 
     return segments.map((segment, index) => {

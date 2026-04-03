@@ -190,9 +190,9 @@ const Index = () => {
       <section className="py-20 md:py-28 px-4 sm:px-6 bg-background border-b border-gold/20">
         <div className="max-w-4xl mx-auto">
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            initial={{ y: 20 }}
+            whileInView={{ y: 0 }}
+            viewport={{ once: true, amount: "some", margin: "0px 0px -100px 0px" }}
             transition={{ duration: 0.7 }}
             className="text-center space-y-8"
           >
@@ -224,9 +224,9 @@ const Index = () => {
       <section id="services" className="py-20 md:py-28 px-4 sm:px-6 bg-muted/30 border-b border-gold/20 scroll-mt-28">
         <div className="max-w-6xl mx-auto">
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            initial={{ y: 20 }}
+            whileInView={{ y: 0 }}
+            viewport={{ once: true, amount: "some", margin: "0px 0px -100px 0px" }}
             transition={{ duration: 0.7 }}
             className="text-center mb-12 md:mb-16 space-y-4"
           >
@@ -336,9 +336,9 @@ const Index = () => {
               }) => (
                 <motion.div
                   key={step}
-                  initial={{ opacity: 0, y: 24 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
+                  initial={{ y: 16 }}
+                  whileInView={{ y: 0 }}
+                  viewport={{ once: true, amount: "some", margin: "0px 0px -80px 0px" }}
                   transition={{ duration: 0.55, delay }}
                   className="group relative flex flex-col bg-background rounded-2xl p-8 shadow-sm border border-border/50 hover:shadow-lg hover:border-gold/40 transition-all duration-500"
                 >
@@ -396,9 +396,9 @@ const Index = () => {
       <section className="py-20 md:py-28 px-4 sm:px-6 bg-background border-b border-gold/20">
         <div className="max-w-4xl mx-auto">
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            initial={{ y: 20 }}
+            whileInView={{ y: 0 }}
+            viewport={{ once: true, amount: "some", margin: "0px 0px -100px 0px" }}
             transition={{ duration: 0.7 }}
             className="text-center space-y-8"
           >

@@ -10,6 +10,7 @@ import { ArrowRight } from "lucide-react";
 import { useToast } from "./ui/use-toast";
 import { useState } from "react";
 import { Spinner } from "./ui/spinner";
+import { suppressSubscriberPopupAsSignedUp } from "@/lib/subscriber-popup-storage";
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -52,6 +53,7 @@ export const SubscriptionForm = () => {
         variant: "destructive",
       });
     } else {
+      suppressSubscriberPopupAsSignedUp();
       if (data?.alreadySubscribed) {
         sonnerToast.success("Request received.", {
           description: "If this email is already registered, access remains active.",

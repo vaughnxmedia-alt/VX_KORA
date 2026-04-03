@@ -1,3 +1,6 @@
+# Large hero video for Brand Strategy Session page — keep locally or deploy to CDN
+public/videos/pr-vs-marketing.mp4
+
 node_modules
 ._*
 .DS_Store

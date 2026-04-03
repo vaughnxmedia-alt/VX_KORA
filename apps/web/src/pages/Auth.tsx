@@ -6,11 +6,37 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseIsConfigured } from "@/integrations/supabase/client";
 import { Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 
 import { Logo } from "@/components/Logo";
+
+function describeAuthFailure(error: unknown, context: "sign in" | "sign up" | "reset"): string {
+  const msg =
+    error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof (error as { message: unknown }).message === "string"
+      ? (error as { message: string }).message
+      : String(error);
+
+  if (!msg || msg === "undefined") {
+    return `An error occurred during ${context}.`;
+  }
+
+  const lower = msg.toLowerCase();
+  if (
+    msg === "Failed to fetch" ||
+    lower.includes("networkerror") ||
+    lower.includes("load failed") ||
+    lower.includes("network request failed")
+  ) {
+    return "Could not reach Supabase (network error). For local development, add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY to apps/web/.env (see .env.example), restart npm run dev, and ensure VPN/firewall/ad blockers allow *.supabase.co. On production, confirm those env vars are set on your host.";
+  }
+
+  return msg;
+}
 
 const Auth = () => {
   const [email, setEmail] = useState("");
@@ -67,6 +93,16 @@ const Auth = () => {
 
     setLoading(true);
     try {
+      if (!supabaseIsConfigured) {
+        toast({
+          title: "Dashboard sign-in not configured",
+          description:
+            "Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY to apps/web/.env from Supabase → Project Settings → API, then restart the dev server. The public blog does not use this; only the JKPR Portal / dashboard does.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -90,10 +126,10 @@ const Auth = () => {
           navigate('/dashboard');
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Sign In Failed",
-        description: error.message || "An error occurred during sign in",
+        description: describeAuthFailure(error, "sign in"),
         variant: "destructive",
       });
     } finally {
@@ -123,6 +159,16 @@ const Auth = () => {
 
     setLoading(true);
     try {
+      if (!supabaseIsConfigured) {
+        toast({
+          title: "Sign up unavailable",
+          description:
+            "Supabase env vars are missing. Copy apps/web/.env.example to apps/web/.env and set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY, then restart the dev server.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -153,10 +199,10 @@ const Auth = () => {
             : "Please check your email to confirm your account, then complete your Brand Blueprint to get started.",
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Sign Up Failed",
-        description: error.message || "An error occurred during sign up",
+        description: describeAuthFailure(error, "sign up"),
         variant: "destructive",
       });
     } finally {
@@ -177,6 +223,16 @@ const Auth = () => {
 
     setResetLoading(true);
     try {
+      if (!supabaseIsConfigured) {
+        toast({
+          title: "Reset unavailable",
+          description:
+            "Supabase is not configured in this environment. Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in apps/web/.env and restart the dev server.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
         redirectTo: `${window.location.origin}/auth`,
       });
@@ -189,10 +245,10 @@ const Auth = () => {
       });
       setShowForgotPassword(false);
       setResetEmail("");
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Reset Failed",
-        description: error.message || "An error occurred sending reset email",
+        description: describeAuthFailure(error, "reset"),
         variant: "destructive",
       });
     } finally {

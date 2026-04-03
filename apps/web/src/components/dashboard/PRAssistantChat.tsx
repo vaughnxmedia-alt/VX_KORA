@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import rehypeSanitize from "rehype-sanitize";
 import { toast } from "sonner";
-import { supabase, supabaseUrl } from "@/integrations/supabase/client";
+import { supabase, supabaseUrl, supabasePublishableKey } from "@/integrations/supabase/client";
 
 interface Message {
   role: "user" | "assistant";
@@ -80,7 +80,8 @@ export function PRAssistantChat() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: supabasePublishableKey,
         },
         body: JSON.stringify({
           messages: [...messages, userMessage]

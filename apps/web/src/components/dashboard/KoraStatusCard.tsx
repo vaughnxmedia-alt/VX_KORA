@@ -133,7 +133,7 @@ export function KoraStatusCard() {
             <p className="text-xs font-medium text-muted-foreground">Latest Strategy</p>
             <div 
               className="p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
-              onClick={() => navigate("/dashboard/content-strategy")}
+              onClick={() => navigate("/dashboard/creative-hub")}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -183,7 +183,7 @@ export function KoraStatusCard() {
             </p>
             <Button 
               size="sm" 
-              onClick={() => navigate("/dashboard/content-strategy")}
+              onClick={() => navigate("/dashboard/creative-hub")}
               className="gap-2"
             >
               <Sparkles className="w-4 h-4" />
@@ -199,7 +199,7 @@ export function KoraStatusCard() {
               variant="outline" 
               size="sm" 
               className="flex-1"
-              onClick={() => navigate("/dashboard/content-strategy")}
+              onClick={() => navigate("/dashboard/creative-hub")}
             >
               <Layers className="w-4 h-4 mr-1" />
               Strategies

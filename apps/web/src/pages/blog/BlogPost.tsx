@@ -21,7 +21,7 @@ type BlogPostType = {
   read_time: string;
   published_date: string;
   author_name: string;
-  is_featured: boolean;
+  is_featured?: boolean | null;
   icon_name: string;
   tagline?: string;
   view_count?: number;
@@ -187,9 +187,14 @@ const BlogPost = () => {
 
     if (error) {
       console.error("Error fetching blog post:", error);
+      const notFound =
+        error.code === "PGRST116" ||
+        (typeof error.message === "string" && error.message.toLowerCase().includes("no rows"));
       toast({
-        title: "Error",
-        description: "Could not fetch blog post.",
+        title: notFound ? "Not available yet" : "Error",
+        description: notFound
+          ? "This article isn’t live yet, may be scheduled for a future date, or isn’t on The Brief."
+          : "Could not fetch blog post.",
         variant: "destructive",
       });
       navigate("/the-brief");

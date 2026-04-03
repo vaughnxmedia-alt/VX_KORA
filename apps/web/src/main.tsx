@@ -1,6 +1,6 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as Sonner } from '@/components/ui/sonner';
@@ -40,8 +40,8 @@ import StrategySessionCalendarSettings from './pages/dashboard/StrategySessionCa
 import AssetLibrary from './pages/dashboard/AssetLibrary';
 import Reports from './pages/dashboard/Reports';
 import Settings from './pages/dashboard/Settings';
-import ContentStrategy from './pages/dashboard/ContentStrategy';
-import CampaignGenerator from './pages/dashboard/CampaignGenerator';
+import { CreativeHubPage } from '@/features/creative-hub/CreativeHubPage';
+import LogisticsPage from './pages/dashboard/LogisticsPage';
 import IntelligenceFilters from './pages/dashboard/IntelligenceFilters';
 import Sources from './pages/dashboard/Sources';
 import { GetInspiredPage } from '@/features/inspired/GetInspiredPage';
@@ -51,6 +51,7 @@ import { CampaignsIndexPage } from '@/features/campaigns/pages/CampaignsIndexPag
 import { CampaignDetailPage } from '@/features/campaigns/pages/CampaignDetailPage';
 import Events from './pages/Events';
 import Kora from './pages/Kora';
+import BrandStrategySessionLanding from './pages/BrandStrategySessionLanding';
 import StrategySessionBooking from './pages/StrategySessionBooking';
 import StrategySessionPayment from './pages/StrategySessionPayment';
 import StrategySessionThankYou from './pages/StrategySessionThankYou';
@@ -73,6 +74,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/home" element={<Index />} />
               <Route path="/shop" element={<Shop />} />
               <Route path="/work-with-me" element={<WorkWithMe />} />
+              <Route path="/brand-strategy-session" element={<BrandStrategySessionLanding />} />
               <Route path="/strategy-session" element={<StrategySessionBooking />} />
               <Route path="/strategy-session/payment" element={<StrategySessionPayment />} />
               <Route path="/strategy-session/thank-you" element={<StrategySessionThankYou />} />
@@ -148,8 +150,10 @@ createRoot(document.getElementById('root')!).render(
                   <Route path="reports" element={<Reports />} />
                   <Route path="settings" element={<Settings />} />
                   <Route path="intelligence-filters" element={<IntelligenceFilters />} />
-                  <Route path="content-strategy" element={<ContentStrategy />} />
-                  <Route path="campaign-generator" element={<CampaignGenerator />} />
+                  <Route path="content-strategy" element={<Navigate to="/dashboard/creative-hub" replace />} />
+                  <Route path="creative-hub" element={<CreativeHubPage />} />
+                  <Route path="logistics" element={<LogisticsPage />} />
+                  <Route path="campaign-generator" element={<Navigate to="/dashboard/creative-hub" replace />} />
                   <Route path="sources" element={
                       <ProtectedRoute allowedRoles={['admin']}>
                         <Sources />

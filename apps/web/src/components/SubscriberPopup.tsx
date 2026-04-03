@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,10 +6,15 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
+import {
+  parseSubscriberPopupState,
+  writeSubscriberPopupState,
+  suppressSubscriberPopupAsSignedUp,
+  hasBriefEmailSignupMarker,
+  SUBSCRIBER_POPUP_MAX_IMPRESSIONS,
+} from "@/lib/subscriber-popup-storage";
 
 const POPUP_INTERVAL_MS = 3 * 60 * 1000; // 3 minutes
-const MAX_POPUP_COUNT = 5;
-const STORAGE_KEY = "subscriber_popup_state";
 
 const subscriberSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100, "Name must be less than 100 characters"),
@@ -23,47 +28,68 @@ export function SubscriberPopup() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
   const { toast } = useToast();
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    const state = getPopupState();
-    
-    // If already subscribed or max popups reached, don't show
-    if (state.subscribed || state.count >= MAX_POPUP_COUNT) {
-      return;
-    }
+    let cancelled = false;
 
-    // Show popup after interval
-    const timer = setInterval(() => {
-      const currentState = getPopupState();
-      
-      if (currentState.subscribed || currentState.count >= MAX_POPUP_COUNT) {
-        clearInterval(timer);
+    const clearTimer = () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+
+    const startIntervalIfNeeded = () => {
+      const state = parseSubscriberPopupState();
+      if (state.subscribed || state.count >= SUBSCRIBER_POPUP_MAX_IMPRESSIONS) {
         return;
       }
 
-      // Increment count and show popup
-      setPopupState({ ...currentState, count: currentState.count + 1 });
-      setOpen(true);
-    }, POPUP_INTERVAL_MS);
+      intervalRef.current = setInterval(() => {
+        const currentState = parseSubscriberPopupState();
+        if (currentState.subscribed || currentState.count >= SUBSCRIBER_POPUP_MAX_IMPRESSIONS) {
+          clearTimer();
+          return;
+        }
+        writeSubscriberPopupState({ ...currentState, count: currentState.count + 1 });
+        setOpen(true);
+      }, POPUP_INTERVAL_MS);
+    };
 
-    return () => clearInterval(timer);
-  }, []);
-
-  const getPopupState = (): { count: number; subscribed: boolean } => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        return JSON.parse(stored);
+    const syncSuppressionFromSignup = async () => {
+      if (hasBriefEmailSignupMarker()) {
+        suppressSubscriberPopupAsSignedUp();
+        return;
       }
-    } catch {
-      // Ignore parse errors
-    }
-    return { count: 0, subscribed: false };
-  };
 
-  const setPopupState = (state: { count: number; subscribed: boolean }) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  };
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        const emailAddr = user?.email?.trim().toLowerCase();
+        if (!emailAddr) return;
+
+        const { data: row } = await supabase.from("subscribers").select("id").eq("email", emailAddr).maybeSingle();
+        if (!cancelled && row) {
+          suppressSubscriberPopupAsSignedUp();
+        }
+      } catch {
+        // non-fatal — popup may still show
+      }
+    };
+
+    void (async () => {
+      await syncSuppressionFromSignup();
+      if (cancelled) return;
+      startIntervalIfNeeded();
+    })();
+
+    return () => {
+      cancelled = true;
+      clearTimer();
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,19 +109,18 @@ export function SubscriberPopup() {
     setIsSubmitting(true);
 
     try {
-      // Check if email already exists
       const { data: existing } = await supabase
         .from("subscribers")
         .select("id")
         .eq("email", result.data.email.toLowerCase())
-        .single();
+        .maybeSingle();
 
       if (existing) {
         toast({
           title: "Already subscribed",
           description: "This email is already on our list.",
         });
-        setPopupState({ count: MAX_POPUP_COUNT, subscribed: true });
+        suppressSubscriberPopupAsSignedUp();
         setOpen(false);
         return;
       }
@@ -112,7 +137,7 @@ export function SubscriberPopup() {
         description: "You've been added to our list.",
       });
 
-      setPopupState({ count: MAX_POPUP_COUNT, subscribed: true });
+      suppressSubscriberPopupAsSignedUp();
       setOpen(false);
       setName("");
       setEmail("");
@@ -140,7 +165,8 @@ export function SubscriberPopup() {
             Stay Informed<span className="text-gold">.</span>
           </DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            Join our curated list for strategic insights on brand intelligence and public relations.
+            Join our curated list for strategic insights on brand intelligence and public relations — and occasional
+            updates you can use for your brand.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
@@ -168,12 +194,7 @@ export function SubscriberPopup() {
             {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
           </div>
           <div className="flex gap-3 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleClose}
-              className="flex-1"
-            >
+            <Button type="button" variant="outline" onClick={handleClose} className="flex-1">
               Not Now
             </Button>
             <Button type="submit" disabled={isSubmitting} className="flex-1">

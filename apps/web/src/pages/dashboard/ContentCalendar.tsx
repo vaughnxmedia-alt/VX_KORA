@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/components/AuthProvider";
 import { NewPostDialog } from "@/components/dashboard/NewPostDialog";
-import { PRAssistantChat } from "@/components/dashboard/PRAssistantChat";
 import { ChevronLeft, ChevronRight, Settings, Loader2, CheckCircle2, Link2 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -35,6 +34,8 @@ interface ScheduledPost {
   calendar_id: string;
   post_type?: "social" | "blog";
   blog_post_id?: string | null;
+  campaign_id?: string | null;
+  campaign_name_snapshot?: string | null;
 }
 
 interface BlogPostLite {
@@ -677,6 +678,22 @@ export default function ContentCalendar() {
                               ))}
                             </div>
                           )}
+                          {post.campaign_id && (
+                            <div className="pt-1 flex items-center gap-2 flex-wrap">
+                              <Badge variant="secondary" className="text-xs">
+                                Campaign: {post.campaign_name_snapshot || "Linked"}
+                              </Badge>
+                              <Button
+                                variant="link"
+                                className="h-auto p-0 text-xs"
+                                onClick={() =>
+                                  navigate(`/dashboard/campaigns/${post.campaign_id}`)
+                                }
+                              >
+                                View campaign
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -728,13 +745,6 @@ export default function ContentCalendar() {
           </Card>
         </div>
       </div>
-
-      {/* K.O.R.A Assistant */}
-      <Card className="h-[600px] flex flex-col overflow-hidden">
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <PRAssistantChat />
-        </div>
-      </Card>
 
       <Dialog open={connectionsOpen} onOpenChange={setConnectionsOpen}>
         <DialogContent className="max-w-2xl">

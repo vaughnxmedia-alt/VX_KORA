@@ -222,7 +222,3 @@ All colors MUST be HSL.
     @apply block text-muted-foreground/40 text-lg mb-8;
   }
 }
-
-#lovable-badge { 
-  display: none !important; 
-}

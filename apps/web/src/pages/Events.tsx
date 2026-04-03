@@ -4,9 +4,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, Clock, MapPin, ExternalLink, Sparkles, ArrowRight, User, X } from "lucide-react";
+import { Calendar, Clock, MapPin, ExternalLink, Sparkles, ArrowRight, User, X, Flame } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
+import { deriveBriefPageSections } from "@/lib/brief-listing";
 import { format } from "date-fns";
 import {
   Pagination,
@@ -39,11 +40,13 @@ type BlogPost = {
   read_time: string;
   published_date: string;
   author_name: string;
-  is_featured: boolean;
-  is_hot_topic: boolean;
   icon_name: string;
   tagline?: string;
   cover_image_url?: string;
+  status?: string | null;
+  is_hidden?: boolean | null;
+  is_featured?: boolean | null;
+  is_hot_topic?: boolean | null;
 };
 
 const Events = () => {
@@ -101,22 +104,15 @@ const Events = () => {
   const featuredEvent = events.find((e) => e.is_featured);
   const upcomingEvents = events.filter((e) => !e.is_featured);
 
-  const categories = ["All", "Hot Topic", ...Array.from(new Set(articles.map(a => a.category).filter(Boolean)))];
+  const categories = ["All", ...Array.from(new Set(articles.map(a => a.category).filter(Boolean)))];
 
-  const heroArticle = articles.find(a => a.is_featured) || articles[0];
-  
-  const inFocusArticles = articles
-    .filter(a => a.is_hot_topic && a.id !== heroArticle?.id && (selectedCategory === "All" || a.category === selectedCategory))
-    .slice(0, 5);
+  const { heroArticle, hotArticles, gridArticles } = deriveBriefPageSections(
+    articles,
+    selectedCategory
+  );
 
-  const latestInsightsArticles = selectedCategory === "All" 
-    ? articles.filter(a => a.id !== heroArticle?.id)
-    : selectedCategory === "Hot Topic"
-    ? articles.filter(article => article.is_hot_topic && article.id !== heroArticle?.id)
-    : articles.filter(article => article.category === selectedCategory && article.id !== heroArticle?.id);
-
-  const totalPages = Math.ceil(latestInsightsArticles.length / articlesPerPage);
-  const paginatedArticles = latestInsightsArticles.slice(
+  const totalPages = Math.ceil(gridArticles.length / articlesPerPage);
+  const paginatedArticles = gridArticles.slice(
     (currentPage - 1) * articlesPerPage,
     currentPage * articlesPerPage
   );
@@ -188,10 +184,9 @@ const Events = () => {
       {/* Articles Tab Content */}
       {activeTab === "articles" && (
         <>
-          {/* Category Filter & Featured */}
+          {/* Category filter & latest article */}
           <section className="py-8 sm:py-12 px-4 sm:px-6 bg-background">
             <div className="max-w-7xl mx-auto">
-              {/* Category Filters */}
               <div className="flex flex-wrap gap-2 mb-8 justify-center">
                 {categories.map(cat => (
                   <Button 
@@ -207,10 +202,9 @@ const Events = () => {
               </div>
 
               {heroArticle && (
-                <div className="grid lg:grid-cols-12 gap-6 sm:gap-8 lg:gap-12 items-start">
-                  {/* Featured Article */}
-                  <div 
-                    className="lg:col-span-7 group cursor-pointer"
+                <div className="max-w-4xl mx-auto">
+                  <div
+                    className="group cursor-pointer"
                     onClick={() => navigate(`/the-brief/${heroArticle.id}`)}
                   >
                     <div className="rounded-xl sm:rounded-2xl overflow-hidden bg-muted relative mb-4 sm:mb-6 shadow-xl shadow-primary/10 dark:shadow-none aspect-[4/3] sm:aspect-[940/788] w-full">
@@ -228,11 +222,11 @@ const Events = () => {
                         {heroArticle.category}
                       </Badge>
                     </div>
-                    
-                    <div className="space-y-3 sm:space-y-4 pr-0 lg:pr-4">
+
+                    <div className="space-y-3 sm:space-y-4">
                       <div className="flex items-center gap-2 mb-1 sm:mb-2">
                         <span className="text-xs sm:text-sm font-semibold text-gold tracking-widest uppercase">
-                          Featured
+                          {heroArticle.is_featured ? "Featured" : "Latest"}
                         </span>
                       </div>
                       <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold leading-[1.1] text-primary group-hover:text-gold-dark transition-colors">
@@ -255,59 +249,71 @@ const Events = () => {
                     </div>
                   </div>
 
-                  {/* In Focus List */}
-                  <div className="lg:col-span-5 bg-background/50 backdrop-blur-sm rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-gold/20">
-                    <h3 className="font-serif font-bold text-xl sm:text-2xl mb-4 sm:mb-6 flex items-center gap-3">
-                      <span className="flex h-3 w-3 relative">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gold opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-gold"></span>
-                      </span>
-                      In Focus
-                    </h3>
-                    
-                    <div className="space-y-4 sm:space-y-6">
-                      {inFocusArticles.map((article, idx) => (
-                        <div 
-                          key={article.id} 
-                          className="group/item cursor-pointer flex gap-4 items-start"
-                          onClick={() => navigate(`/the-brief/${article.id}`)}
-                        >
-                          <span className="text-3xl font-serif font-bold text-gold/30 leading-none -mt-1 group-hover/item:text-gold/50 transition-colors w-8">
-                            {String(idx + 1).padStart(2, '0')}
-                          </span>
-                          <div className="space-y-1 border-b border-border/40 pb-3 sm:pb-4 w-full group-last/item:border-0">
-                            <div className="flex items-center justify-between mb-1">
-                              <Badge variant="outline" className="text-[10px] py-0 px-2 h-5 border-gold/30 text-gold-dark bg-gold/10">
-                                {article.category}
-                              </Badge>
-                              <span className="text-xs text-muted-foreground">{article.read_time}</span>
-                            </div>
-                            <h4 className="font-bold text-base sm:text-lg leading-tight group-hover/item:text-primary transition-colors line-clamp-2">
-                              {article.title}
-                            </h4>
-                            <p className="text-sm text-muted-foreground line-clamp-1">
-                              {article.description}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-
-                      {inFocusArticles.length === 0 && (
-                        <div className="text-center py-10 text-muted-foreground italic">
-                          No additional hot topics in this category.
-                        </div>
-                      )}
-                    </div>
+                  <div className="mt-6 sm:mt-8">
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-between group text-muted-foreground hover:text-primary"
+                      onClick={() => {
+                        const element = document.getElementById("latest-insights-events");
+                        element?.scrollIntoView({ behavior: "smooth" });
+                      }}
+                    >
+                      View all briefs{" "}
+                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    </Button>
                   </div>
                 </div>
               )}
             </div>
           </section>
 
+          {hotArticles.length > 0 && (
+            <section className="py-8 sm:py-10 px-4 sm:px-6 bg-muted/30 border-y border-border/60">
+              <div className="max-w-7xl mx-auto">
+                <h2 className="font-serif font-bold text-xl sm:text-2xl mb-6 sm:mb-8 flex items-center justify-center gap-3 text-center">
+                  <Flame className="h-6 w-6 text-orange-500 shrink-0" />
+                  <span className="text-primary">
+                    Hot topics<span className="text-gold">.</span>
+                  </span>
+                </h2>
+                <div className="max-w-3xl mx-auto divide-y divide-border/40">
+                  {hotArticles.map((article, idx) => (
+                    <div
+                      key={article.id}
+                      className="group/item cursor-pointer flex gap-4 items-start py-4 first:pt-0 last:pb-0"
+                      onClick={() => navigate(`/the-brief/${article.id}`)}
+                    >
+                      <span className="text-3xl font-serif font-bold text-gold/30 leading-none -mt-1 group-hover/item:text-gold/50 transition-colors w-8">
+                        {String(idx + 1).padStart(2, "0")}
+                      </span>
+                      <div className="space-y-1 w-full">
+                        <div className="flex items-center justify-between mb-1">
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] py-0 px-2 h-5 border-gold/30 text-gold-dark bg-gold/10"
+                          >
+                            {article.category}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">{article.read_time}</span>
+                        </div>
+                        <h3 className="font-bold text-base sm:text-lg leading-tight group-hover/item:text-primary transition-colors line-clamp-2">
+                          {article.title}
+                        </h3>
+                        <p className="text-sm text-muted-foreground line-clamp-2">
+                          {article.description}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+
           {/* All Briefs Section */}
-          <section className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
+          <section id="latest-insights-events" className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
             <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-center mb-8 sm:mb-12">
-              {selectedCategory === 'All' ? <span className="text-primary">All Briefs<span className="text-gold">.</span></span> : <span className="text-primary">{selectedCategory}<span className="text-gold">.</span></span>}
+              {selectedCategory === 'All' ? <span className="text-primary">All briefs<span className="text-gold">.</span></span> : <span className="text-primary">{selectedCategory}<span className="text-gold">.</span></span>}
             </h2>
 
             {paginatedArticles.length > 0 ? (

@@ -30,6 +30,7 @@ export type Database = {
           is_featured: boolean | null
           is_hidden: boolean
           is_hot_topic: boolean | null
+          publish_scheduled_at: string | null
           published_at: string | null
           published_date: string | null
           read_time: string | null
@@ -58,6 +59,7 @@ export type Database = {
           is_featured?: boolean | null
           is_hidden?: boolean
           is_hot_topic?: boolean | null
+          publish_scheduled_at?: string | null
           published_at?: string | null
           published_date?: string | null
           read_time?: string | null
@@ -86,6 +88,7 @@ export type Database = {
           is_featured?: boolean | null
           is_hidden?: boolean
           is_hot_topic?: boolean | null
+          publish_scheduled_at?: string | null
           published_at?: string | null
           published_date?: string | null
           read_time?: string | null
@@ -159,6 +162,383 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_logistics: {
+        Row: {
+          booking_links: string | null
+          budget_notes: string | null
+          campaign_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          locations: string | null
+          miscellaneous: string | null
+          production_notes: string | null
+          props: string | null
+          rentals: string | null
+          shoot_times: string | null
+          status: string
+          talent: string | null
+          updated_at: string
+          vendors: string | null
+        }
+        Insert: {
+          booking_links?: string | null
+          budget_notes?: string | null
+          campaign_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          locations?: string | null
+          miscellaneous?: string | null
+          production_notes?: string | null
+          props?: string | null
+          rentals?: string | null
+          shoot_times?: string | null
+          status?: string
+          talent?: string | null
+          updated_at?: string
+          vendors?: string | null
+        }
+        Update: {
+          booking_links?: string | null
+          budget_notes?: string | null
+          campaign_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          locations?: string | null
+          miscellaneous?: string | null
+          production_notes?: string | null
+          props?: string | null
+          rentals?: string | null
+          shoot_times?: string | null
+          status?: string
+          talent?: string | null
+          updated_at?: string
+          vendors?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_logistics_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: true
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaigns: {
+        Row: {
+          content_plan_id: string | null
+          created_at: string
+          created_by: string | null
+          first_published_at: string | null
+          id: string
+          live_at: string | null
+          logistics_status: string
+          name: string
+          objective: string | null
+          primary_platform: string | null
+          published_post_count: number
+          scheduled_post_count: number
+          status: string
+          tenant_id: string | null
+          updated_at: string
+          workspace_id: string | null
+        }
+        Insert: {
+          content_plan_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          first_published_at?: string | null
+          id?: string
+          live_at?: string | null
+          logistics_status?: string
+          name: string
+          objective?: string | null
+          primary_platform?: string | null
+          published_post_count?: number
+          scheduled_post_count?: number
+          status?: string
+          tenant_id?: string | null
+          updated_at?: string
+          workspace_id?: string | null
+        }
+        Update: {
+          content_plan_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          first_published_at?: string | null
+          id?: string
+          live_at?: string | null
+          logistics_status?: string
+          name?: string
+          objective?: string | null
+          primary_platform?: string | null
+          published_post_count?: number
+          scheduled_post_count?: number
+          status?: string
+          tenant_id?: string | null
+          updated_at?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaigns_content_plan_id_fkey"
+            columns: ["content_plan_id"]
+            isOneToOne: false
+            referencedRelation: "content_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_plan_chat_messages: {
+        Row: {
+          content_plan_id: string
+          created_at: string
+          id: string
+          memory_candidate: boolean
+          message: string
+          role: string
+          structured_output: Json | null
+          was_applied_to_plan: boolean
+        }
+        Insert: {
+          content_plan_id: string
+          created_at?: string
+          id?: string
+          memory_candidate?: boolean
+          message: string
+          role: string
+          structured_output?: Json | null
+          was_applied_to_plan?: boolean
+        }
+        Update: {
+          content_plan_id?: string
+          created_at?: string
+          id?: string
+          memory_candidate?: boolean
+          message?: string
+          role?: string
+          structured_output?: Json | null
+          was_applied_to_plan?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_plan_chat_messages_content_plan_id_fkey"
+            columns: ["content_plan_id"]
+            isOneToOne: false
+            referencedRelation: "content_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_plan_items: {
+        Row: {
+          ai_generated: boolean
+          angle: string | null
+          caption: string | null
+          content_plan_id: string
+          created_at: string
+          created_by: string | null
+          cta: string | null
+          event_context: string | null
+          event_id: string | null
+          format: string | null
+          funnel_stage: string | null
+          goal_alignment: string | null
+          hashtags: string | null
+          hook: string | null
+          id: string
+          notes: string | null
+          objective: string | null
+          order_index: number
+          pillar: string | null
+          planned_date: string | null
+          platform: string | null
+          source_reference: string | null
+          source_type: string
+          status: string
+          title: string | null
+          tone_note: string | null
+          updated_at: string
+        }
+        Insert: {
+          ai_generated?: boolean
+          angle?: string | null
+          caption?: string | null
+          content_plan_id: string
+          created_at?: string
+          created_by?: string | null
+          cta?: string | null
+          event_context?: string | null
+          event_id?: string | null
+          format?: string | null
+          funnel_stage?: string | null
+          goal_alignment?: string | null
+          hashtags?: string | null
+          hook?: string | null
+          id?: string
+          notes?: string | null
+          objective?: string | null
+          order_index?: number
+          pillar?: string | null
+          planned_date?: string | null
+          platform?: string | null
+          source_reference?: string | null
+          source_type?: string
+          status?: string
+          title?: string | null
+          tone_note?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ai_generated?: boolean
+          angle?: string | null
+          caption?: string | null
+          content_plan_id?: string
+          created_at?: string
+          created_by?: string | null
+          cta?: string | null
+          event_context?: string | null
+          event_id?: string | null
+          format?: string | null
+          funnel_stage?: string | null
+          goal_alignment?: string | null
+          hashtags?: string | null
+          hook?: string | null
+          id?: string
+          notes?: string | null
+          objective?: string | null
+          order_index?: number
+          pillar?: string | null
+          planned_date?: string | null
+          platform?: string | null
+          source_reference?: string | null
+          source_type?: string
+          status?: string
+          title?: string | null
+          tone_note?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_plan_items_content_plan_id_fkey"
+            columns: ["content_plan_id"]
+            isOneToOne: false
+            referencedRelation: "content_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_plans: {
+        Row: {
+          assigned_agent: string | null
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          description: string | null
+          funnel_focus: string
+          id: string
+          industry_context: string | null
+          linked_campaign_id: string | null
+          messaging_direction: string | null
+          objective: string | null
+          openai_response_chain_id: string | null
+          platforms: string[] | null
+          primary_goal: string
+          primary_platform: string | null
+          required_item_count: number
+          secondary_goal: string | null
+          status: string
+          strategy_window_end: string | null
+          strategy_window_start: string | null
+          submitted_at: string | null
+          tenant_id: string | null
+          timeframe_days: number
+          title: string
+          tone_direction: string | null
+          updated_at: string
+          workspace_id: string | null
+          workspace_label: string | null
+        }
+        Insert: {
+          assigned_agent?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          description?: string | null
+          funnel_focus?: string
+          id?: string
+          industry_context?: string | null
+          linked_campaign_id?: string | null
+          messaging_direction?: string | null
+          objective?: string | null
+          openai_response_chain_id?: string | null
+          platforms?: string[] | null
+          primary_goal?: string
+          primary_platform?: string | null
+          required_item_count?: number
+          secondary_goal?: string | null
+          status?: string
+          strategy_window_end?: string | null
+          strategy_window_start?: string | null
+          submitted_at?: string | null
+          tenant_id?: string | null
+          timeframe_days?: number
+          title?: string
+          tone_direction?: string | null
+          updated_at?: string
+          workspace_id?: string | null
+          workspace_label?: string | null
+        }
+        Update: {
+          assigned_agent?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          description?: string | null
+          funnel_focus?: string
+          id?: string
+          industry_context?: string | null
+          linked_campaign_id?: string | null
+          messaging_direction?: string | null
+          objective?: string | null
+          openai_response_chain_id?: string | null
+          platforms?: string[] | null
+          primary_goal?: string
+          primary_platform?: string | null
+          required_item_count?: number
+          secondary_goal?: string | null
+          status?: string
+          strategy_window_end?: string | null
+          strategy_window_start?: string | null
+          submitted_at?: string | null
+          tenant_id?: string | null
+          timeframe_days?: number
+          title?: string
+          tone_direction?: string | null
+          updated_at?: string
+          workspace_id?: string | null
+          workspace_label?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_plans_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_plans_linked_campaign_id_fkey"
+            columns: ["linked_campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
             referencedColumns: ["id"]
           },
         ]
@@ -533,42 +913,57 @@ export type Database = {
       }
       scheduled_posts: {
         Row: {
+          blog_post_id: string | null
           calendar_id: string
+          campaign_id: string | null
+          campaign_name_snapshot: string | null
           caption: string | null
+          content_plan_item_id: string | null
           created_at: string
           created_by: string | null
           id: string
           media_urls: string[] | null
           platform_settings: Json | null
           platforms: string[]
+          post_type: string
           scheduled_date: string
           scheduled_time: string
           status: string
           updated_at: string
         }
         Insert: {
+          blog_post_id?: string | null
           calendar_id: string
+          campaign_id?: string | null
+          campaign_name_snapshot?: string | null
           caption?: string | null
+          content_plan_item_id?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
           media_urls?: string[] | null
           platform_settings?: Json | null
           platforms?: string[]
+          post_type?: string
           scheduled_date: string
           scheduled_time?: string
           status?: string
           updated_at?: string
         }
         Update: {
+          blog_post_id?: string | null
           calendar_id?: string
+          campaign_id?: string | null
+          campaign_name_snapshot?: string | null
           caption?: string | null
+          content_plan_item_id?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
           media_urls?: string[] | null
           platform_settings?: Json | null
           platforms?: string[]
+          post_type?: string
           scheduled_date?: string
           scheduled_time?: string
           status?: string
@@ -576,10 +971,31 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "scheduled_posts_blog_post_id_fkey"
+            columns: ["blog_post_id"]
+            isOneToOne: false
+            referencedRelation: "blog_posts"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "scheduled_posts_calendar_id_fkey"
             columns: ["calendar_id"]
             isOneToOne: false
             referencedRelation: "content_calendars"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scheduled_posts_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scheduled_posts_content_plan_item_id_fkey"
+            columns: ["content_plan_item_id"]
+            isOneToOne: false
+            referencedRelation: "content_plan_items"
             referencedColumns: ["id"]
           },
         ]

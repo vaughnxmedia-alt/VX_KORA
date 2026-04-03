@@ -18,11 +18,10 @@ import {
   FileBarChart,
   Settings,
   Shield,
-  Sparkles,
   Megaphone,
   Wand2,
-  Layers,
   Globe,
+  Truck,
 } from "lucide-react";
 
 export interface NavItem {
@@ -50,15 +49,14 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
       { key: "blueprints", title: "Brand Blueprints", url: "/dashboard/blueprints", icon: FileText },
       { key: "audience", title: "Target Audience", url: "/dashboard/audience", icon: Users },
       { key: "strategy", title: "Brand Strategy", url: "/dashboard/strategy", icon: Lightbulb },
-      { key: "content-strategy", title: "Content Strategy", url: "/dashboard/content-strategy", icon: Layers },
     ],
   },
   {
     label: "CAMPAIGN MANAGEMENT",
     items: [
-      { key: "inspired", title: "Get Inspired", url: "/dashboard/get-inspired", icon: Sparkles },
-      { key: "campaign-generator", title: "Campaign Generator", url: "/dashboard/campaign-generator", icon: Wand2 },
+      { key: "creative-hub", title: "Creative Hub", url: "/dashboard/creative-hub", icon: Wand2 },
       { key: "campaigns", title: "Campaigns", url: "/dashboard/campaigns", icon: Megaphone },
+      { key: "logistics", title: "Logistics", url: "/dashboard/logistics", icon: Truck },
     ],
   },
   {

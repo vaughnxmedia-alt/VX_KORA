@@ -11,7 +11,8 @@
     "build:admin": "npm run build --workspace=apps/mission-control",
     "send-insights": "npm run send-insights --workspace=@kora/telegram-bot",
     "insights:trigger-server": "npm run insights:trigger-server --workspace=@kora/telegram-bot",
-    "send-test-report": "npm run send-test-report --workspace=@kora/telegram-bot"
+    "send-test-report": "npm run send-test-report --workspace=@kora/telegram-bot",
+    "supabase": "cd apps/web && npx supabase"
   },
   "workspaces": [
     "apps/*",

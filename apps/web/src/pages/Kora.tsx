@@ -68,7 +68,7 @@ const Kora = () => {
       description:
         "Research-backed understanding that helps teams make smarter brand decisions before they produce more content.",
       icon: Brain,
-      items: ["Get Inspired", "Brand Blueprints", "Target Audience", "Brand Strategy", "Intelligence Sources"],
+      items: ["Creative Hub", "Brand Blueprints", "Target Audience", "Brand Strategy", "Intelligence Sources"],
     },
     {
       principle: "Creative second",
@@ -76,7 +76,7 @@ const Kora = () => {
       description:
         "Strategic content and campaign development built around audience trust, message clarity, and stronger execution.",
       icon: Layers2,
-      items: ["Content Strategy", "Campaign Generator", "Campaigns"],
+      items: ["Creative Hub", "Campaigns"],
     },
     {
       principle: "Management third",

@@ -1,13 +1,8 @@
-import React, { useState, useMemo, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import React, { useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -17,72 +12,58 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { useMockAuth } from "../context/MockAuthContext";
-import { useCampaignsStore } from "../store/CampaignsStore";
-import { NewCampaignModal } from "../components/NewCampaignModal";
 import { CampaignsLeftSidebar } from "../components/CampaignsLeftSidebar";
-import { MOCK_ACCOUNTS } from "../mockAccounts";
-import { Plus } from "lucide-react";
-import type { Campaign } from "../types";
+import { Plus, Loader2, Sparkles } from "lucide-react";
+
+type OperationalCampaign = {
+  id: string;
+  name: string;
+  status: string;
+  logistics_status: string;
+  live_at: string | null;
+  published_post_count: number;
+  updated_at: string;
+};
+
+function logisticsLabel(status: string) {
+  switch (status) {
+    case "created":
+      return "Created";
+    case "needed":
+      return "Needed";
+    case "not_needed_now":
+      return "Not needed right now";
+    default:
+      return "Not set";
+  }
+}
 
 export function CampaignsIndexPage() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { currentUser, isAdmin, users } = useMockAuth();
-  const { visibleCampaignsForUser, campaigns } = useCampaignsStore();
-  const [modalOpen, setModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedAccountId, setSelectedAccountId] = useState<string>(currentUser.orgId);
 
-  const searchParams = new URLSearchParams(location.search);
-  const fromBoardIdParam = searchParams.get("fromBoardId") ?? undefined;
-
-  useEffect(() => {
-    if (location.pathname.endsWith("/new") || fromBoardIdParam) {
-      setModalOpen(true);
-    }
-  }, [location.pathname, fromBoardIdParam]);
-
-  const visible = useMemo(
-    () => visibleCampaignsForUser(currentUser),
-    [visibleCampaignsForUser, currentUser]
-  );
-
-  const visibleForAccount = useMemo(
-    () => visible.filter((c) => c.orgId === selectedAccountId),
-    [visible, selectedAccountId]
-  );
+  const { data: campaigns = [], isLoading } = useQuery({
+    queryKey: ["operational-campaigns"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("campaigns")
+        .select("id, name, status, logistics_status, live_at, published_post_count, updated_at")
+        .order("updated_at", { ascending: false });
+      if (error) throw error;
+      return (data || []) as OperationalCampaign[];
+    },
+  });
 
   const filtered = useMemo(() => {
-    if (!searchQuery.trim()) return visibleForAccount;
+    if (!searchQuery.trim()) return campaigns;
     const q = searchQuery.toLowerCase();
-    return visibleForAccount.filter(
+    return campaigns.filter(
       (c) =>
         c.name.toLowerCase().includes(q) ||
-        c.type.toLowerCase().includes(q) ||
-        c.status.toLowerCase().includes(q)
+        c.status.toLowerCase().includes(q) ||
+        c.logistics_status.toLowerCase().includes(q)
     );
-  }, [visibleForAccount, searchQuery]);
-
-  const { createCampaign } = useCampaignsStore();
-
-  const handleCreate = (params: {
-    name: string;
-    type: Campaign["type"];
-    templateType: Campaign["templateType"];
-    fromBoardId?: string;
-    assignedUserIds: string[];
-  }) => {
-    const newCampaign = createCampaign({
-      name: params.name,
-      type: params.type,
-      templateType: params.templateType,
-      fromBoardId: params.fromBoardId,
-      assignedUserIds: params.assignedUserIds,
-      orgId: selectedAccountId,
-    });
-    navigate(`/dashboard/campaigns/${newCampaign.id}`);
-  };
+  }, [campaigns, searchQuery]);
 
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString(undefined, {
@@ -90,20 +71,6 @@ export function CampaignsIndexPage() {
       day: "numeric",
       year: "numeric",
     });
-
-  const assigneeNames = (c: Campaign) => {
-    return c.assignedUserIds
-      .map((id) => users.find((u) => u.id === id)?.name ?? id)
-      .filter(Boolean)
-      .join(", ") || "—";
-  };
-
-  const timelineDisplay = (c: Campaign) => {
-    const start = c.foundation.timelineStart;
-    const end = c.foundation.timelineEnd;
-    if (!start && !end) return "—";
-    return [start, end].filter(Boolean).join(" – ");
-  };
 
   return (
     <div className="flex h-full min-h-0">
@@ -113,56 +80,41 @@ export function CampaignsIndexPage() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Campaigns</h1>
             <p className="text-muted-foreground mt-1">
-              Plan, build, launch, and optimize campaigns using your Brand Blueprint + Get Inspired
-              boards.
+              Operational campaigns created from Creative Hub — linked to your calendar and logistics.
             </p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {isAdmin && (
-              <Select
-                value={selectedAccountId}
-                onValueChange={setSelectedAccountId}
-              >
-                <SelectTrigger className="w-[220px]">
-                  <SelectValue placeholder="Account / Client" />
-                </SelectTrigger>
-                <SelectContent>
-                  {MOCK_ACCOUNTS.map((account) => (
-                    <SelectItem key={account.id} value={account.id}>
-                      {account.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            <Button onClick={() => setModalOpen(true)}>
+          <Button asChild>
+            <Link to="/dashboard/creative-hub">
               <Plus className="w-4 h-4 mr-2" />
-              New Campaign
-            </Button>
-          </div>
+              Creative Hub
+            </Link>
+          </Button>
         </div>
 
         <div className="border rounded-lg bg-card">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Campaign Name</TableHead>
-                <TableHead>Type</TableHead>
+                <TableHead>Campaign</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Timeline</TableHead>
-                <TableHead>Owner / Assignees</TableHead>
+                <TableHead>Logistics</TableHead>
+                <TableHead>Published</TableHead>
                 <TableHead>Updated</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.length === 0 ? (
+              {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-12">
-                    {visible.length === 0
-                      ? "No campaigns assigned to you. Ask an admin to add you to a campaign."
-                      : visibleForAccount.length === 0
-                        ? "No campaigns for this account."
-                        : "No campaigns match your search."}
+                  <TableCell colSpan={5} className="py-12 text-center">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground inline" />
+                  </TableCell>
+                </TableRow>
+              ) : filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground py-12">
+                    {campaigns.length === 0
+                      ? "No campaigns yet — convert a content plan in Creative Hub."
+                      : "No campaigns match your search."}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -173,13 +125,24 @@ export function CampaignsIndexPage() {
                     onClick={() => navigate(`/dashboard/campaigns/${c.id}`)}
                   >
                     <TableCell className="font-medium">{c.name}</TableCell>
-                    <TableCell>{c.type}</TableCell>
                     <TableCell>
-                      <Badge variant="secondary">{c.status}</Badge>
+                      <div className="flex flex-wrap gap-1">
+                        <Badge variant="secondary" className="capitalize">
+                          {c.status}
+                        </Badge>
+                        {c.live_at && (
+                          <Badge className="gap-0.5">
+                            <Sparkles className="h-3 w-3" />
+                            Live
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
-                    <TableCell>{timelineDisplay(c)}</TableCell>
-                    <TableCell className="text-muted-foreground">{assigneeNames(c)}</TableCell>
-                    <TableCell className="text-muted-foreground">{formatDate(c.updatedAt)}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {logisticsLabel(c.logistics_status)}
+                    </TableCell>
+                    <TableCell>{c.published_post_count}</TableCell>
+                    <TableCell className="text-muted-foreground">{formatDate(c.updated_at)}</TableCell>
                   </TableRow>
                 ))
               )}
@@ -187,19 +150,6 @@ export function CampaignsIndexPage() {
           </Table>
         </div>
       </div>
-
-      <NewCampaignModal
-        open={modalOpen}
-        onOpenChange={(open) => {
-          setModalOpen(open);
-          if (!open && (location.pathname.endsWith("/new") || fromBoardIdParam)) {
-            navigate("/dashboard/campaigns", { replace: true });
-          }
-        }}
-        fromBoardId={fromBoardIdParam ?? null}
-        onCreate={handleCreate}
-        users={users}
-      />
     </div>
   );
 }

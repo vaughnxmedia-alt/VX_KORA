@@ -486,7 +486,7 @@ export default function CampaignGenerator() {
                 <Button
                   variant="link"
                   className="h-auto p-0 text-amber-700 underline"
-                  onClick={() => navigate("/dashboard/content-strategy")}
+                  onClick={() => navigate("/dashboard/creative-hub")}
                 >
                   Generate a strategy first
                 </Button>

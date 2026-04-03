@@ -19,7 +19,7 @@ const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, isLoading, hasTheBriefAccess } = useAuth();
+  const { user, isLoading } = useAuth();
   
   // Smart navigation context detection
   const navigationContext = useMemo(() => {
@@ -27,7 +27,7 @@ const Navigation = () => {
     
     if (path === '/' || path === '/home') return 'landing';
     if (path.startsWith('/dashboard')) return 'app';
-    if (['/about', '/work-with-me', '/the-brief', '/auth'].includes(path)) return 'public';
+    if (['/about', '/work-with-me', '/the-brief', '/auth', '/brand-strategy-session'].includes(path)) return 'public';
     
     return 'landing'; // default
   }, [location.pathname]);
@@ -139,7 +139,7 @@ const Navigation = () => {
                   <Button
                     variant="hero"
                     size="default"
-                    onClick={() => navigate("/strategy-session")}
+                    onClick={() => navigate("/brand-strategy-session")}
                     className="shadow-lg hover:shadow-xl transition-shadow whitespace-nowrap"
                   >
                     <CalendarDays className="h-4 w-4" />
@@ -220,7 +220,7 @@ const Navigation = () => {
                       size="lg"
                       className="w-full h-12"
                       onClick={() => {
-                        navigate("/strategy-session");
+                        navigate("/brand-strategy-session");
                         setIsOpen(false);
                       }}
                     >
