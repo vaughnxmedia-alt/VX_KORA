@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { uploadToS3, S3_VIDEO_FOLDERS } from "@/lib/s3Upload";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -58,11 +58,12 @@ export const VideoUploader = ({
       return;
     }
 
-    // Validate file size (max 100MB)
-    if (file.size > 100 * 1024 * 1024) {
+    // Same pipeline as content calendar: presigned PUT to AWS S3 (large files OK).
+    const maxBytes = 800 * 1024 * 1024;
+    if (file.size > maxBytes) {
       toast({
         title: "File too large",
-        description: "Please upload a video smaller than 100MB.",
+        description: "Please upload a video smaller than 800MB, or use a YouTube/Vimeo embed.",
         variant: "destructive",
       });
       return;
@@ -70,19 +71,11 @@ export const VideoUploader = ({
 
     setUploading(true);
     try {
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `videos/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("blog-videos")
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from("blog-videos")
-        .getPublicUrl(filePath);
+      const publicUrl = await uploadToS3({
+        file,
+        folder: S3_VIDEO_FOLDERS.blog,
+        fileType: "video",
+      });
 
       onVideoChange(publicUrl, "upload");
       toast({
@@ -215,7 +208,7 @@ export const VideoUploader = ({
               ) : (
                 <>
                   <Video className="h-6 w-6" />
-                  <span className="text-sm">Upload MP4 Video (max 100MB)</span>
+                  <span className="text-sm">Upload video to AWS S3 (max 800MB)</span>
                 </>
               )}
             </Button>

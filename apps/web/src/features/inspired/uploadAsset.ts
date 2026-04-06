@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { uploadToS3, S3_VIDEO_FOLDERS } from "@/lib/s3Upload";
 
 const BUCKET = "inspired-assets";
 const PATH_PREFIX = "uploads";
@@ -21,19 +22,37 @@ export async function uploadInspiredAsset(file: File): Promise<UploadedAsset | n
   const uid = user?.id ?? undefined;
   const timestamp = Date.now();
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const storagePath = `${PATH_PREFIX}/${timestamp}_${safeName}`;
 
-  const { error: uploadError } = await supabase.storage
-    .from(BUCKET)
-    .upload(storagePath, file, { upsert: false });
+  let storagePath: string;
+  let publicUrl: string | null;
 
-  if (uploadError) {
-    console.error("Upload error:", uploadError);
-    return null;
+  if (file.type.startsWith("video/")) {
+    try {
+      publicUrl = await uploadToS3({
+        file,
+        folder: S3_VIDEO_FOLDERS.inspired,
+        fileType: "video",
+      });
+      const pathFromUrl = publicUrl ? new URL(publicUrl).pathname.replace(/^\//, "") : "";
+      storagePath = pathFromUrl || `${S3_VIDEO_FOLDERS.inspired}/${timestamp}_${safeName}`;
+    } catch (e) {
+      console.error("S3 video upload error:", e);
+      return null;
+    }
+  } else {
+    storagePath = `${PATH_PREFIX}/${timestamp}_${safeName}`;
+    const { error: uploadError } = await supabase.storage
+      .from(BUCKET)
+      .upload(storagePath, file, { upsert: false });
+
+    if (uploadError) {
+      console.error("Upload error:", uploadError);
+      return null;
+    }
+
+    const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(storagePath);
+    publicUrl = urlData?.publicUrl ?? null;
   }
-
-  const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(storagePath);
-  const publicUrl = urlData?.publicUrl ?? null;
 
   const { data: row, error: insertError } = await supabase
     .from("inspired_assets")

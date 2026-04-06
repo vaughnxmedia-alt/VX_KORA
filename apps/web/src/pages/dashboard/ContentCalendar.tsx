@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
-import { uploadToS3 } from "@/lib/s3Upload";
+import { uploadToS3, S3_VIDEO_FOLDERS } from "@/lib/s3Upload";
 import { useNavigate } from "react-router-dom";
 
 interface ContentCalendar {
@@ -228,7 +228,7 @@ export default function ContentCalendar() {
 
           if (isVideo) {
             // Videos → S3 via Edge Function
-            const folder = "scheduled-posts/videos";
+            const folder = S3_VIDEO_FOLDERS.contentCalendar;
             const publicUrl = await uploadToS3({
               file,
               folder,

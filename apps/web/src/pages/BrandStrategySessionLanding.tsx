@@ -5,6 +5,16 @@ import { cn } from "@/lib/utils";
 
 const strategySessionBookPath = "/strategy-session";
 
+/**
+ * Production: put the mp4 in AWS S3 under prefix `site/videos/` (same bucket as content calendar; see `S3_VIDEO_FOLDERS` in `s3Upload.ts`)
+ * and set `VITE_PR_VS_MARKETING_VIDEO_URL` on Vercel. Local: optional `public/videos/pr-vs-marketing.mp4` (gitignored).
+ */
+function prVsMarketingVideoSrc(): string {
+  const url = (import.meta.env.VITE_PR_VS_MARKETING_VIDEO_URL as string | undefined)?.trim();
+  if (url) return url;
+  return "/videos/pr-vs-marketing.mp4";
+}
+
 const sectionClass =
   "border-b border-border/60 last:border-b-0";
 const containerClass = "mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-16 sm:py-20 lg:py-24";
@@ -95,7 +105,7 @@ export default function BrandStrategySessionLanding() {
                 title="PR or marketing? Get the right answer."
                 aria-label="PR or marketing? Get the right answer. Perception, trust, and when to invest in each."
               >
-                <source src="/videos/pr-vs-marketing.mp4" type="video/mp4" />
+                <source src={prVsMarketingVideoSrc()} type="video/mp4" />
                 Your browser does not support the video tag.
               </video>
             </div>

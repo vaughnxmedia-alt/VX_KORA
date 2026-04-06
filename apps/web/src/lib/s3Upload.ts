@@ -1,5 +1,23 @@
 import { supabase, supabaseUrl, supabasePublishableKey } from "@/integrations/supabase/client";
 
+/**
+ * S3 key prefixes for video uploads via `upload-to-s3` (same bucket as the content calendar).
+ * Keep in sync with any bucket policies or migration scripts.
+ */
+export const S3_VIDEO_FOLDERS = {
+  /** Content calendar scheduled posts */
+  contentCalendar: "scheduled-posts/videos",
+  /** Blog post body video (dashboard editor) */
+  blog: "blog/videos",
+  /** Get Inspired / creative assets (video files only; images stay on Supabase below) */
+  inspired: "inspired/videos",
+  /**
+   * Static marketing assets (e.g. PR vs marketing mp4). Upload outside the app (AWS CLI, CI)
+   * and set `VITE_PR_VS_MARKETING_VIDEO_URL` to the resulting public object URL.
+   */
+  site: "site/videos",
+} as const;
+
 export interface UploadToS3Options {
   file: File;
   bucketName?: string; // Optional, will use default from edge function
