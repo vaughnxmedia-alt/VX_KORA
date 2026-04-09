@@ -1,4 +1,4 @@
-import type { AudienceLifecycleStatus as AudienceStatus, AudienceType } from "kora-sdk";
+import type { AudienceLifecycleStatus as AudienceStatus, AudienceType } from "@kora/sdk";
 
 export interface AudienceSegment {
   id: string;

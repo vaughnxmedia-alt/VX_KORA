@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { supabase } from "@/lib/supabase"
-import type { AudienceAnalysisRunRecord } from "kora-sdk"
+import type { AudienceAnalysisRunRecord } from "@kora/sdk"
 
 export default function AudienceQueue() {
   const [runs, setRuns] = useState<AudienceAnalysisRunRecord[]>([])

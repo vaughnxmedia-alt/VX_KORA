@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { useParams } from "react-router-dom"
 import { supabase } from "@/lib/supabase"
-import type { AudienceAnalysisRunRecord } from "kora-sdk"
+import type { AudienceAnalysisRunRecord } from "@kora/sdk"
 
 export default function AudienceRunDetail() {
   const { runId } = useParams()

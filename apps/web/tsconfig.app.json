@@ -23,7 +23,8 @@
 
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@kora/sdk": ["../../packages/kora-sdk/src/index.ts"]
     }
   },
   "include": ["src"]

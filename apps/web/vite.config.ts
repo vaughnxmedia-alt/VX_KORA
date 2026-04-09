@@ -27,6 +27,8 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
+        // Monorepo package (not published to npm). Vercel installs only apps/web — no workspace link.
+        "@kora/sdk": path.resolve(repoRoot, "packages/kora-sdk/src/index.ts"),
       },
     },
   };
