@@ -92,6 +92,20 @@ export function DashboardSidebar() {
   const isItemVisible = (itemKey: string, adminOnly?: boolean) => {
     if (isDashboardOwner) return true;
     if (itemKey === ADMIN_TAB_KEY) return canSeeAdminTab;
+
+    const hasExplicitTabPolicy = (userPermissions?.length ?? 0) > 0;
+    if (hasExplicitTabPolicy) {
+      const permission = userPermissions?.find((p) => p.tab_key === itemKey);
+      const allowed = permission
+        ? permission.is_visible
+        : !ADMIN_ONLY_KEYS.includes(itemKey);
+      if (!allowed) return false;
+      if (role === "client" && adminOnly && ADMIN_ONLY_KEYS.includes(itemKey)) {
+        return false;
+      }
+      return true;
+    }
+
     if (role === "admin" || role === "author") return true;
     if (adminOnly && ADMIN_ONLY_KEYS.includes(itemKey)) return false;
     const permission = userPermissions?.find((p) => p.tab_key === itemKey);

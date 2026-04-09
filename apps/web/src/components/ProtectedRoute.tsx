@@ -25,7 +25,8 @@ const ProtectedRoute = ({ children, requireBlueprint = true, allowedRoles }: Pro
     error,
   } = useQuery({
     queryKey: ['hasBlueprint', user?.id],
-    enabled: Boolean(user && requireBlueprint && !authLoading),
+    /** Only clients need a paid blueprint gate; admins/authors should not hit customers/blueprints (avoids RLS errors and bogus "account status" toasts). */
+    enabled: Boolean(user && requireBlueprint && !authLoading && role === 'client'),
     staleTime: 5 * 60 * 1000, // 5 minutes cache
     gcTime: 10 * 60 * 1000, // keep in cache for 10 minutes
     refetchOnWindowFocus: false,
@@ -122,8 +123,8 @@ const ProtectedRoute = ({ children, requireBlueprint = true, allowedRoles }: Pro
     );
   }
 
-  // Show loading while checking blueprint status
-  if (requireBlueprint && isCheckingBlueprint) {
+  // Only clients run the blueprint query; gate the loader the same way so we never spin while role is staff or still loading.
+  if (requireBlueprint && role === 'client' && isCheckingBlueprint) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
