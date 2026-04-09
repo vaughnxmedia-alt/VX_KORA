@@ -38,11 +38,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Users, Plus, Mail, Phone, Building, Globe, Shield, User, Link2, Trash2, Instagram, Facebook, Linkedin, Twitter, CalendarIcon, MoreHorizontal, Settings } from "lucide-react";
+import { Users, Plus, Mail, Phone, Building, Globe, Shield, User, Link2, Trash2, Instagram, Facebook, Linkedin, Twitter, CalendarIcon, MoreHorizontal, Crown, ListChecks } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -59,6 +60,9 @@ import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { TabPermissionsDialog } from "@/components/dashboard/TabPermissionsDialog";
+import { ClientOpsHoverCard } from "@/components/dashboard/ClientOpsHoverCard";
+import { isSuperOpsUser, isAppOwnerJustice } from "@/lib/super-ops";
+import { useAuth } from "@/components/AuthProvider";
 import type { Enums } from "@/integrations/supabase/types";
 
 interface SocialMediaLink {
@@ -68,7 +72,7 @@ interface SocialMediaLink {
 
 interface Customer {
   id: string;
-  user_id: string;
+  user_id: string | null;
   first_name: string | null;
   last_name: string | null;
   email: string | null;
@@ -84,6 +88,7 @@ interface UserWithRole {
   role: Enums<"user_role">;
   full_name: string | null;
   avatar_url: string | null;
+  job_title?: string | null;
 }
 
 const SOCIAL_PLATFORMS = [
@@ -97,13 +102,11 @@ const SOCIAL_PLATFORMS = [
 ];
 
 export default function Clients() {
+  const { user: sessionUser } = useAuth();
   const navigate = useNavigate();
   const [isClientDialogOpen, setIsClientDialogOpen] = useState(false);
   const [isAdminDialogOpen, setIsAdminDialogOpen] = useState(false);
-  const [isPermissionsDialogOpen, setIsPermissionsDialogOpen] = useState(false);
-
-  // Allowed users who can see the settings button
-  const ALLOWED_SETTINGS_USERS = ["Justice Vaughn", "Jocelyn Vaughn"];
+  const [permissionsTarget, setPermissionsTarget] = useState<{ userId: string; name: string } | null>(null);
 
   // Get current user's profile to check permissions
   const { data: currentUserProfile } = useQuery({
@@ -111,19 +114,29 @@ export default function Clients() {
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
-      
+
       const { data, error } = await supabase
         .from("profiles")
         .select("full_name")
         .eq("id", user.id)
         .single();
-      
+
       if (error) throw error;
-      return data;
+      return {
+        full_name: data.full_name,
+        sessionEmail: user.email ?? null,
+      };
     },
   });
 
-  const canAccessSettings = ALLOWED_SETTINGS_USERS.includes(currentUserProfile?.full_name || "");
+  const canSeeSuperOps = isSuperOpsUser(
+    currentUserProfile?.sessionEmail,
+    currentUserProfile?.full_name,
+  );
+  const isAppOwner = isAppOwnerJustice(
+    currentUserProfile?.sessionEmail ?? sessionUser?.email ?? null,
+  );
+  const ownerSessionId = sessionUser?.id ?? null;
   const [newClient, setNewClient] = useState({
     first_name: "",
     last_name: "",
@@ -144,7 +157,6 @@ export default function Clients() {
   const [adminToRemove, setAdminToRemove] = useState<UserWithRole | null>(null);
   const [clientUserToRemove, setClientUserToRemove] = useState<UserWithRole | null>(null);
   const [clientUserToEdit, setClientUserToEdit] = useState<UserWithRole | null>(null);
-  const [adminToEdit, setAdminToEdit] = useState<UserWithRole | null>(null);
   const queryClient = useQueryClient();
 
   // Fetch users with roles (admins and clients)
@@ -161,6 +173,8 @@ export default function Clients() {
 
       // Fetch profiles for all users with roles
       const userIds = rolesData.map((r) => r.user_id);
+      // Note: do not select job_title here — if the column is missing (migration not applied yet),
+      // this query would fail and the whole Users page would show zero admins/clients.
       const { data: profilesData, error: profilesError } = await supabase
         .from("profiles")
         .select("id, full_name, avatar_url")
@@ -176,6 +190,7 @@ export default function Clients() {
           role: role.role,
           full_name: profile?.full_name || null,
           avatar_url: profile?.avatar_url || null,
+          job_title: null as string | null,
         };
       }) as UserWithRole[];
     },
@@ -202,6 +217,7 @@ export default function Clients() {
       user_id: profile.id,
       full_name: profile.full_name,
       avatar_url: profile.avatar_url,
+      job_title: null as string | null,
       role: roleEntry?.role || null,
     };
   }) || [];
@@ -455,6 +471,28 @@ export default function Clients() {
   const admins = usersWithRoles?.filter((u) => u.role === "admin") || [];
   const clientUsers = usersWithRoles?.filter((u) => u.role === "client") || [];
 
+  const ownersCardRows =
+    isAppOwner && ownerSessionId
+      ? [
+          admins.find((a) => a.user_id === ownerSessionId) ?? {
+            user_id: ownerSessionId,
+            full_name: currentUserProfile?.full_name ?? null,
+            role: "admin" as Enums<"user_role">,
+            avatar_url: null,
+            job_title: null as string | null,
+          },
+        ]
+      : [];
+
+  const adminsForTable =
+    isAppOwner && ownerSessionId ? admins.filter((a) => a.user_id !== ownerSessionId) : admins;
+
+  const roleAndJobForAuthUser = (uid: string | null | undefined) => {
+    if (!uid) return { role: null as Enums<"user_role"> | null, job_title: null as string | null };
+    const row = usersWithRoles?.find((x) => x.user_id === uid);
+    return { role: row?.role ?? null, job_title: row?.job_title ?? null };
+  };
+
   const isLoading = isLoadingUsers || isLoadingCustomers;
 
   // Generate time options
@@ -476,21 +514,15 @@ export default function Clients() {
             Manage all registered users and their roles.
           </p>
         </div>
-        {canAccessSettings && (
-          <Button 
-            variant="ghost" 
-            size="icon"
-            onClick={() => setIsPermissionsDialogOpen(true)}
-            title="Tab Settings"
-          >
-            <Settings className="w-5 h-5" />
-          </Button>
-        )}
       </div>
 
-      <TabPermissionsDialog 
-        open={isPermissionsDialogOpen} 
-        onOpenChange={setIsPermissionsDialogOpen} 
+      <TabPermissionsDialog
+        open={!!permissionsTarget}
+        onOpenChange={(o) => {
+          if (!o) setPermissionsTarget(null);
+        }}
+        fixedUserId={permissionsTarget?.userId ?? null}
+        fixedUserLabel={permissionsTarget?.name ?? null}
       />
 
       {isLoading ? (
@@ -499,12 +531,56 @@ export default function Clients() {
         </div>
       ) : (
         <>
+          {isAppOwner && ownersCardRows.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Crown className="w-5 h-5 text-amber-600" />
+                  Owner ({ownersCardRows.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Role</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {ownersCardRows.map((row) => (
+                      <TableRow key={row.user_id}>
+                        <TableCell className="font-medium">
+                          <ClientOpsHoverCard
+                            enabled={canSeeSuperOps}
+                            variant="clientUser"
+                            clientUser={{
+                              user_id: row.user_id,
+                              full_name: row.full_name,
+                              role: row.role,
+                            }}
+                            jobTitle={row.job_title ?? null}
+                          >
+                            <span>{row.full_name || "—"}</span>
+                          </ClientOpsHoverCard>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className="bg-amber-600 hover:bg-amber-600">Owner</Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Admins Section */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 <Shield className="w-5 h-5 text-primary" />
-                Admins ({admins.length})
+                Admins ({adminsForTable.length})
               </CardTitle>
               <Dialog open={isAdminDialogOpen} onOpenChange={setIsAdminDialogOpen}>
                 <DialogTrigger asChild>
@@ -564,7 +640,7 @@ export default function Clients() {
               </Dialog>
             </CardHeader>
             <CardContent>
-              {admins.length > 0 ? (
+              {adminsForTable.length > 0 ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -574,10 +650,21 @@ export default function Clients() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {admins.map((admin) => (
+                    {adminsForTable.map((admin) => (
                       <TableRow key={admin.user_id}>
                         <TableCell className="font-medium">
-                          {admin.full_name || "—"}
+                          <ClientOpsHoverCard
+                            enabled={canSeeSuperOps}
+                            variant="clientUser"
+                            clientUser={{
+                              user_id: admin.user_id,
+                              full_name: admin.full_name,
+                              role: admin.role,
+                            }}
+                            jobTitle={admin.job_title ?? null}
+                          >
+                            <span>{admin.full_name || "—"}</span>
+                          </ClientOpsHoverCard>
                         </TableCell>
                         <TableCell>
                           <Badge variant="default" className="bg-primary">
@@ -593,12 +680,20 @@ export default function Clients() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() => setAdminToEdit(admin)}
-                              >
-                                <User className="w-4 h-4 mr-2" />
-                                Edit Information
-                              </DropdownMenuItem>
+                              {isAppOwner ? (
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    setPermissionsTarget({
+                                      userId: admin.user_id,
+                                      name: admin.full_name || "User",
+                                    })
+                                  }
+                                >
+                                  <ListChecks className="w-4 h-4 mr-2" />
+                                  Sidebar permissions
+                                </DropdownMenuItem>
+                              ) : null}
+                              {isAppOwner ? <DropdownMenuSeparator /> : null}
                               <DropdownMenuItem
                                 className="text-destructive focus:text-destructive"
                                 onClick={() => setAdminToRemove(admin)}
@@ -649,7 +744,18 @@ export default function Clients() {
                     {clientUsers.map((client) => (
                       <TableRow key={client.user_id}>
                         <TableCell className="font-medium">
-                          {client.full_name || "—"}
+                          <ClientOpsHoverCard
+                            enabled={canSeeSuperOps}
+                            variant="clientUser"
+                            clientUser={{
+                              user_id: client.user_id,
+                              full_name: client.full_name,
+                              role: client.role,
+                            }}
+                            jobTitle={client.job_title ?? null}
+                          >
+                            <span>{client.full_name || "—"}</span>
+                          </ClientOpsHoverCard>
                         </TableCell>
                         <TableCell>—</TableCell>
                         <TableCell>—</TableCell>
@@ -672,6 +778,22 @@ export default function Clients() {
                                 <User className="w-4 h-4 mr-2" />
                                 Edit Information
                               </DropdownMenuItem>
+                              {isAppOwner ? (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      setPermissionsTarget({
+                                        userId: client.user_id,
+                                        name: client.full_name || "User",
+                                      })
+                                    }
+                                  >
+                                    <ListChecks className="w-4 h-4 mr-2" />
+                                    Sidebar permissions
+                                  </DropdownMenuItem>
+                                </>
+                              ) : null}
                               <DropdownMenuItem
                                 className="text-destructive focus:text-destructive"
                                 onClick={() => setClientUserToRemove(client)}
@@ -687,12 +809,25 @@ export default function Clients() {
                     {/* Show customers */}
                     {customers?.map((customer) => {
                       const socialLinks = customer.social_media_links;
+                      const { role: linkedRole, job_title: linkedJobTitle } = roleAndJobForAuthUser(
+                        customer.user_id,
+                      );
                       return (
                         <TableRow key={customer.id}>
                           <TableCell className="font-medium">
-                            {customer.first_name || customer.last_name
-                              ? `${customer.first_name || ""} ${customer.last_name || ""}`.trim()
-                              : "—"}
+                            <ClientOpsHoverCard
+                              enabled={canSeeSuperOps}
+                              variant="customer"
+                              customer={customer}
+                              linkedRole={linkedRole}
+                              jobTitle={linkedJobTitle}
+                            >
+                              <span>
+                                {customer.first_name || customer.last_name
+                                  ? `${customer.first_name || ""} ${customer.last_name || ""}`.trim()
+                                  : "—"}
+                              </span>
+                            </ClientOpsHoverCard>
                           </TableCell>
                           <TableCell>
                             {customer.email ? (
@@ -776,6 +911,23 @@ export default function Clients() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
+                                {isAppOwner && customer.user_id?.trim() ? (
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      setPermissionsTarget({
+                                        userId: customer.user_id!.trim(),
+                                        name:
+                                          [customer.first_name, customer.last_name].filter(Boolean).join(" ") ||
+                                          customer.business_name ||
+                                          "User",
+                                      })
+                                    }
+                                  >
+                                    <ListChecks className="w-4 h-4 mr-2" />
+                                    Sidebar permissions
+                                  </DropdownMenuItem>
+                                ) : null}
+                                {isAppOwner && customer.user_id?.trim() ? <DropdownMenuSeparator /> : null}
                                 <DropdownMenuItem
                                   className="text-destructive focus:text-destructive"
                                   onClick={() => setClientToDelete(customer)}
@@ -891,27 +1043,6 @@ export default function Clients() {
             </DialogContent>
           </Dialog>
 
-          {/* Admin Edit Dialog */}
-          <Dialog open={!!adminToEdit} onOpenChange={(open) => !open && setAdminToEdit(null)}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Edit Admin Information</DialogTitle>
-                <DialogDescription>
-                  Update information for {adminToEdit?.full_name || "this admin"}.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="py-4">
-                <p className="text-sm text-muted-foreground">
-                  To edit detailed admin information, please update their profile in the user profiles section or contact them to update their account details.
-                </p>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setAdminToEdit(null)}>
-                  Close
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
         </>
       )}
     </div>

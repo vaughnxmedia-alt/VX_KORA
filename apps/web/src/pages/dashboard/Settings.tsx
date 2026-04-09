@@ -1,8 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/components/AuthProvider";
+import { isAppOwnerJustice } from "@/lib/super-ops";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
@@ -30,7 +37,220 @@ interface TelegramStatus {
   nextScheduled: string | null;
 }
 
+function AccountProfileForm() {
+  const { session } = useAuth();
+  const userId = session?.user?.id ?? null;
+  const sessionEmail = session?.user?.email ?? null;
+  const appOwner = isAppOwnerJustice(sessionEmail);
+  const queryClient = useQueryClient();
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
+  const [accountEmail, setAccountEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const { data: authUser, isLoading: authUserLoading } = useQuery({
+    queryKey: ["settings-auth-user", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      return data.user;
+    },
+  });
+
+  const { data: profile, isLoading } = useQuery({
+    queryKey: ["settings-profile", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name, job_title, phone")
+        .eq("id", userId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  useEffect(() => {
+    if (!profile) return;
+    setFullName(profile.full_name?.trim() || "");
+    setJobTitle(profile.job_title?.trim() || "");
+    setPhone(profile.phone?.trim() || "");
+  }, [profile]);
+
+  useEffect(() => {
+    const fromAuth = authUser?.email?.trim() || sessionEmail?.trim() || "";
+    setAccountEmail(fromAuth);
+  }, [authUser?.email, sessionEmail]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const nextEmail = accountEmail.trim();
+      const currentAuthEmail = authUser?.email?.trim() || sessionEmail?.trim() || "";
+      if (nextEmail && nextEmail.toLowerCase() !== currentAuthEmail.toLowerCase()) {
+        const { error: emailErr } = await supabase.auth.updateUser({ email: nextEmail });
+        if (emailErr) throw emailErr;
+      }
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          full_name: fullName.trim() || null,
+          job_title: jobTitle.trim() || null,
+          phone: phone.trim() || null,
+        })
+        .eq("id", userId!);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Profile saved");
+      queryClient.invalidateQueries({ queryKey: ["settings-profile"] });
+      queryClient.invalidateQueries({ queryKey: ["settings-auth-user"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-mandatory-profile"] });
+      queryClient.invalidateQueries({ queryKey: ["current-user-profile"] });
+    },
+    onError: (e: Error) => {
+      toast.message("Could not save profile", { description: e.message });
+    },
+  });
+
+  const savePasswordMutation = useMutation({
+    mutationFn: async () => {
+      if (newPassword.length < 8) throw new Error("Use at least 8 characters.");
+      if (newPassword !== confirmPassword) throw new Error("Passwords do not match.");
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setNewPassword("");
+      setConfirmPassword("");
+      toast.success("Password updated.");
+    },
+    onError: (e: Error) => {
+      toast.message("Could not update password", { description: e.message });
+    },
+  });
+
+  if (!userId) {
+    return <p className="text-muted-foreground text-sm">Sign in to edit your profile.</p>;
+  }
+
+  const authEmailResolved = authUser?.email?.trim() || sessionEmail?.trim() || "";
+  const canEditAccountEmail = appOwner || !authEmailResolved;
+
+  return (
+    <div className="space-y-4 max-w-md">
+      <p className="text-sm text-muted-foreground">
+        Complete these fields to clear the blue alert on your dashboard. Account email is the address you use to sign in (from Auth, refreshed on load).
+      </p>
+      <div className="space-y-2">
+        <Label htmlFor="acct-email">Account email</Label>
+        <Input
+          id="acct-email"
+          type="email"
+          value={accountEmail}
+          onChange={(e) => setAccountEmail(e.target.value)}
+          readOnly={!canEditAccountEmail}
+          className={canEditAccountEmail ? "" : "bg-muted/50"}
+          placeholder={authUserLoading ? "Loading…" : "you@example.com"}
+          disabled={authUserLoading}
+        />
+        {appOwner ? (
+          <p className="text-[11px] text-muted-foreground">
+            App owner: you can change your login email here; Supabase may send a confirmation to the new address depending on your project settings.
+          </p>
+        ) : authEmailResolved ? (
+          <p className="text-[11px] text-muted-foreground">
+            Managed by Supabase Auth. Use account recovery or ask the app owner if you need a different login email.
+          </p>
+        ) : (
+          <p className="text-[11px] text-muted-foreground">
+            No email on this session yet (e.g. early account). Enter your login email and save—we’ll register it with Auth.
+          </p>
+        )}
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="acct-name">Display name</Label>
+        <Input
+          id="acct-name"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          placeholder="Your full name"
+          disabled={isLoading}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="acct-phone">Phone</Label>
+        <Input
+          id="acct-phone"
+          type="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="+1 …"
+          disabled={isLoading}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="acct-job">Job title</Label>
+        <Input
+          id="acct-job"
+          value={jobTitle}
+          onChange={(e) => setJobTitle(e.target.value)}
+          placeholder="e.g. Founder, Strategist"
+          disabled={isLoading}
+        />
+      </div>
+      <Button
+        type="button"
+        onClick={() => saveMutation.mutate()}
+        disabled={saveMutation.isPending || isLoading || authUserLoading}
+      >
+        {saveMutation.isPending ? "Saving…" : "Save profile"}
+      </Button>
+
+      {appOwner ? (
+        <div className="space-y-3 pt-6 border-t border-border">
+          <p className="text-sm font-medium">Password (app owner)</p>
+          <p className="text-xs text-muted-foreground">
+            Change your own sign-in password. To set another user’s password, use their row on the Users / Clients page while signed in as the app owner.
+          </p>
+          <Input
+            type="password"
+            autoComplete="new-password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="New password (min 8 characters)"
+          />
+          <Input
+            type="password"
+            autoComplete="new-password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="Confirm new password"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            disabled={savePasswordMutation.isPending}
+            onClick={() => savePasswordMutation.mutate()}
+          >
+            {savePasswordMutation.isPending ? "Updating…" : "Update my password"}
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function Settings() {
+  const location = useLocation();
+  const settingsTabDefault =
+    (location.state as { defaultSettingsTab?: string } | null)?.defaultSettingsTab === "account"
+      ? "account"
+      : "telegram";
+
   const [telegramStatus] = useState<TelegramStatus>({
     isConnected: true,
     isVerified: true,
@@ -54,7 +274,7 @@ export default function Settings() {
         <p className="text-muted-foreground">Manage your KORA preferences and integrations.</p>
       </div>
 
-      <Tabs defaultValue="telegram" className="space-y-6">
+      <Tabs defaultValue={settingsTabDefault} className="space-y-6">
         <TabsList>
           <TabsTrigger value="telegram" className="flex items-center gap-2">
             <Send className="h-4 w-4" />
@@ -324,8 +544,9 @@ export default function Settings() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground">
-                For team and permissions settings, use Admin under System.
+              <AccountProfileForm />
+              <p className="text-muted-foreground text-sm mt-6">
+                For team and permissions, use the Users / Clients page in the dashboard.
               </p>
             </CardContent>
           </Card>

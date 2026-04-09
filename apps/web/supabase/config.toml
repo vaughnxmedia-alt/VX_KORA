@@ -46,6 +46,9 @@ verify_jwt = false
 [functions.check-brief-access]
 verify_jwt = false
 
+[functions.app-owner-user-credentials]
+verify_jwt = true
+
 [functions.social-oauth-start]
 verify_jwt = true
 

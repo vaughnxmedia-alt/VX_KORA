@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 import { submitStrategySessionBooking } from "@/features/strategy-session/api";
 import {
   clearStrategySessionBookingStorage,
@@ -13,10 +14,31 @@ import {
 type Status = "loading" | "success" | "error" | "missing" | "missing_payment";
 
 export default function StrategySessionThankYou() {
+  const navigate = useNavigate();
   const [status, setStatus] = useState<Status>("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [meetingId, setMeetingId] = useState<string | undefined>();
   const ran = useRef(false);
+
+  /** Logged-in team (admin/author) lands on Leads to confirm the booking; public guests stay on thank-you. */
+  useEffect(() => {
+    if (status !== "success") return;
+    let cancelled = false;
+    (async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (cancelled || !session?.user?.id) return;
+      const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", session.user.id);
+      const rs = (roles ?? []).map((r) => r.role);
+      if (rs.includes("admin") || rs.includes("author")) {
+        navigate("/dashboard/leads", { replace: true });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [status, navigate]);
 
   useEffect(() => {
     if (ran.current) return;

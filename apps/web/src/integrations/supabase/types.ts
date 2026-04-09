@@ -892,6 +892,8 @@ export type Database = {
           avatar_url: string | null
           full_name: string | null
           id: string
+          job_title: string | null
+          phone: string | null
           updated_at: string | null
           website: string | null
         }
@@ -899,6 +901,8 @@ export type Database = {
           avatar_url?: string | null
           full_name?: string | null
           id: string
+          job_title?: string | null
+          phone?: string | null
           updated_at?: string | null
           website?: string | null
         }
@@ -906,6 +910,8 @@ export type Database = {
           avatar_url?: string | null
           full_name?: string | null
           id?: string
+          job_title?: string | null
+          phone?: string | null
           updated_at?: string | null
           website?: string | null
         }
@@ -1294,6 +1300,18 @@ export type Database = {
         }
         Relationships: []
       }
+      super_ops_allowlist: {
+        Row: {
+          email: string
+        }
+        Insert: {
+          email: string
+        }
+        Update: {
+          email?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1301,6 +1319,14 @@ export type Database = {
     Functions: {
       get_user_role: { Args: { p_user_id: string }; Returns: string }
       increment_view_count: { Args: { post_id: string }; Returns: undefined }
+      super_ops_auth_user_summary: {
+        Args: { target_user_id: string }
+        Returns: {
+          login_email: string
+          email_confirmed_at: string | null
+          last_sign_in_at: string | null
+        }[]
+      }
     }
     Enums: {
       client_status:

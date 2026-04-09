@@ -116,3 +116,27 @@ export const ADMIN_ONLY_KEYS = [
   "strategy-session-calendar",
 ];
 export const ADMIN_TAB_KEY = "admin";
+
+/** Every sidebar route key the owner can grant to workers (clients); used for Users → Sidebar permissions. */
+export type SidebarPermissionTabDef = {
+  key: string;
+  title: string;
+  group: string;
+  adminOnly?: boolean;
+};
+
+export function getSidebarPermissionTabDefinitions(): SidebarPermissionTabDef[] {
+  const fromNav = DASHBOARD_NAV_GROUPS.flatMap((g) =>
+    g.items.map((item) => ({
+      key: item.key,
+      title: item.title,
+      group: g.label,
+      adminOnly: item.adminOnly,
+    })),
+  );
+  return [
+    ...fromNav,
+    { key: "get-inspired", title: "KORA", group: "FOOTER" },
+    { key: "settings", title: "Settings", group: "FOOTER" },
+  ];
+}

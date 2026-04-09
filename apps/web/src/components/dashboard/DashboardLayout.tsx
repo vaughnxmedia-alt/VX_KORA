@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { HomeIcon } from "lucide-react";
 import { RatingPopup } from "@/components/RatingPopup";
+import { DashboardProfileAlertBanner } from "@/components/dashboard/DashboardProfileAlertBanner";
 import { useActiveDay } from "@/hooks/useActiveDay";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
@@ -139,6 +140,7 @@ export default function DashboardLayout() {
               </BreadcrumbList>
             </Breadcrumb>
           </header>
+          <DashboardProfileAlertBanner />
           <div className="flex-1 p-4 md:p-6 lg:p-8">
             <Outlet />
           </div>

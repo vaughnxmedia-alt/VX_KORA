@@ -362,8 +362,13 @@ export default function Leads() {
                               </dl>
                             </TableCell>
                             <TableCell className="align-top text-right">
-                              <Button type="button" size="sm" onClick={() => openCompose(row)}>
-                                Review email
+                              <Button
+                                type="button"
+                                size="sm"
+                                title="Review and send the confirmation email to the address from the booking form"
+                                onClick={() => openCompose(row)}
+                              >
+                                Confirm
                               </Button>
                             </TableCell>
                           </TableRow>

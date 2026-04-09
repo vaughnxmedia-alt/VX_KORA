@@ -25,6 +25,7 @@ import {
   ADMIN_ONLY_KEYS,
   ADMIN_TAB_KEY,
 } from "@/lib/dashboardNav";
+import { isAppOwnerJustice } from "@/lib/super-ops";
 
 export function DashboardSidebar() {
   const { user, role } = useAuth();
@@ -72,6 +73,8 @@ export function DashboardSidebar() {
     currentUserProfile?.full_name || ""
   );
 
+  const isDashboardOwner = isAppOwnerJustice(user?.email ?? null);
+
   const { data: userPermissions } = useQuery({
     queryKey: ["user-tab-permissions", user?.id],
     queryFn: async () => {
@@ -87,6 +90,7 @@ export function DashboardSidebar() {
   });
 
   const isItemVisible = (itemKey: string, adminOnly?: boolean) => {
+    if (isDashboardOwner) return true;
     if (itemKey === ADMIN_TAB_KEY) return canSeeAdminTab;
     if (role === "admin" || role === "author") return true;
     if (adminOnly && ADMIN_ONLY_KEYS.includes(itemKey)) return false;
@@ -154,42 +158,46 @@ export function DashboardSidebar() {
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={location.pathname === "/dashboard/get-inspired"}
-              tooltip="Get Inspired (KORA)"
-            >
-              <a
-                href="/dashboard/get-inspired"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate("/dashboard/get-inspired");
-                }}
+          {isItemVisible("get-inspired") && (
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={location.pathname === "/dashboard/get-inspired"}
+                tooltip="Get Inspired (KORA)"
               >
-                <Sparkles className="text-amber-400/90" />
-                <span>KORA</span>
-              </a>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={location.pathname === "/dashboard/settings"}
-              tooltip="Settings"
-            >
-              <a
-                href="/dashboard/settings"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate("/dashboard/settings");
-                }}
+                <a
+                  href="/dashboard/get-inspired"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate("/dashboard/get-inspired");
+                  }}
+                >
+                  <Sparkles className="text-amber-400/90" />
+                  <span>KORA</span>
+                </a>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
+          {isItemVisible("settings") && (
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={location.pathname === "/dashboard/settings"}
+                tooltip="Settings"
               >
-                <Settings />
-                <span>Settings</span>
-              </a>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+                <a
+                  href="/dashboard/settings"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate("/dashboard/settings");
+                  }}
+                >
+                  <Settings />
+                  <span>Settings</span>
+                </a>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
           <SidebarMenuItem>
             {user && (
               <AccountNavigation
