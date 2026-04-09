@@ -3,12 +3,7 @@ import { MessageSquareText, Shield, PenTool, Users, CheckCircle2, Clock, Loader2
 import { Link } from "react-router-dom"
 import { cn } from "@/lib/utils"
 import { ClientDropdown } from "@/components/ClientDropdown"
-import { createClient } from "@supabase/supabase-js"
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL || "https://cjgqicpuwbflypcnhuak.supabase.co",
-  import.meta.env.VITE_SUPABASE_ANON_KEY || ""
-)
+import { supabase } from "@/lib/supabase"
 
 type AgentStatus = "idle" | "running" | "completed" | "pending"
 

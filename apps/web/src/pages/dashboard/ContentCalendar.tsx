@@ -4,8 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useAuth } from "@/components/AuthProvider";
 import { NewPostDialog } from "@/components/dashboard/NewPostDialog";
 import { ChevronLeft, ChevronRight, Settings, Loader2, CheckCircle2, Link2 } from "lucide-react";
@@ -27,7 +25,7 @@ interface ContentCalendar {
 interface ScheduledPost {
   id: string;
   caption: string | null;
-  platforms: string[];
+  platforms: string[] | null;
   scheduled_date: string;
   scheduled_time: string;
   status: string;
@@ -36,12 +34,6 @@ interface ScheduledPost {
   blog_post_id?: string | null;
   campaign_id?: string | null;
   campaign_name_snapshot?: string | null;
-}
-
-interface BlogPostLite {
-  id: string;
-  title: string;
-  published_date: string;
 }
 
 const PLATFORM_ICONS: Record<string, string> = {
@@ -61,17 +53,16 @@ interface ActiveClient {
 }
 
 export default function ContentCalendar() {
+  const getSafePlatforms = (post: ScheduledPost): string[] =>
+    Array.isArray(post.platforms) ? post.platforms : [];
+
   const navigate = useNavigate();
   const { role, user } = useAuth();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedCalendarId, setSelectedCalendarId] = useState<string>("");
   const [connectionsOpen, setConnectionsOpen] = useState(false);
-  const [scheduleBlogOpen, setScheduleBlogOpen] = useState(false);
   const [calendarViewFilter, setCalendarViewFilter] = useState<"all" | "social" | "blog">("all");
-  const [selectedBlogPostId, setSelectedBlogPostId] = useState("");
-  const [blogScheduleDate, setBlogScheduleDate] = useState("");
-  const [blogScheduleTime, setBlogScheduleTime] = useState("12:00");
   const [connectingMeta, setConnectingMeta] = useState(false);
 
   // Fetch all calendars
@@ -184,18 +175,6 @@ export default function ContentCalendar() {
       return data as ScheduledPost[];
     },
     enabled: !!selectedCalendarId,
-  });
-
-  const { data: blogPosts = [] } = useQuery({
-    queryKey: ["blog-posts-for-scheduling"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("blog_posts")
-        .select("id, title, published_date")
-        .order("published_date", { ascending: false });
-      if (error) throw error;
-      return (data || []) as BlogPostLite[];
-    },
   });
 
   const handlePostCreated = async (post: any) => {
@@ -402,48 +381,6 @@ export default function ContentCalendar() {
     run();
   }, [refetchMetaAccounts]);
 
-  const scheduleBlogPost = async () => {
-    if (!selectedCalendarId || !selectedBlogPostId || !blogScheduleDate || !blogScheduleTime) {
-      toast({
-        title: "Missing details",
-        description: "Select a blog post, date, and time.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const selectedPost = blogPosts.find((p) => p.id === selectedBlogPostId);
-    const { error } = await supabase.from("scheduled_posts").insert({
-      calendar_id: selectedCalendarId,
-      caption: selectedPost ? `Blog: ${selectedPost.title}` : "Blog post",
-      platforms: [],
-      scheduled_date: blogScheduleDate,
-      scheduled_time: blogScheduleTime,
-      status: "scheduled",
-      post_type: "blog",
-      blog_post_id: selectedBlogPostId,
-    });
-
-    if (error) {
-      toast({
-        title: "Could not schedule blog",
-        description: error.message,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    toast({
-      title: "Blog scheduled",
-      description: "Blog publishing schedule was added to the calendar.",
-    });
-    setScheduleBlogOpen(false);
-    setSelectedBlogPostId("");
-    setBlogScheduleDate("");
-    setBlogScheduleTime("12:00");
-    refetchPosts();
-  };
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -486,9 +423,6 @@ export default function ContentCalendar() {
           <Button variant="outline" onClick={() => setConnectionsOpen(true)}>
             <Settings className="w-4 h-4" />
             Connections
-          </Button>
-          <Button variant="outline" onClick={() => setScheduleBlogOpen(true)}>
-            Schedule Blog
           </Button>
           <NewPostDialog onPostCreated={handlePostCreated} />
         </div>
@@ -593,7 +527,7 @@ export default function ContentCalendar() {
                             <div className="text-[10px] mb-0.5">📝 Blog</div>
                           ) : (
                             <div className="flex gap-0.5 mb-0.5">
-                              {post.platforms.slice(0, 3).map((p) => (
+                              {getSafePlatforms(post).slice(0, 3).map((p) => (
                                 <span key={p} className="text-[10px]">
                                   {PLATFORM_ICONS[p]}
                                 </span>
@@ -667,7 +601,7 @@ export default function ContentCalendar() {
                             </div>
                           ) : (
                             <div className="flex flex-wrap gap-1">
-                              {post.platforms.map((platform) => (
+                              {getSafePlatforms(post).map((platform) => (
                                 <Badge
                                   key={platform}
                                   variant="outline"
@@ -736,7 +670,7 @@ export default function ContentCalendar() {
                 <div className="flex flex-wrap gap-1">
                   {Object.entries(PLATFORM_ICONS).map(([id, icon]) => (
                     <Badge key={id} variant="outline" className="text-xs">
-                      {icon} {scheduledPosts.filter(p => p.platforms.includes(id)).length}
+                      {icon} {scheduledPosts.filter((p) => getSafePlatforms(p).includes(id)).length}
                     </Badge>
                   ))}
                 </div>
@@ -812,57 +746,6 @@ export default function ContentCalendar() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={scheduleBlogOpen} onOpenChange={setScheduleBlogOpen}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Schedule Blog</DialogTitle>
-            <DialogDescription>
-              Choose an existing blog post and schedule it in the calendar. Editing remains in Blog Management.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Blog Post</Label>
-              <Select value={selectedBlogPostId} onValueChange={setSelectedBlogPostId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select blog post" />
-                </SelectTrigger>
-                <SelectContent>
-                  {blogPosts.map((post) => (
-                    <SelectItem key={post.id} value={post.id}>
-                      {post.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid sm:grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Publish Date</Label>
-                <Input
-                  type="date"
-                  value={blogScheduleDate}
-                  onChange={(e) => setBlogScheduleDate(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Publish Time</Label>
-                <Input
-                  type="time"
-                  value={blogScheduleTime}
-                  onChange={(e) => setBlogScheduleTime(e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setScheduleBlogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={scheduleBlogPost}>Save Blog Schedule</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

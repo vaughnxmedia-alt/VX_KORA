@@ -32,6 +32,11 @@
   * {
     @apply border-grey-200;
   }
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
   body {
     @apply bg-grey-100 text-grey-900 antialiased;
   }

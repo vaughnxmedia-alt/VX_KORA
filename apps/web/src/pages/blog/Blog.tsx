@@ -7,6 +7,7 @@ import { Clock, ArrowRight, X, User, Flame } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { deriveBriefPageSections } from "@/lib/brief-listing";
+import { buildBlogPathSegment } from "@/lib/blog-share";
 import {
   Pagination,
   PaginationContent,
@@ -19,6 +20,7 @@ import {
 
 type BlogPost = {
   id: string;
+  slug?: string | null;
   title: string;
   description: string;
   content: string;
@@ -175,7 +177,11 @@ const Blog = () => {
             <div className="max-w-4xl mx-auto">
               <div
                 className="group cursor-pointer"
-                onClick={() => navigate(`/the-brief/${heroArticle.id}`)}
+                onClick={() =>
+                  navigate(
+                    `/the-brief/${encodeURIComponent(buildBlogPathSegment(heroArticle))}`,
+                  )
+                }
               >
                 <div className="rounded-xl sm:rounded-2xl overflow-hidden bg-muted relative mb-4 sm:mb-6 shadow-xl shadow-primary/10 dark:shadow-none aspect-[4/3] sm:aspect-[940/788] w-full">
                   {heroArticle.cover_image_url ? (
@@ -256,7 +262,11 @@ const Blog = () => {
                 <div
                   key={article.id}
                   className="group/item cursor-pointer flex gap-4 items-start py-4 first:pt-0 last:pb-0"
-                  onClick={() => navigate(`/the-brief/${article.id}`)}
+                  onClick={() =>
+                    navigate(
+                      `/the-brief/${encodeURIComponent(buildBlogPathSegment(article))}`,
+                    )
+                  }
                 >
                   <span className="text-3xl font-serif font-bold text-gold/30 leading-none -mt-1 group-hover/item:text-gold/50 transition-colors w-8">
                     {String(idx + 1).padStart(2, "0")}
@@ -298,7 +308,11 @@ const Blog = () => {
                 <div 
                   key={article.id}
                   className="group cursor-pointer"
-                  onClick={() => navigate(`/the-brief/${article.id}`)}
+                  onClick={() =>
+                    navigate(
+                      `/the-brief/${encodeURIComponent(buildBlogPathSegment(article))}`,
+                    )
+                  }
                 >
                   <div className="aspect-[4/3] sm:aspect-[940/788] rounded-xl sm:rounded-2xl overflow-hidden bg-muted/30 relative mb-3 sm:mb-4 border shadow-sm group-hover:shadow-md transition-all duration-300">
                     <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 via-transparent to-accent/5 group-hover:scale-105 transition-transform duration-500" />

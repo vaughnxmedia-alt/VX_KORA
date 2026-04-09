@@ -23,6 +23,8 @@ const HealthAndLogs = lazy(() => import("@/pages/core/HealthAndLogs"))
 
 // Agent Detail Pages (lazy loaded)
 const AgentDetail = lazy(() => import("@/pages/agents/AgentDetail"))
+const AudienceQueue = lazy(() => import("@/pages/audience/AudienceQueue"))
+const AudienceRunDetail = lazy(() => import("@/pages/audience/AudienceRunDetail"))
 
 const Clients = lazy(() => import("@/pages/tenants/Clients"))
 const TelegramPreferences = lazy(() => import("@/pages/tenants/TelegramPreferences"))
@@ -90,6 +92,8 @@ function App() {
           <Route path="agents/campaign-assembly" element={<AgentDetail agentId="campaign-assembly" />} />
           <Route path="agents/telegram-delivery" element={<AgentDetail agentId="telegram-delivery" />} />
           <Route path="agents/rag-intelligence" element={<AgentDetail agentId="rag-intelligence" />} />
+          <Route path="audience/queue" element={<AudienceQueue />} />
+          <Route path="audience/runs/:runId" element={<AudienceRunDetail />} />
 
           <Route path="clients" element={<Clients />} />
           <Route path="tenants" element={<Navigate to="/clients" replace />} />

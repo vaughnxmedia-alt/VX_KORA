@@ -9,6 +9,11 @@ import { useToast } from "@/components/ui/use-toast";
 import rehypeSlug from 'rehype-slug';
 import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import rehypeSanitize from "rehype-sanitize";
+import {
+  buildBlogCanonicalUrlFromPost,
+  getDefaultOgImageAbsoluteUrl,
+  isBlogRouteParamUuid,
+} from "@/lib/blog-share";
 
 type BlogPostType = {
   id: string;
@@ -55,13 +60,17 @@ const updateBlogPostSEO = (post: BlogPostType) => {
   head.appendChild(canonical);
   
   // Open Graph tags
+  const ogImage =
+    post.cover_image_url?.trim() ||
+    getDefaultOgImageAbsoluteUrl();
+
   const ogTags = [
     { property: 'og:title', content: post.title },
     { property: 'og:description', content: post.description },
     { property: 'og:type', content: 'article' },
     { property: 'og:url', content: window.location.href },
     { property: 'og:site_name', content: 'The Brief' },
-    { property: 'og:image', content: post.cover_image_url || `${window.location.origin}/logo.svg` },
+    { property: 'og:image', content: ogImage },
     { property: 'og:image:width', content: '940' },
     { property: 'og:image:height', content: '788' },
     { property: 'og:image:alt', content: post.title },
@@ -84,7 +93,7 @@ const updateBlogPostSEO = (post: BlogPostType) => {
     { name: 'twitter:title', content: post.title },
     { name: 'twitter:description', content: post.description },
     { name: 'twitter:creator', content: '@jahknowspr' },
-    { name: 'twitter:image', content: post.cover_image_url || `${window.location.origin}/logo.svg` },
+    { name: 'twitter:image', content: ogImage },
     { name: 'twitter:image:alt', content: post.title }
   ];
   
@@ -111,7 +120,7 @@ const updateBlogPostSEO = (post: BlogPostType) => {
       "name": "JahKnowsPR",
       "logo": {
         "@type": "ImageObject",
-        "url": `${window.location.origin}/favicon.ico`
+        "url": getDefaultOgImageAbsoluteUrl()
       }
     },
     "datePublished": post.published_date,
@@ -178,11 +187,12 @@ const BlogPost = () => {
 
   const fetchBlogPost = useCallback(async () => {
     if (!id) return;
-    
+
+    const byUuid = isBlogRouteParamUuid(id);
     const { data, error } = await supabase
       .from("blog_posts")
       .select("*")
-      .eq("id", id)
+      .eq(byUuid ? "id" : "slug", id)
       .single();
 
     if (error) {
@@ -199,8 +209,9 @@ const BlogPost = () => {
       });
       navigate("/the-brief");
     } else {
-      setPost(data as BlogPostType);
-      incrementViewCount(id);
+      const row = data as BlogPostType;
+      setPost(row);
+      incrementViewCount(row.id);
     }
     setLoading(false);
   }, [id, navigate, toast, incrementViewCount]);
@@ -243,11 +254,10 @@ const BlogPost = () => {
     }
   }, [post, location.hash, fetchRelatedPosts]);
 
-   // Generate shareable URL that works with social media crawlers
+   /** Real blog URL on this site (/the-brief/slug-or-id), not the Supabase og-meta endpoint. */
    const getShareableUrl = () => {
      if (!post) return window.location.href;
-     // Use the OG meta edge function URL for social sharing
-     return `https://cjgqicpuwbflypcnhuak.supabase.co/functions/v1/og-meta?id=${post.id}`;
+     return buildBlogCanonicalUrlFromPost(post);
    };
  
   // Social sharing functions
@@ -618,7 +628,11 @@ const BlogPost = () => {
                 <article 
                   key={relatedPost.id} 
                   className="group cursor-pointer"
-                  onClick={() => navigate(`/the-brief/${relatedPost.id}`)}
+                  onClick={() =>
+                    navigate(
+                      `/the-brief/${encodeURIComponent(relatedPost.slug || relatedPost.id)}`,
+                    )
+                  }
                 >
                  <div className="aspect-[940/788] rounded-xl overflow-hidden bg-muted/30 mb-4 relative shadow-sm">
                    {relatedPost.cover_image_url ? (

@@ -105,6 +105,7 @@ const systemAgentGroups: AgentGroup[] = [
 ]
 
 const usersAndTenantsItems: NavItem[] = [
+  { to: "/audience/queue", label: "Audience Queue", icon: Users },
   { to: "/clients", label: "Clients", icon: Building2 },
   { to: "/telegram-preferences", label: "Telegram Preferences", icon: Send },
   { to: "/approval-history", label: "Approval History", icon: History },

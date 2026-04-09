@@ -47,7 +47,7 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
     label: "STRATEGY",
     items: [
       { key: "blueprints", title: "Brand Blueprints", url: "/dashboard/blueprints", icon: FileText },
-      { key: "audience", title: "Target Audience", url: "/dashboard/audience", icon: Users },
+      { key: "audience", title: "Audience Intelligence", url: "/dashboard/audience", icon: Users },
       { key: "strategy", title: "Brand Strategy", url: "/dashboard/strategy", icon: Lightbulb },
     ],
   },

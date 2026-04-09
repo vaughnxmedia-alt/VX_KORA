@@ -56,6 +56,7 @@ import {
   PenLine,
   Sparkles,
   Flame,
+  Share2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -85,6 +86,7 @@ import {
   isBlogPostPubliclyLive,
 } from "@/lib/blog-publish-schedule";
 import { VideoUploader } from "@/components/blog/VideoUploader";
+import { BlogShareDialog } from "@/components/blog/BlogShareDialog";
 
 type BlogPost = {
   id?: string;
@@ -120,6 +122,8 @@ const BlogManagement = () => {
   const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null);
   const [previewPost, setPreviewPost] = useState<BlogPost | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [sharePost, setSharePost] = useState<BlogPost | null>(null);
+  const [isShareOpen, setIsShareOpen] = useState(false);
   const [contentValue, setContentValue] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -145,6 +149,8 @@ const BlogManagement = () => {
   const [publishedDate, setPublishedDate] = useState<Date | undefined>(undefined);
   /** 24h wall-clock time interpreted as US Eastern with the selected calendar day. */
   const [publishTimeEt, setPublishTimeEt] = useState("09:00");
+  const [publishMode, setPublishMode] = useState<"publish_now" | "schedule">("publish_now");
+  const [showScheduleFields, setShowScheduleFields] = useState(false);
 
   const fetchBlogPosts = useCallback(async () => {
     const { data, error } = await supabase
@@ -187,6 +193,8 @@ const BlogManagement = () => {
       const dt = DateTime.fromISO(post.publish_scheduled_at).setZone(BLOG_PUBLISH_TIMEZONE);
       setPublishedDate(new Date(dt.year, dt.month - 1, dt.day));
       setPublishTimeEt(dt.toFormat("HH:mm"));
+      setPublishMode("schedule");
+      setShowScheduleFields(true);
     } else if (post.published_date) {
       const d = DateTime.fromFormat(
         post.published_date.slice(0, 10),
@@ -195,10 +203,14 @@ const BlogManagement = () => {
       );
       setPublishedDate(new Date(d.year, d.month - 1, d.day));
       setPublishTimeEt("00:00");
+      setPublishMode("publish_now");
+      setShowScheduleFields(false);
     } else {
       const t = DateTime.now().setZone(BLOG_PUBLISH_TIMEZONE);
       setPublishedDate(new Date(t.year, t.month - 1, t.day));
       setPublishTimeEt("09:00");
+      setPublishMode("publish_now");
+      setShowScheduleFields(false);
     }
     setIsDialogOpen(true);
   };
@@ -369,11 +381,12 @@ const BlogManagement = () => {
     // Auto-generate slug if not provided
     const finalSlug = slugValue.trim() || generateSlug(title);
 
-    const scheduleDay = publishedDate ?? new Date();
-    const { publishScheduledAt, publishedDateYmd } = buildPublishScheduledAtIso(
-      scheduleDay,
-      publishTimeEt
-    );
+    const nowEt = DateTime.now().setZone(BLOG_PUBLISH_TIMEZONE);
+    const scheduleDay = publishedDate ?? new Date(nowEt.year, nowEt.month - 1, nowEt.day);
+    const effectiveTime = publishMode === "publish_now" ? nowEt.toFormat("HH:mm") : publishTimeEt;
+    const { publishScheduledAt, publishedDateYmd } = buildPublishScheduledAtIso(scheduleDay, effectiveTime);
+    const effectiveStatus: "draft" | "published" =
+      publishMode === "schedule" || publishMode === "publish_now" ? "published" : statusValue;
     
     const postData: Partial<BlogPost> = {
       title,
@@ -389,14 +402,14 @@ const BlogManagement = () => {
       video_type: videoType,
       cover_image_url: coverImageUrl || null,
       gallery_image_urls: galleryImageUrls.length > 0 ? galleryImageUrls : null,
-      status: statusValue,
-      published_at: statusValue === "published" ? new Date().toISOString() : null,
+      status: effectiveStatus,
+      published_at: effectiveStatus === "published" && publishMode === "publish_now" ? new Date().toISOString() : null,
       tags: (formData.get("tags") as string)
         .split(",")
         .map((tag) => tag.trim())
         .filter(Boolean),
       published_date: publishedDateYmd,
-      publish_scheduled_at: publishScheduledAt,
+      publish_scheduled_at: publishMode === "schedule" ? publishScheduledAt : null,
       is_featured: isFeatured,
       is_hot_topic: isHotTopic,
       is_hidden: selectedPost?.is_hidden ?? false,
@@ -422,6 +435,7 @@ const BlogManagement = () => {
     }
 
     let error: PostgrestError | null = null;
+    let targetBlogPostId: string | null = selectedPost?.id || null;
 
     if (selectedPost && selectedPost.id) {
       // Update existing post
@@ -430,15 +444,19 @@ const BlogManagement = () => {
         .update(postData as any)
         .match({ id: selectedPost.id });
       error = updateError;
+      targetBlogPostId = selectedPost.id;
     } else {
       // Create new post
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         (postData as any).author_id = user.id;
-        const { error: insertError } = await supabase
+        const { data: inserted, error: insertError } = await supabase
           .from("blog_posts")
-          .insert(postData as any);
+          .insert(postData as any)
+          .select("id")
+          .single();
         error = insertError;
+        targetBlogPostId = inserted?.id || null;
       } else {
         toast({ title: "Error", description: "You must be logged in to create a post.", variant: "destructive" });
         setIsSaving(false);
@@ -459,6 +477,40 @@ const BlogManagement = () => {
           selectedPost ? "updated" : "created"
         } successfully.`,
       });
+
+      // Blog scheduling is now controlled from Blog Management (not Content Calendar)
+      if (targetBlogPostId && publishMode === "schedule") {
+        const { data: mainCalendar, error: calError } = await supabase
+          .from("content_calendars")
+          .select("id")
+          .eq("calendar_type", "jahknowspr")
+          .limit(1)
+          .maybeSingle();
+
+        if (!calError && mainCalendar?.id) {
+          // Replace prior schedule entry for this blog post (if any)
+          await supabase.from("scheduled_posts").delete().eq("blog_post_id", targetBlogPostId);
+          const { error: schedErr } = await supabase.from("scheduled_posts").insert({
+            calendar_id: mainCalendar.id,
+            caption: `Blog: ${title}`,
+            platforms: [],
+            scheduled_date: publishedDateYmd,
+            scheduled_time: effectiveTime,
+            status: "scheduled",
+            post_type: "blog",
+            blog_post_id: targetBlogPostId,
+          });
+
+          if (schedErr) {
+            toast({
+              title: "Blog saved, calendar schedule failed",
+              description: schedErr.message,
+              variant: "destructive",
+            });
+          }
+        }
+      }
+
       setIsDialogOpen(false);
       setSelectedPost(null);
       fetchBlogPosts(); // Refresh the list
@@ -486,6 +538,8 @@ const BlogManagement = () => {
       setPublishedDate(new Date(t.year, t.month - 1, t.day));
     }
     setPublishTimeEt("09:00");
+    setPublishMode("publish_now");
+    setShowScheduleFields(false);
     setIsDialogOpen(true);
   };
 
@@ -747,6 +801,16 @@ const BlogManagement = () => {
                                 <FileText className="h-4 w-4 mr-2" />
                                 Preview Post
                               </DropdownMenuItem>
+                              <DropdownMenuItem
+                                disabled={!post.id}
+                                onClick={() => {
+                                  setSharePost(post);
+                                  setIsShareOpen(true);
+                                }}
+                              >
+                                <Share2 className="h-4 w-4 mr-2" />
+                                Share
+                              </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
                                 Status
@@ -917,43 +981,71 @@ const BlogManagement = () => {
               
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Publish date (US Eastern)</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !publishedDate && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {publishedDate ? format(publishedDate, "PPP") : <span>Pick a date</span>}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 z-50 bg-background border shadow-lg" align="start" sideOffset={8}>
-                      <Calendar
-                        mode="single"
-                        selected={publishedDate}
-                        onSelect={setPublishedDate}
-                        initialFocus
-                        className={cn("p-3 pointer-events-auto")}
+                  <Label>Publish controls</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant={publishMode === "schedule" ? "default" : "outline"}
+                      onClick={() => {
+                        setPublishMode("schedule");
+                        setShowScheduleFields(true);
+                        setStatusValue("published");
+                      }}
+                    >
+                      Schedule Blog
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={publishMode === "publish_now" ? "default" : "outline"}
+                      onClick={() => {
+                        setPublishMode("publish_now");
+                        setShowScheduleFields(false);
+                        setStatusValue("published");
+                        const t = DateTime.now().setZone(BLOG_PUBLISH_TIMEZONE);
+                        setPublishedDate(new Date(t.year, t.month - 1, t.day));
+                        setPublishTimeEt(t.toFormat("HH:mm"));
+                      }}
+                    >
+                      Publish
+                    </Button>
+                  </div>
+                  {showScheduleFields && (
+                    <div className="grid grid-cols-1 gap-3 pt-2">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !publishedDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {publishedDate ? format(publishedDate, "PPP") : <span>Pick publish date (US Eastern)</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 z-50 bg-background border shadow-lg" align="start" sideOffset={8}>
+                          <Calendar
+                            mode="single"
+                            selected={publishedDate}
+                            onSelect={setPublishedDate}
+                            initialFocus
+                            className={cn("p-3 pointer-events-auto")}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <Input
+                        id="publish_time_et"
+                        type="time"
+                        value={publishTimeEt}
+                        onChange={(e) => setPublishTimeEt(e.target.value)}
+                        className="w-full"
                       />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="publish_time_et">Publish time (US Eastern)</Label>
-                  <Input
-                    id="publish_time_et"
-                    type="time"
-                    value={publishTimeEt}
-                    onChange={(e) => setPublishTimeEt(e.target.value)}
-                    className="w-full"
-                  />
+                    </div>
+                  )}
                   <p className="text-xs text-muted-foreground">
-                    The dashboard shows this date and time until the post is live on The Brief. Readers only see it when
-                    status is <span className="font-medium text-foreground">Published</span> and the time has passed.
+                    Scheduled posts are created here and automatically appear in Content Calendar.
                   </p>
                 </div>
               </div>
@@ -1196,6 +1288,15 @@ const BlogManagement = () => {
           </form>
         </DialogContent>
       </Dialog>
+
+      <BlogShareDialog
+        post={sharePost}
+        open={isShareOpen}
+        onOpenChange={(open) => {
+          setIsShareOpen(open);
+          if (!open) setSharePost(null);
+        }}
+      />
 
       {/* Preview Post Dialog */}
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>

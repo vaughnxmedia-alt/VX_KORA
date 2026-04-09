@@ -14,15 +14,10 @@ import {
   FileText,
   User,
 } from "lucide-react"
-import { createClient } from "@supabase/supabase-js"
+import { supabase } from "@/lib/supabase"
 import { cn } from "@/lib/utils"
 import { ClientDropdown } from "@/components/ClientDropdown"
 import { useClients } from "@/hooks/useClients"
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL || "https://cjgqicpuwbflypcnhuak.supabase.co",
-  import.meta.env.VITE_SUPABASE_ANON_KEY || ""
-)
 
 type RunStatus = "pending" | "running" | "completed" | "failed"
 type TriggerSource = "scheduled" | "manual" | "webhook" | "event"

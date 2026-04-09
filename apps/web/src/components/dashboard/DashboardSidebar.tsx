@@ -128,7 +128,8 @@ export function DashboardSidebar() {
                           item.url === "/dashboard"
                             ? location.pathname === "/dashboard" ||
                               location.pathname === "/dashboard/overview"
-                            : location.pathname === item.url
+                            : location.pathname === item.url ||
+                              location.pathname.startsWith(`${item.url}/`)
                         }
                         tooltip={item.title}
                       >

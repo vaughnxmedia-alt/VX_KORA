@@ -7,7 +7,8 @@ export default defineConfig({
   // Cast to avoid Vite type duplication issues across monorepo workspaces.
   plugins: [react(), tailwindcss()] as any,
   server: {
-    host: "::",
+    // `host: "::"` alone can leave some browsers with a blank page on `localhost`; true binds IPv4 + IPv6.
+    host: true,
     port: 5173,
   },
   resolve: {

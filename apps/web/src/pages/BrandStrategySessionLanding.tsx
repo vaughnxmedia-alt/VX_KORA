@@ -93,7 +93,7 @@ export default function BrandStrategySessionLanding() {
       <section className={`${sectionClass} bg-background`} aria-labelledby="pr-vs-marketing-heading">
         <div className={`${containerClass} max-w-4xl`}>
           <h2 id="pr-vs-marketing-heading" className={h2Class}>
-            PR or marketing? Get the right answer.
+            PR or Marketing? Get the right answer.
           </h2>
           <figure className="mt-2 mb-0">
             <div className="rounded-xl overflow-hidden border border-border/60 bg-black/90 shadow-md ring-1 ring-border/40">
@@ -102,8 +102,8 @@ export default function BrandStrategySessionLanding() {
                 controls
                 playsInline
                 preload="metadata"
-                title="PR or marketing? Get the right answer."
-                aria-label="PR or marketing? Get the right answer. Perception, trust, and when to invest in each."
+                title="PR or Marketing? Get the right answer."
+                aria-label="PR or Marketing? Get the right answer. Perception, trust, and when to invest in each."
               >
                 <source src={prVsMarketingVideoSrc()} type="video/mp4" />
                 Your browser does not support the video tag.

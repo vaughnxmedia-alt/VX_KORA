@@ -2,12 +2,7 @@ import { useState, useEffect, useMemo } from "react"
 import { Users, CheckCircle2, Eye, FileText, RefreshCw } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ClientDropdown } from "@/components/ClientDropdown"
-import { createClient } from "@supabase/supabase-js"
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL || "https://cjgqicpuwbflypcnhuak.supabase.co",
-  import.meta.env.VITE_SUPABASE_ANON_KEY || ""
-)
+import { supabase } from "@/lib/supabase"
 
 interface AudienceAnalysis {
   id: string

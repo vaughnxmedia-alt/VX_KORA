@@ -18,6 +18,7 @@ const crawlerPatterns = [
   'Discordbot',
   'Googlebot',
   'bingbot',
+  'applebot',
 ];
 
 function isCrawler(userAgent: string): boolean {
@@ -98,7 +99,7 @@ Deno.serve(async (req) => {
     // Fetch the blog post
     const { data: post, error } = await supabase
       .from('blog_posts')
-      .select('id, title, description, excerpt, cover_image_url, author_name, published_date, publish_scheduled_at, category, status, is_hidden')
+      .select('id, slug, title, description, excerpt, cover_image_url, author_name, published_date, publish_scheduled_at, category, status, is_hidden')
       .eq('id', postId)
       .single();
 
@@ -114,9 +115,15 @@ Deno.serve(async (req) => {
     console.log(`Found post: ${post.title}`);
 
     // Get the site URL from environment or construct it
-    const siteUrl = Deno.env.get("SITE_URL") || "https://jahknowspr.com";
-    const postUrl = `${siteUrl}/the-brief/${post.id}`;
-    const imageUrl = post.cover_image_url || `${siteUrl}/logo.svg`;
+    const siteUrl = (Deno.env.get("SITE_URL") || "https://jahknowspr.com").replace(/\/$/, "");
+    const pathSegment = (post.slug && String(post.slug).trim()) || post.id;
+    const postUrl = `${siteUrl}/the-brief/${encodeURIComponent(pathSegment)}`;
+    const rawCover = (post.cover_image_url || "").trim();
+    const imageUrl = rawCover
+      ? (rawCover.startsWith("http://") || rawCover.startsWith("https://")
+        ? rawCover
+        : `${siteUrl}${rawCover.startsWith("/") ? "" : "/"}${rawCover}`)
+      : `${siteUrl}/og-share-jk-pr.png`;
     const description = post.description || post.excerpt || `Read ${post.title} on The Brief`;
 
     // Escape all dynamic content for HTML output
@@ -128,15 +135,14 @@ Deno.serve(async (req) => {
     const safeImageUrl = escapeHtml(imageUrl);
     const safePublishedDate = escapeHtml(post.published_date || '');
 
-    // For crawlers, return HTML with OG meta tags
-    if (isCrawler(userAgent)) {
-      console.log('Serving OG meta HTML to crawler');
-      
-      const html = `<!DOCTYPE html>
+    console.log(`Serving OG meta HTML (crawler=${isCrawler(userAgent)})`);
+
+    const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0A1A35">
   <title>${safeTitle} | The Brief</title>
   <meta name="description" content="${safeDescription}">
   
@@ -171,26 +177,15 @@ Deno.serve(async (req) => {
 </body>
 </html>`;
 
-      return new Response(html, {
-        status: 200,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'text/html; charset=utf-8',
-          'Cache-Control': 'public, max-age=3600',
-          'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; img-src *; script-src 'none';",
-          'X-Content-Type-Options': 'nosniff',
-          'X-Frame-Options': 'DENY',
-        },
-      });
-    }
-
-    // For regular browsers, redirect to the actual post
-    console.log('Redirecting regular browser to post');
-    return new Response(null, {
-      status: 302,
+    return new Response(html, {
+      status: 200,
       headers: {
         ...corsHeaders,
-        'Location': postUrl,
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'public, max-age=3600',
+        'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; img-src *; script-src 'none';",
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
       },
     });
 

@@ -3,6 +3,7 @@ import { isBlogPostPubliclyLive } from "@/lib/blog-publish-schedule";
 /** Fields needed to build Featured / Hot / grid sections on The Brief. */
 export type BriefListingPost = {
   id: string;
+  slug?: string | null;
   title: string;
   description: string;
   category: string;

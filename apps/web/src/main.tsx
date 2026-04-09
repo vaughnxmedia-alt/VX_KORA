@@ -26,7 +26,9 @@ import DashboardLayout from './components/dashboard/DashboardLayout';
 import Overview from './pages/dashboard/Overview';
 import BlogManagement from './pages/dashboard/BlogManagement';
 import BrandBlueprints from './pages/dashboard/BrandBlueprints';
-import TargetAudience from './pages/dashboard/TargetAudience';
+import AudienceIntelligenceIndex from './pages/dashboard/audience/AudienceIntelligenceIndex';
+import AudienceIntelligenceDetail from './pages/dashboard/audience/AudienceIntelligenceDetail';
+import AudienceIntelligenceCreate from './pages/dashboard/audience/AudienceIntelligenceCreate';
 import ContentCalendar from './pages/dashboard/ContentCalendar';
 import FilmingSchedule from './pages/dashboard/FilmingSchedule';
 import Meetings from './pages/dashboard/Meetings';
@@ -103,7 +105,9 @@ createRoot(document.getElementById('root')!).render(
                       </ProtectedRoute>
                   } />
                   <Route path="blueprints" element={<BrandBlueprints />} />
-                  <Route path="audience" element={<TargetAudience />} />
+                  <Route path="audience" element={<AudienceIntelligenceIndex />} />
+                  <Route path="audience/new" element={<AudienceIntelligenceCreate />} />
+                  <Route path="audience/:audienceId" element={<AudienceIntelligenceDetail />} />
                   <Route path="calendar" element={<ContentCalendar />} />
                   <Route path="campaigns" element={<CampaignsLayout />}>
                     <Route index element={<CampaignsIndexPage />} />
