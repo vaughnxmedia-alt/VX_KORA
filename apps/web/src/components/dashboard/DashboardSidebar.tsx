@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Sparkles, Settings } from "lucide-react";
+import { Gauge, Sparkles } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -74,6 +74,11 @@ export function DashboardSidebar() {
   );
 
   const isDashboardOwner = isAppOwnerJustice(user?.email ?? null);
+  const missionControlUrl = (
+    import.meta.env.VITE_MISSION_CONTROL_URL as string | undefined
+  )
+    ?.trim()
+    .replace(/\/$/, "");
 
   const { data: userPermissions } = useQuery({
     queryKey: ["user-tab-permissions", user?.id],
@@ -172,45 +177,44 @@ export function DashboardSidebar() {
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
-          {isItemVisible("get-inspired") && (
+          {isDashboardOwner && missionControlUrl ? (
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
-                isActive={location.pathname === "/dashboard/get-inspired"}
-                tooltip="Get Inspired (KORA)"
+                isActive={false}
+                tooltip="Mission Control (opens in new tab)"
               >
                 <a
-                  href="/dashboard/get-inspired"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    navigate("/dashboard/get-inspired");
-                  }}
+                  href={missionControlUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
                 >
-                  <Sparkles className="text-amber-400/90" />
-                  <span>KORA</span>
+                  <Gauge className="text-primary" />
+                  <span>Mission Control</span>
                 </a>
               </SidebarMenuButton>
             </SidebarMenuItem>
-          )}
-          {isItemVisible("settings") && (
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                isActive={location.pathname === "/dashboard/settings"}
-                tooltip="Settings"
-              >
-                <a
-                  href="/dashboard/settings"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    navigate("/dashboard/settings");
-                  }}
+          ) : (
+            isItemVisible("get-inspired") && (
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location.pathname === "/dashboard/get-inspired"}
+                  tooltip="Get Inspired (KORA)"
                 >
-                  <Settings />
-                  <span>Settings</span>
-                </a>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+                  <a
+                    href="/dashboard/get-inspired"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate("/dashboard/get-inspired");
+                    }}
+                  >
+                    <Sparkles className="text-amber-400/90" />
+                    <span>KORA</span>
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )
           )}
           <SidebarMenuItem>
             {user && (

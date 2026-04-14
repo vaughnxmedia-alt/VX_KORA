@@ -42,6 +42,7 @@ import { formatStrategyHostListLabel } from "@/features/strategy-session/formatH
 import { toast } from "sonner";
 import { DateTime } from "luxon";
 import { supabaseIsConfigured } from "@/integrations/supabase/client";
+const SUPPORT_ERROR_MESSAGE = "Something went wrong. Please contact support.";
 
 /**
  * Calendar Y/M/D from the picker interpreted as that civil date in `tz` (matches how slot labels use `timezone`).
@@ -624,19 +625,7 @@ export default function StrategySessionBooking() {
                     Available times
                   </Label>
                   {slotsError ? (
-                    <p className="text-sm text-destructive py-4 leading-relaxed">
-                      Could not load open times:{" "}
-                      {slotsErrorObj instanceof Error ? slotsErrorObj.message : "Unknown error"}
-                      {slotsErrorObj instanceof Error &&
-                      !/deploy|NOT_FOUND|not found/i.test(slotsErrorObj.message) ? (
-                        <>
-                          {" "}
-                          If loads still fail after deploy, set a default{" "}
-                          <code className="text-xs">strategy_session_hosts</code> row or{" "}
-                          <code className="text-xs">STRATEGY_SESSION_DEFAULT_HOST_USER_ID</code> on the functions.
-                        </>
-                      ) : null}
-                    </p>
+                    <p className="text-sm text-destructive py-4 leading-relaxed">{SUPPORT_ERROR_MESSAGE}</p>
                   ) : slotsLoading ? (
                     <div className="flex items-center gap-2 text-muted-foreground text-sm py-8">
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -666,13 +655,6 @@ export default function StrategySessionBooking() {
                   ) : (
                     <div className="text-sm text-muted-foreground py-4 leading-relaxed space-y-2">
                       <p>{describeEmptyDayDiagnostic(selectedDayDiag)}</p>
-                      {selectedDayDiag && (
-                        <p className="text-xs font-mono opacity-80">
-                          Debug: {selectedDayDiag.reasons.join(", ")} · candidates{" "}
-                          {selectedDayDiag.candidateSlots}, past {selectedDayDiag.removedPast}, booked{" "}
-                          {selectedDayDiag.removedBooked}
-                        </p>
-                      )}
                     </div>
                   )}
                 </div>

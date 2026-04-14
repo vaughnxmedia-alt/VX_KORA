@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 const SQUARE_SCRIPT = "https://web.squarecdn.com/v1/square.js";
+const SUPPORT_ERROR_MESSAGE = "Something went wrong. Please contact support.";
 
 function loadSquareSdk(): Promise<void> {
   if (window.Square) return Promise.resolve();
@@ -100,9 +101,7 @@ export default function StrategySessionPayment() {
       } catch (e) {
         if (!cancelled) {
           console.error(e);
-          toast.error(
-            e instanceof Error ? e.message : "Could not load Secure payment form. Check network or try again.",
-          );
+          toast.error(SUPPORT_ERROR_MESSAGE);
         }
       }
     })();
@@ -135,11 +134,7 @@ export default function StrategySessionPayment() {
     try {
       const tokenResult = await cardRef.current.tokenize();
       if (tokenResult.status !== "OK" || !tokenResult.token) {
-        const detail =
-          Array.isArray(tokenResult.errors) && tokenResult.errors.length
-            ? String((tokenResult.errors[0] as { message?: string })?.message || "Card error")
-            : "Card could not be verified. Check details and try again.";
-        toast.error(detail);
+        toast.error(SUPPORT_ERROR_MESSAGE);
         return;
       }
       const idempotencyKey = crypto.randomUUID();
@@ -149,14 +144,16 @@ export default function StrategySessionPayment() {
         buyerEmail: draft.values.email,
       });
       if (!res.ok || !res.squarePaymentId) {
-        toast.error(res.error || "Payment failed.");
+        console.error("Strategy session payment failed:", res.error || "Unknown payment error");
+        toast.error(SUPPORT_ERROR_MESSAGE);
         return;
       }
       writePaymentProofToStorage({ squarePaymentId: res.squarePaymentId });
       toast.success("Payment received");
       navigate("/strategy-session/thank-you", { replace: true });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Payment failed.");
+      console.error("Strategy session payment exception:", e);
+      toast.error(SUPPORT_ERROR_MESSAGE);
     } finally {
       setPaying(false);
     }
@@ -235,18 +232,9 @@ export default function StrategySessionPayment() {
               </dl>
 
               {!squareConfigured ? (
-                <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 text-sm text-foreground space-y-2">
-                  <p className="font-medium text-amber-900 dark:text-amber-100">
-                    Card payments are not turned on yet for this build.
-                  </p>
-                  <p className="text-muted-foreground leading-relaxed">
-                    To complete checkout: add your Square application and location IDs to the site environment (
-                    <code className="text-xs">VITE_SQUARE_APPLICATION_ID</code>,{" "}
-                    <code className="text-xs">VITE_SQUARE_LOCATION_ID</code>), and set{" "}
-                    <code className="text-xs">SQUARE_ACCESS_TOKEN</code> (and matching location) as secrets on the{" "}
-                    <code className="text-xs">square-strategy-session-payment</code> Edge Function. After payment, your
-                    booking is saved to Supabase on the confirmation step.
-                  </p>
+                <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+                  <p className="font-medium">{SUPPORT_ERROR_MESSAGE}</p>
+                  <p className="text-muted-foreground mt-1">Support can assist with checkout.</p>
                 </div>
               ) : (
                 <>

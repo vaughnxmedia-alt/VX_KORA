@@ -5,6 +5,8 @@ interface ImportMetaEnv {
   readonly VITE_SUPABASE_PUBLISHABLE_KEY?: string;
   readonly VITE_SQUARE_APPLICATION_ID?: string;
   readonly VITE_SQUARE_LOCATION_ID?: string;
+  /** Owner-only sidebar link to Mission Control (e.g. http://localhost:5173 or deployed admin URL). */
+  readonly VITE_MISSION_CONTROL_URL?: string;
 }
 
 interface ImportMeta {

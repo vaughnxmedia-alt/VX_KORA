@@ -67,6 +67,9 @@ verify_jwt = false
 [functions.social-meta-analytics-fetch]
 verify_jwt = true
 
+[functions.ga4-analytics-report]
+verify_jwt = true
+
 [api]
 enabled = true
 # Port to use for the API URL.

@@ -9,8 +9,6 @@
     "dev:admin": "npm run dev --workspace=apps/mission-control",
     "build:web": "npm run build --workspace=apps/web",
     "build:admin": "npm run build --workspace=apps/mission-control",
-    "desktop:portal": "npm run start --workspace=jkpr-portal",
-    "build:desktop:portal": "npm run dist --workspace=jkpr-portal",
     "send-insights": "npm run send-insights --workspace=@kora/telegram-bot",
     "insights:trigger-server": "npm run insights:trigger-server --workspace=@kora/telegram-bot",
     "send-test-report": "npm run send-test-report --workspace=@kora/telegram-bot",

@@ -137,6 +137,5 @@ export function getSidebarPermissionTabDefinitions(): SidebarPermissionTabDef[] 
   return [
     ...fromNav,
     { key: "get-inspired", title: "KORA", group: "FOOTER" },
-    { key: "settings", title: "Settings", group: "FOOTER" },
   ];
 }

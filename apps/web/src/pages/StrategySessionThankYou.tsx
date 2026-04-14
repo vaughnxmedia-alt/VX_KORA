@@ -12,11 +12,11 @@ import {
 } from "@/features/strategy-session/strategySessionDraft";
 
 type Status = "loading" | "success" | "error" | "missing" | "missing_payment";
+const SUPPORT_ERROR_MESSAGE = "Something went wrong. Please contact support.";
 
 export default function StrategySessionThankYou() {
   const navigate = useNavigate();
   const [status, setStatus] = useState<Status>("loading");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [meetingId, setMeetingId] = useState<string | undefined>();
   const ran = useRef(false);
 
@@ -71,7 +71,7 @@ export default function StrategySessionThankYou() {
         if (cancelled) return;
         if (!res.ok && !res.meetingId) {
           setStatus("error");
-          setErrorMessage(res.error || "Could not save your booking.");
+          console.error("Strategy session booking save failed:", res.error || "Unknown booking error");
           return;
         }
         clearStrategySessionBookingStorage();
@@ -79,8 +79,8 @@ export default function StrategySessionThankYou() {
         setStatus("success");
       } catch (e) {
         if (!cancelled) {
+          console.error("Strategy session booking exception:", e);
           setStatus("error");
-          setErrorMessage(e instanceof Error ? e.message : "Something went wrong");
         }
       }
     })();
@@ -127,8 +127,7 @@ export default function StrategySessionThankYou() {
   if (status === "error") {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center space-y-4">
-        <p className="text-destructive font-medium">We couldn&apos;t save your booking.</p>
-        <p className="text-sm text-muted-foreground">{errorMessage}</p>
+        <p className="text-destructive font-medium">{SUPPORT_ERROR_MESSAGE}</p>
         <Button asChild variant="outline">
           <Link to="/strategy-session">Try again</Link>
         </Button>
