@@ -241,7 +241,6 @@ function RunReportDetail({ meta }: { meta: RunMetadata }) {
 export default function IngestRuns() {
   const [runs, setRuns] = useState<IngestRun[]>([])
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null)
-  const [loadError, setLoadError] = useState<string | null>(null)
   const [loadingRuns, setLoadingRuns] = useState(true)
   const [triggerMsg, setTriggerMsg] = useState<string | null>(null)
   const [triggerLoading, setTriggerLoading] = useState(false)
@@ -260,7 +259,6 @@ export default function IngestRuns() {
 
   const fetchRuns = useCallback(async () => {
     setLoadingRuns(true)
-    setLoadError(null)
     const { data, error } = await supabase
       .from("kora_ingest_runs")
       .select("*")
@@ -268,11 +266,7 @@ export default function IngestRuns() {
       .limit(100)
 
     if (error) {
-      setLoadError(
-        error.message.includes("permission") || error.code === "42501"
-          ? "Sign in as an admin to view ingest runs (RLS)."
-          : error.message
-      )
+      console.error("[IngestRuns] kora_ingest_runs:", error.code, error.message)
       setRuns([])
       setLoadingRuns(false)
       return
@@ -414,12 +408,6 @@ export default function IngestRuns() {
           )}
         </div>
       </div>
-
-      {loadError && (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-          {loadError}
-        </div>
-      )}
 
       <div className="grid grid-cols-4 gap-4">
         <div className="bg-gray-800/50 rounded-xl p-4 border border-white/5">
