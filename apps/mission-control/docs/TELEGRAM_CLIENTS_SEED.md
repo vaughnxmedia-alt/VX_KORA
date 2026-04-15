@@ -36,3 +36,7 @@ If the person already has an `auth.users` row, use `link_telegram_to_auth_user(t
 ## Ingest runs
 
 After a **Trigger Run**, refresh **Ingest Runs**. Rows in `kora_ingest_runs` are written by `send-deep-insights`; client names resolve once `customers.telegram_id` matches.
+
+## Mission Control role `author`
+
+Authors previously could not `SELECT` every `customers` row (seeded telegram rows use `user_id` NULL), so names like **JahKnowsPR** did not appear in **All Clients**. Apply migration `20260415130000_mission_control_author_read.sql` (then `supabase db push` or run it in the SQL editor) so **author** users can read the full customer list and ingest run history read-only.
