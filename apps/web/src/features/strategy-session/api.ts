@@ -190,6 +190,39 @@ export async function processSquareStrategySessionPayment(input: {
   };
 }
 
+export async function processSquareTelegramSubscriptionPayment(input: {
+  sourceId: string;
+  idempotencyKey: string;
+  email: string;
+  fullName: string;
+}): Promise<{
+  ok?: boolean;
+  squareSubscriptionId?: string;
+  status?: string;
+  joinLink?: string;
+  error?: string;
+}> {
+  ensureSupabaseForEdgeFunctions();
+  const { data, error } = await supabase.functions.invoke("square-telegram-subscription-payment", {
+    body: {
+      sourceId: input.sourceId,
+      idempotencyKey: input.idempotencyKey,
+      email: input.email.trim(),
+      fullName: input.fullName.trim(),
+    },
+  });
+  if (error) {
+    throw new Error(await messageFromFunctionInvokeError(error));
+  }
+  return (data || {}) as {
+    ok?: boolean;
+    squareSubscriptionId?: string;
+    status?: string;
+    joinLink?: string;
+    error?: string;
+  };
+}
+
 export async function submitStrategySessionBooking(
   intake: IntakeValues,
   slotStartIso: string,

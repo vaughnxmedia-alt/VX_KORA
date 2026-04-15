@@ -32,6 +32,7 @@ const systemAgentGroups: AgentGroup[] = [
     icon: MessageSquareText,
     overviewPath: "/intake",
     items: [
+      { to: "/intake/users", label: "Users", icon: Building2 },
       { to: "/intake/clarifier", label: "Intake Clarifier", icon: MessageSquareText },
       { to: "/intake/brand-identity", label: "Brand Identity", icon: Shield },
       { to: "/intake/strategy-architect", label: "Strategy Architect", icon: PenTool },
@@ -106,7 +107,6 @@ const systemAgentGroups: AgentGroup[] = [
 
 const usersAndTenantsItems: NavItem[] = [
   { to: "/audience/queue", label: "Audience Queue", icon: Users },
-  { to: "/clients", label: "Clients", icon: Building2 },
   { to: "/telegram-preferences", label: "Telegram Preferences", icon: Send },
   { to: "/approval-history", label: "Approval History", icon: History },
   { to: "/intelligence-filters", label: "Intelligence Filters", icon: Filter },

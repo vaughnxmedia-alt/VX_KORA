@@ -132,7 +132,12 @@ function ClientRow({ client: c }: { client: Client }) {
             {c.telegram_id}
           </span>
         ) : (
-          <span className="text-gray-500 text-sm">—</span>
+          <div className="space-y-1">
+            <span className="text-gray-500 text-sm block">—</span>
+            <span className="inline-flex items-center rounded bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-300">
+              Send Telegram access link
+            </span>
+          </div>
         )}
       </td>
       <td className="px-4 py-3">

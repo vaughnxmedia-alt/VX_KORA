@@ -60,72 +60,12 @@ const WorkWithMe = () => {
         </div>
       </section>
 
-      {/* 01 · FREE — The Brief */}
-      <section id="the-brief" className="scroll-mt-28 py-20 md:py-28 px-4 border-b border-border/40">
-        <div className="max-w-3xl mx-auto space-y-6">
-          <div className="flex items-center gap-3 text-primary">
-            <BookOpen className="h-8 w-8 shrink-0" aria-hidden />
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">01 · Free</p>
-          </div>
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">The Brief</h2>
-          <div className="space-y-4 text-base md:text-lg text-foreground/90 leading-relaxed">
-            <p>
-              The Brief is our free perspective layer for founders, creatives, and operators who want sharper thinking
-              before they spend money. It gives you strategic insight, clear angles, and real commentary so you can move
-              with more intention.
-            </p>
-            <p>
-              Start here if you are still exploring, learning how we think, or trying to understand what kind of support
-              you actually need. It is free, useful, and built to help you make better decisions before committing to a
-              session, service, or system.
-            </p>
-          </div>
-          <WhoItBelongsTo>
-            Founders, creatives, and operators who are still exploring, learning, and watching before making a paid
-            commitment.
-          </WhoItBelongsTo>
-          <Button variant="hero" size="lg" className="mt-2 w-full sm:w-auto" asChild>
-            <Link to="/the-brief">Go to The Brief</Link>
-          </Button>
-        </div>
-      </section>
-
-      {/* 02 · ADD-ON — Telegram */}
-      <section id="telegram" className="scroll-mt-28 py-20 md:py-28 px-4 bg-muted/20 border-b border-border/40">
-        <div className="max-w-3xl mx-auto space-y-6">
-          <div className="flex items-center gap-3 text-primary">
-            <MessageCircle className="h-8 w-8 shrink-0" aria-hidden />
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">02 · Add-on</p>
-          </div>
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Join KORA on Telegram</h2>
-          <div className="space-y-4 text-base md:text-lg text-foreground/90 leading-relaxed">
-            <p>
-              KORA on Telegram gives you light, ongoing support in a faster format. It is designed for people who want
-              ideas, prompts, and useful back-and-forth without logging into a full platform.
-            </p>
-            <p>
-              This is not full system access. It is a simple way to stay connected to KORA in your daily workflow while
-              getting small strategic nudges that keep you moving.
-            </p>
-          </div>
-          <WhoItBelongsTo>
-            People who live in chat, want lightweight support, and want KORA in a simpler day-to-day format.
-          </WhoItBelongsTo>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
-            <Button variant="hero" size="lg" className="w-full sm:w-auto" asChild>
-              <Link to="/kora">Meet KORA in Telegram</Link>
-            </Button>
-            <span className="text-base font-semibold text-muted-foreground tabular-nums">$15/mo</span>
-          </div>
-        </div>
-      </section>
-
-      {/* 03 · PAID SESSION — Strategy Session */}
+      {/* 01 · PAID SESSION — Strategy Session */}
       <section id="strategy-session" className="scroll-mt-28 py-20 md:py-28 px-4 border-b border-border/40">
         <div className="max-w-3xl mx-auto space-y-6">
           <div className="flex items-center gap-3 text-primary">
             <Target className="h-8 w-8 shrink-0" aria-hidden />
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">03 · Paid session</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">01 · Paid session</p>
           </div>
           <div className="flex flex-wrap items-center gap-3 md:gap-4">
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Strategy Session</h2>
@@ -183,12 +123,42 @@ const WorkWithMe = () => {
         </div>
       </section>
 
-      {/* 04 · PRODUCTION */}
-      <section id="creative-consultation" className="scroll-mt-28 py-20 md:py-28 px-4 bg-muted/20 border-b border-border/40">
+      {/* 02 · FREE — The Brief */}
+      <section id="the-brief" className="scroll-mt-28 py-20 md:py-28 px-4 bg-muted/20 border-b border-border/40">
+        <div className="max-w-3xl mx-auto space-y-6">
+          <div className="flex items-center gap-3 text-primary">
+            <BookOpen className="h-8 w-8 shrink-0" aria-hidden />
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">02 · Free</p>
+          </div>
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">The Brief</h2>
+          <div className="space-y-4 text-base md:text-lg text-foreground/90 leading-relaxed">
+            <p>
+              The Brief is our free perspective layer for founders, creatives, and operators who want sharper thinking
+              before they spend money. It gives you strategic insight, clear angles, and real commentary so you can move
+              with more intention.
+            </p>
+            <p>
+              Start here if you are still exploring, learning how we think, or trying to understand what kind of support
+              you actually need. It is free, useful, and built to help you make better decisions before committing to a
+              session, service, or system.
+            </p>
+          </div>
+          <WhoItBelongsTo>
+            Founders, creatives, and operators who are still exploring, learning, and watching before making a paid
+            commitment.
+          </WhoItBelongsTo>
+          <Button variant="hero" size="lg" className="mt-2 w-full sm:w-auto" asChild>
+            <Link to="/the-brief">Go to The Brief</Link>
+          </Button>
+        </div>
+      </section>
+
+      {/* 03 · PRODUCTION */}
+      <section id="creative-consultation" className="scroll-mt-28 py-20 md:py-28 px-4 border-b border-border/40">
         <div className="max-w-3xl mx-auto space-y-6">
           <div className="flex items-center gap-3 text-primary">
             <Palette className="h-8 w-8 shrink-0" aria-hidden />
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">04 · Production</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">03 · Production</p>
           </div>
           <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Creative Work &amp; Production</h2>
           <div className="space-y-4 text-base md:text-lg text-foreground/90 leading-relaxed">
@@ -208,6 +178,36 @@ const WorkWithMe = () => {
           <Button variant="hero" size="lg" className="mt-2 w-full sm:w-auto" asChild>
             <Link to="/consultation/creative-production">Book a Creative Consultation</Link>
           </Button>
+        </div>
+      </section>
+
+      {/* 04 · ADD-ON — Telegram */}
+      <section id="telegram" className="scroll-mt-28 py-20 md:py-28 px-4 bg-muted/20 border-b border-border/40">
+        <div className="max-w-3xl mx-auto space-y-6">
+          <div className="flex items-center gap-3 text-primary">
+            <MessageCircle className="h-8 w-8 shrink-0" aria-hidden />
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">04 · Add-on</p>
+          </div>
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Join KORA on Telegram</h2>
+          <div className="space-y-4 text-base md:text-lg text-foreground/90 leading-relaxed">
+            <p>
+              KORA on Telegram gives you light, ongoing support in a faster format. It is designed for people who want
+              ideas, prompts, and useful back-and-forth without logging into a full platform.
+            </p>
+            <p>
+              This is not full system access. It is a simple way to stay connected to KORA in your daily workflow while
+              getting small strategic nudges that keep you moving.
+            </p>
+          </div>
+          <WhoItBelongsTo>
+            People who live in chat, want lightweight support, and want KORA in a simpler day-to-day format.
+          </WhoItBelongsTo>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
+            <Button variant="hero" size="lg" className="w-full sm:w-auto" asChild>
+              <Link to="/kora/telegram-subscription">Meet KORA in Telegram</Link>
+            </Button>
+            <span className="text-base font-semibold text-muted-foreground tabular-nums">$15/mo</span>
+          </div>
         </div>
       </section>
 
@@ -239,76 +239,6 @@ const WorkWithMe = () => {
         </div>
       </section>
 
-      {/* 06 · PLATFORM */}
-      <section id="kora-platform" className="scroll-mt-28 py-20 md:py-28 px-4 bg-muted/20 border-b border-border/40">
-        <div className="max-w-3xl mx-auto space-y-10">
-          <div className="space-y-6">
-            <div className="flex items-center gap-3 text-primary">
-              <LayoutDashboard className="h-8 w-8 shrink-0" aria-hidden />
-              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">06 · Platform</p>
-            </div>
-            <h2 className="text-3xl md:text-4xl font-bold tracking-tight">KORA Full Platform Access</h2>
-            <div className="space-y-4 text-base md:text-lg text-foreground/90 leading-relaxed">
-              <p>
-                KORA is our full system for clients who need strategy, workflow, visibility, and operational support
-                living in one place. It brings together calendars, agents, workflows, and structured support so decisions
-                do not get lost across random tools and scattered conversations.
-              </p>
-              <p>
-                Platform access is not an impulse purchase. It is offered by invitation after fit, onboarding, and
-                clear alignment on what the system needs to solve for you.
-              </p>
-            </div>
-            <WhoItBelongsTo>
-              Qualified clients who are ready for a deeper system, structured workflow support, and invitation-based
-              platform access.
-            </WhoItBelongsTo>
-            <Button variant="hero" size="lg" className="mt-2 w-full sm:w-auto" asChild>
-              <Link to="/consultation/kora-platform">Apply for full KORA access</Link>
-            </Button>
-          </div>
-
-          <div className="pt-6 border-t border-border/50">
-            <p className="text-sm text-muted-foreground mb-6">
-              Placeholder previews — replace with real screenshots in{" "}
-              <code className="text-xs bg-muted px-1.5 py-0.5 rounded">public/</code> when ready.
-            </p>
-            <div className="grid gap-8 sm:grid-cols-2 md:grid-cols-3">
-              {[
-                {
-                  title: "Command Center",
-                  caption:
-                    "See priorities, signals, and decisions in one place so your marketing and PR workflow stays focused.",
-                  icon: LayoutDashboard,
-                },
-                {
-                  title: "Agents & Workflows",
-                  caption:
-                    "Purpose-built support systems that reduce busywork and keep execution aligned with strategy.",
-                  icon: Sparkles,
-                },
-                {
-                  title: "Calendar & Campaigns",
-                  caption:
-                    "Plan content, campaigns, and key dates with more structure so your team is not always reacting late.",
-                  icon: CalendarRange,
-                },
-              ].map(({ title, caption, icon: Icon }) => (
-                <div key={title} className="space-y-3">
-                  <div className="relative aspect-[16/10] overflow-hidden rounded-xl bg-muted/40">
-                    <img src="/placeholder.svg" alt="" className="h-full w-full object-cover opacity-80" />
-                    <div className="absolute inset-0 flex items-center justify-center bg-background/30 pointer-events-none">
-                      <Icon className="h-11 w-11 text-primary/90" aria-hidden />
-                    </div>
-                  </div>
-                  <p className="font-semibold text-sm">{title}</p>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{caption}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
     </div>
   );
 };

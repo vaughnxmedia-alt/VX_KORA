@@ -6,6 +6,7 @@ import { getLatestPipelineRun } from "../db/pipeline-runs"
 import { getBrandBlueprint, getContentStrategy, getAudienceAnalysis } from "../db/deliverables"
 import { isTestTenant } from "../types/testing"
 import { sendDeliverableDebugInfo, sendTestingSummary, checkTestTenantSetup } from "../testing"
+import { claimTelegramAccessInvite } from "../db/telegram-access-invites"
 
 export async function handleStartCommand(
   bot: TelegramBot,
@@ -18,6 +19,31 @@ export async function handleStartCommand(
 
   if (!telegramId) {
     await bot.sendMessage(chatId, "Could not identify user.").catch(() => {})
+    return
+  }
+
+  const startPayload = msg.text?.split(" ")[1]?.trim()
+  if (startPayload?.startsWith("join_")) {
+    const token = startPayload.replace(/^join_/, "").trim()
+    const claim = await claimTelegramAccessInvite(token, telegramId, msg.from?.username ?? null)
+    if (claim.ok) {
+      await bot.sendMessage(
+        chatId,
+        `Welcome ${claim.customerName}.\n\nYour Telegram access is now connected.\nYou can now use /run for your personalized insights.`,
+      )
+      return
+    }
+    if (claim.reason === "ALREADY_CLAIMED") {
+      await bot.sendMessage(
+        chatId,
+        "This Telegram access link was already used. If you need help, contact support.",
+      )
+      return
+    }
+    await bot.sendMessage(
+      chatId,
+      "This access link is not valid. Please use the latest email we sent or contact support.",
+    )
     return
   }
 

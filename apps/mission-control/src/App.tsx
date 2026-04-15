@@ -70,6 +70,7 @@ function App() {
 
           {/* Intake Agent Routes */}
           <Route path="intake" element={<IntakeOverview />} />
+          <Route path="intake/users" element={<Clients />} />
           <Route path="intake/clarifier" element={<IntakeClarifier />} />
           <Route path="intake/brand-identity" element={<BrandIdentity />} />
           <Route path="intake/strategy-architect" element={<StrategyArchitect />} />
@@ -95,9 +96,9 @@ function App() {
           <Route path="audience/queue" element={<AudienceQueue />} />
           <Route path="audience/runs/:runId" element={<AudienceRunDetail />} />
 
-          <Route path="clients" element={<Clients />} />
-          <Route path="tenants" element={<Navigate to="/clients" replace />} />
-          <Route path="users" element={<Navigate to="/clients" replace />} />
+          <Route path="clients" element={<Navigate to="/intake/users" replace />} />
+          <Route path="tenants" element={<Navigate to="/intake/users" replace />} />
+          <Route path="users" element={<Navigate to="/intake/users" replace />} />
           <Route path="telegram-preferences" element={<TelegramPreferences />} />
           <Route path="approval-history" element={<ApprovalHistory />} />
           <Route path="intelligence-filters" element={<IntelligenceFilters />} />

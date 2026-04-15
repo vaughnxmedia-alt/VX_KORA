@@ -57,6 +57,8 @@ import BrandStrategySessionLanding from './pages/BrandStrategySessionLanding';
 import StrategySessionBooking from './pages/StrategySessionBooking';
 import StrategySessionPayment from './pages/StrategySessionPayment';
 import StrategySessionThankYou from './pages/StrategySessionThankYou';
+import TelegramSubscriptionPayment from './pages/TelegramSubscriptionPayment';
+import TelegramSubscriptionThankYou from './pages/TelegramSubscriptionThankYou';
 import CreativeProductionConsultation from './pages/consultations/CreativeProductionConsultation';
 import CampaignRetainerConsultation from './pages/consultations/CampaignRetainerConsultation';
 import KoraPlatformConsultation from './pages/consultations/KoraPlatformConsultation';
@@ -88,6 +90,8 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/the-brief/:id" element={<TheBriefPostRoute />} />
               <Route path="/events" element={<Events />} />
               <Route path="/kora" element={<Kora />} />
+              <Route path="/kora/telegram-subscription" element={<TelegramSubscriptionPayment />} />
+              <Route path="/kora/telegram-thank-you" element={<TelegramSubscriptionThankYou />} />
               <Route path="/brand-blueprint" element={<BrandBlueprint />} />
               <Route path="/payment" element={<Payment />} />
               

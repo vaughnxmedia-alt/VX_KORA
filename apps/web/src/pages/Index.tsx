@@ -263,7 +263,7 @@ const Index = () => {
                 title: "Join KORA on Telegram",
                 body: "Light support in chat — ideas, prompts, back-and-forth without full platform login. Not core software access.",
                 who: "People who live in chat and want KORA in a simple daily format.",
-                href: "/kora",
+                href: "/kora/telegram-subscription",
                 cta: "Meet KORA in Telegram",
                 price: "$15/mo",
                 external: false,
