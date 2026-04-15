@@ -1,17 +1,18 @@
 import { createClient } from "@supabase/supabase-js"
 
 const DEFAULT_SUPABASE_URL = "https://cjgqicpuwbflypcnhuak.supabase.co"
+const DEFAULT_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_xrVUTBjtvYgsNcvYWJrkyQ_3CEU3AOB"
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL
 const supabaseKey =
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
   import.meta.env.VITE_SUPABASE_ANON_KEY ||
-  "missing-anon-key"
+  DEFAULT_SUPABASE_PUBLISHABLE_KEY
 
-if (supabaseKey === "missing-anon-key") {
+if (supabaseKey === DEFAULT_SUPABASE_PUBLISHABLE_KEY) {
   console.warn(
-    "[mission-control] Missing VITE_SUPABASE_PUBLISHABLE_KEY/VITE_SUPABASE_ANON_KEY. " +
-      "UI will load, but data requests will fail until env vars are set."
+    "[mission-control] Using default publishable key fallback. " +
+      "Set VITE_SUPABASE_PUBLISHABLE_KEY/VITE_SUPABASE_ANON_KEY to override by environment."
   )
 }
 

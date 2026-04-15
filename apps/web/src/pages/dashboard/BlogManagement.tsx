@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { DateTime } from "luxon";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -555,6 +555,19 @@ const BlogManagement = () => {
   // Get unique categories for filter dropdown
   const categories = Array.from(new Set(blogPosts.map(post => post.category).filter(Boolean))) as string[];
 
+  /** Options for the edit dialog Select: include current value even if not yet in any saved post. */
+  const categorySelectOptions = useMemo(() => {
+    const fromPosts = Array.from(
+      new Set(blogPosts.map((p) => p.category).filter(Boolean)),
+    ) as string[];
+    if (categoryValue && !fromPosts.includes(categoryValue)) {
+      return [categoryValue, ...fromPosts];
+    }
+    return fromPosts;
+  }, [blogPosts, categoryValue]);
+
+  const NEW_CATEGORY_SENTINEL = "__KORA_NEW_CATEGORY__";
+
   return (
     <div className="space-y-6">
       {/* Header Section */}
@@ -1078,9 +1091,9 @@ const BlogManagement = () => {
                 <Label htmlFor="category">Category</Label>
                 {!isCustomCategory ? (
                   <Select 
-                    value={categoryValue} 
+                    value={categoryValue || undefined}
                     onValueChange={(val) => {
-                      if (val === 'new_custom_category') {
+                      if (val === NEW_CATEGORY_SENTINEL) {
                         setIsCustomCategory(true);
                         setCategoryValue("");
                       } else {
@@ -1092,12 +1105,12 @@ const BlogManagement = () => {
                       <SelectValue placeholder="Select a category" />
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.map((cat) => (
+                      {categorySelectOptions.map((cat) => (
                         <SelectItem key={cat} value={cat}>
                           {cat}
                         </SelectItem>
                       ))}
-                      <SelectItem value="new_custom_category" className="font-medium text-primary">
+                      <SelectItem value={NEW_CATEGORY_SENTINEL} className="font-medium text-primary">
                         + Create New Category
                       </SelectItem>
                     </SelectContent>
