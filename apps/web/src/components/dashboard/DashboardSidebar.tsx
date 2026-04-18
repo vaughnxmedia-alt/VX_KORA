@@ -27,7 +27,11 @@ import {
 } from "@/lib/dashboardNav";
 import { isAppOwnerJustice } from "@/lib/super-ops";
 
-/** Mission Control Vite app (see apps/mission-control/vite.config.ts). Production must set VITE_MISSION_CONTROL_URL. */
+/**
+ * Mission Control admin app (see apps/mission-control/vite.config.ts).
+ * Local dev defaults to port 5174. Production requires VITE_MISSION_CONTROL_URL on the host (e.g. Vercel) so the
+ * dashboard sidebar can open the correct origin; rebuild after changing env.
+ */
 function resolveMissionControlUrl(): string | undefined {
   const fromEnv = (import.meta.env.VITE_MISSION_CONTROL_URL as string | undefined)?.trim();
   if (fromEnv) return fromEnv.replace(/\/$/, "");
@@ -181,44 +185,58 @@ export function DashboardSidebar() {
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
-          {isDashboardOwner && missionControlUrl ? (
+          {isDashboardOwner && (
             <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                isActive={false}
-                tooltip="Mission Control (opens in new tab)"
-              >
-                <a
-                  href={missionControlUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+              {missionControlUrl ? (
+                <SidebarMenuButton
+                  asChild
+                  isActive={false}
+                  tooltip="Mission Control (opens in new tab)"
+                >
+                  <a href={missionControlUrl} target="_blank" rel="noopener noreferrer">
+                    <Gauge className="text-primary" />
+                    <span>Mission Control</span>
+                  </a>
+                </SidebarMenuButton>
+              ) : (
+                <SidebarMenuButton
+                  type="button"
+                  isActive={false}
+                  tooltip="Configure VITE_MISSION_CONTROL_URL on Vercel, then redeploy"
+                  onClick={() =>
+                    toast({
+                      title: "Mission Control URL not set on this deployment",
+                      description:
+                        "In Vercel → your web project → Settings → Environment Variables, add VITE_MISSION_CONTROL_URL with your Mission Control site origin (no trailing slash), then trigger a new production deploy. Local dev uses http://localhost:5174 automatically.",
+                      duration: 14_000,
+                    })
+                  }
                 >
                   <Gauge className="text-primary" />
                   <span>Mission Control</span>
+                </SidebarMenuButton>
+              )}
+            </SidebarMenuItem>
+          )}
+          {isItemVisible("get-inspired") && (!isDashboardOwner || !missionControlUrl) && (
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={location.pathname === "/dashboard/get-inspired"}
+                tooltip="Get Inspired (KORA)"
+              >
+                <a
+                  href="/dashboard/get-inspired"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate("/dashboard/get-inspired");
+                  }}
+                >
+                  <Sparkles className="text-amber-400/90" />
+                  <span>KORA</span>
                 </a>
               </SidebarMenuButton>
             </SidebarMenuItem>
-          ) : (
-            isItemVisible("get-inspired") && (
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={location.pathname === "/dashboard/get-inspired"}
-                  tooltip="Get Inspired (KORA)"
-                >
-                  <a
-                    href="/dashboard/get-inspired"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      navigate("/dashboard/get-inspired");
-                    }}
-                  >
-                    <Sparkles className="text-amber-400/90" />
-                    <span>KORA</span>
-                  </a>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            )
           )}
           <SidebarMenuItem>
             {user && (
