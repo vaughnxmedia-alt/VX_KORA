@@ -51,7 +51,7 @@ export interface ContentInsight {
 }
 
 export interface AudienceAnalysisRun {
-  generatedBy: "Audience Intelligence Agent";
+  generatedBy: "Audiences";
   triggeredBy: "intake" | "brand_strategy_session" | "manual_run";
   sourceInputsUsed: string[];
   analysisDate: string;

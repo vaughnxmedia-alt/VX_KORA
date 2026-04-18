@@ -76,7 +76,7 @@ export const audienceProfilesMock: AudienceProfile[] = [
       ctaSuggestions: ["Book a strategy session", "Get your diagnosis"],
     },
     analysisRun: {
-      generatedBy: "Audience Intelligence Agent",
+      generatedBy: "Audiences",
       triggeredBy: "brand_strategy_session",
       sourceInputsUsed: ["Intake form", "Content history", "CRM notes"],
       analysisDate: new Date().toISOString(),

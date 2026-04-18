@@ -38,6 +38,7 @@ import {
   writeDraftToStorage,
   type StrategySessionBookingDraft,
 } from "@/features/strategy-session/strategySessionDraft";
+import { isComplimentaryStrategySessionPromo } from "@/features/strategy-session/strategySessionPromo";
 import { formatStrategyHostListLabel } from "@/features/strategy-session/formatHostListLabel";
 import { toast } from "sonner";
 import { DateTime } from "luxon";
@@ -158,6 +159,7 @@ export default function StrategySessionBooking() {
       inPersonLocation: "",
       additionalNotes: "",
       employeeReferenceCode: "",
+      promoCode: "",
     },
   });
 
@@ -302,6 +304,10 @@ export default function StrategySessionBooking() {
       writeDraftToStorage(draft);
     } catch {
       toast.error("Could not save your session. Allow storage or try another browser.");
+      return;
+    }
+    if (isComplimentaryStrategySessionPromo(values.promoCode)) {
+      navigate("/strategy-session/thank-you", { replace: true });
       return;
     }
     navigate("/strategy-session/payment", { state: draft });
@@ -535,6 +541,23 @@ export default function StrategySessionBooking() {
                         <FormLabel>Additional notes</FormLabel>
                         <FormControl>
                           <Textarea rows={2} placeholder="Optional" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="promoCode"
+                    render={({ field }) => (
+                      <FormItem className="max-w-md">
+                        <FormLabel>Promo code (optional)</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Complimentary session code, if you have one"
+                            autoComplete="off"
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

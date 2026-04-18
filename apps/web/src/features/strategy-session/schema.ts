@@ -26,6 +26,8 @@ export const intakeSchema = z
     additionalNotes: z.string().optional(),
     /** Optional — maps to strategist calendar; leave blank for default host */
     employeeReferenceCode: z.string().max(32).optional(),
+    /** Optional — server-validated complimentary session code */
+    promoCode: z.string().max(32).optional(),
   })
   .superRefine((data, ctx) => {
     if (data.sessionType === "in_person" && !data.inPersonLocation?.trim()) {

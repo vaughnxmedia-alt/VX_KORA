@@ -11,7 +11,8 @@ export default defineConfig({
   server: {
     // `host: "::"` alone can leave some browsers with a blank page on `localhost`; true binds IPv4 + IPv6.
     host: true,
-    port: 5173,
+    // Default 5173 is used by apps/web; use 5174 so both can run locally without a blank MC page.
+    port: 5174,
   },
   resolve: {
     alias: {

@@ -10,6 +10,9 @@ import Index from './pages/Index';
 import Shop from './pages/Shop';
 import WorkWithMe from './pages/WorkWithMe';
 import About from './pages/About';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfService from './pages/TermsOfService';
+import DataDeletionPolicy from './pages/DataDeletionPolicy';
 import BlogPost from './pages/blog/BlogPost';
 import BrandBlueprint from './pages/BrandBlueprint';
 import Payment from './pages/Payment';
@@ -26,13 +29,13 @@ import DashboardLayout from './components/dashboard/DashboardLayout';
 import Overview from './pages/dashboard/Overview';
 import BlogManagement from './pages/dashboard/BlogManagement';
 import BrandBlueprints from './pages/dashboard/BrandBlueprints';
+import IntakePipelinePage from './pages/dashboard/IntakePipelinePage';
 import AudienceIntelligenceIndex from './pages/dashboard/audience/AudienceIntelligenceIndex';
 import AudienceIntelligenceDetail from './pages/dashboard/audience/AudienceIntelligenceDetail';
 import AudienceIntelligenceCreate from './pages/dashboard/audience/AudienceIntelligenceCreate';
 import ContentCalendar from './pages/dashboard/ContentCalendar';
 import FilmingSchedule from './pages/dashboard/FilmingSchedule';
 import Meetings from './pages/dashboard/Meetings';
-import StrategyUpdates from './pages/dashboard/StrategyUpdates';
 import Analytics from './pages/dashboard/Analytics';
 import Leads from './pages/dashboard/Leads';
 import Clients from './pages/dashboard/Clients';
@@ -86,6 +89,9 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/consultation/campaign-retainer" element={<CampaignRetainerConsultation />} />
               <Route path="/consultation/kora-platform" element={<KoraPlatformConsultation />} />
               <Route path="/about" element={<About />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/terms" element={<TermsOfService />} />
+              <Route path="/data-deletion" element={<DataDeletionPolicy />} />
               <Route path="/the-brief" element={<TheBriefRoute />} />
               <Route path="/the-brief/:id" element={<TheBriefPostRoute />} />
               <Route path="/events" element={<Events />} />
@@ -108,7 +114,14 @@ createRoot(document.getElementById('root')!).render(
                         <BlogManagement />
                       </ProtectedRoute>
                   } />
-                  <Route path="blueprints" element={<BrandBlueprints />} />
+                  <Route path="intake" element={
+                      <ProtectedRoute allowedRoles={['admin', 'author', 'intern', '3pv']}>
+                        <IntakePipelinePage />
+                      </ProtectedRoute>
+                  } />
+                  <Route path="identities" element={<BrandBlueprints />} />
+                  <Route path="blueprints" element={<Navigate to="/dashboard/identities" replace />} />
+                  <Route path="strategy" element={<Navigate to="/dashboard/identities" replace />} />
                   <Route path="audience" element={<AudienceIntelligenceIndex />} />
                   <Route path="audience/new" element={<AudienceIntelligenceCreate />} />
                   <Route path="audience/:audienceId" element={<AudienceIntelligenceDetail />} />
@@ -128,7 +141,6 @@ createRoot(document.getElementById('root')!).render(
                         <StrategySessionCalendarSettings />
                       </ProtectedRoute>
                   } />
-                  <Route path="strategy" element={<StrategyUpdates />} />
                   <Route path="analytics" element={<Analytics />} />
                   <Route path="leads" element={
                       <ProtectedRoute allowedRoles={['admin', 'author', 'intern', '3pv']}>

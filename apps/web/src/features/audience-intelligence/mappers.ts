@@ -98,7 +98,7 @@ export function mapAudienceAnalysisToProfile(row: any, clientName: string): Audi
       ctaSuggestions: parseArray<string>(row.cta_suggestions, []),
     },
     analysisRun: {
-      generatedBy: "Audience Intelligence Agent",
+      generatedBy: "Audiences",
       triggeredBy: row.triggered_by || "intake",
       sourceInputsUsed: parseArray<string>(row.source_inputs, ["KORA intake"]),
       analysisDate: row.generated_at || row.created_at,

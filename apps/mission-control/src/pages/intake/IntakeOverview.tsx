@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { MessageSquareText, Shield, PenTool, Users, CheckCircle2, Clock, Loader2, ArrowRight, RefreshCw } from "lucide-react"
+import { MessageSquareText, Shield, Users, CheckCircle2, Clock, Loader2, ArrowRight, RefreshCw } from "lucide-react"
 import { Link } from "react-router-dom"
 import { cn } from "@/lib/utils"
 import { ClientDropdown } from "@/components/ClientDropdown"
@@ -74,7 +74,7 @@ export default function IntakeOverview() {
     { 
       id: "brand-identity", 
       name: "Brand Identity", 
-      description: "Build brand blueprint from intake data", 
+      description: "Brand Identity report (includes strategy content)", 
       icon: Shield, 
       status: stats.brandsBuilt > 0 ? "completed" as AgentStatus : "idle" as AgentStatus,
       route: "/intake/brand-identity", 
@@ -82,18 +82,8 @@ export default function IntakeOverview() {
       completedCount: stats.brandsBuilt
     },
     { 
-      id: "strategy-architect", 
-      name: "Strategy Architect", 
-      description: "Build brand strategy documents", 
-      icon: PenTool, 
-      status: stats.strategiesCreated > 0 ? "completed" as AgentStatus : "idle" as AgentStatus,
-      route: "/intake/strategy-architect", 
-      lastRun: stats.strategiesCreated > 0 ? "Ready" : "Waiting for intakes",
-      completedCount: stats.strategiesCreated
-    },
-    { 
       id: "audience-intelligence", 
-      name: "Audience Intelligence", 
+      name: "Audiences", 
       description: "Build target audience analysis", 
       icon: Users, 
       status: stats.audienceReports > 0 ? "completed" as AgentStatus : "idle" as AgentStatus,
@@ -108,7 +98,9 @@ export default function IntakeOverview() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Intake Agent</h1>
-          <p className="text-gray-400 text-sm">User onboarding, brand building, and strategy creation pipeline</p>
+          <p className="text-gray-400 text-sm">
+            Data from Strategy Sessions and Telegram; Brand Identity reports include strategy content.
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <button

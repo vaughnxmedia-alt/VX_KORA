@@ -29,7 +29,7 @@ export default function AudienceQueue() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-white">Audience Intelligence Queue</h1>
+        <h1 className="text-2xl font-semibold text-white">Audiences queue</h1>
         <p className="text-sm text-gray-400 mt-1">
           Shared run queue from main site and Mission Control.
         </p>

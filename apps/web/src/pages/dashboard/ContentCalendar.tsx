@@ -177,6 +177,39 @@ export default function ContentCalendar() {
     enabled: !!selectedCalendarId,
   });
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    const state = params.get("state");
+    if (!code || !state) return;
+    if (window.location.pathname !== "/dashboard/calendar") return;
+
+    const run = async () => {
+      const { data, error } = await supabase.functions.invoke("social-oauth-callback", {
+        body: { provider: "meta", code, state },
+      });
+      if (error || data?.error) {
+        toast({
+          title: "Meta connection failed",
+          description: data?.error || error?.message || "OAuth callback could not complete.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Meta connected",
+          description: "Facebook Pages and linked Instagram accounts were discovered.",
+        });
+        refetchMetaAccounts();
+        setConnectionsOpen(true);
+      }
+      const clean = new URL(window.location.href);
+      clean.searchParams.delete("code");
+      clean.searchParams.delete("state");
+      window.history.replaceState({}, "", clean.toString());
+    };
+    void run();
+  }, [refetchMetaAccounts]);
+
   const handlePostCreated = async (post: any) => {
     if (!selectedCalendarId) {
       toast({
@@ -347,39 +380,6 @@ export default function ContentCalendar() {
       setConnectingMeta(false);
     }
   };
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get("code");
-    const state = params.get("state");
-    if (!code || !state) return;
-    if (window.location.pathname !== "/dashboard/calendar") return;
-
-    const run = async () => {
-      const { data, error } = await supabase.functions.invoke("social-oauth-callback", {
-        body: { provider: "meta", code, state },
-      });
-      if (error || data?.error) {
-        toast({
-          title: "Meta connection failed",
-          description: data?.error || error?.message || "OAuth callback could not complete.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Meta connected",
-          description: "Facebook Pages and linked Instagram accounts were discovered.",
-        });
-        refetchMetaAccounts();
-        setConnectionsOpen(true);
-      }
-      const clean = new URL(window.location.href);
-      clean.searchParams.delete("code");
-      clean.searchParams.delete("state");
-      window.history.replaceState({}, "", clean.toString());
-    };
-    run();
-  }, [refetchMetaAccounts]);
 
   return (
     <div className="space-y-6">

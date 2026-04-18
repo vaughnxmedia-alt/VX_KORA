@@ -228,7 +228,8 @@ export async function submitStrategySessionBooking(
   slotStartIso: string,
   timezone: string,
   options?: {
-    squarePaymentId: string;
+    squarePaymentId?: string;
+    promoCode?: string;
     bookingKind?:
       | "full_program_sales"
       | "creative_consultation"
@@ -242,8 +243,10 @@ export async function submitStrategySessionBooking(
   confirmationStatus?: string;
   error?: string;
 }> {
-  if (!options?.squarePaymentId?.trim()) {
-    throw new Error("Payment is required to complete booking.");
+  const pay = options?.squarePaymentId?.trim();
+  const promo = options?.promoCode?.trim();
+  if (!pay && !promo) {
+    throw new Error("Payment or a valid promo code is required to complete booking.");
   }
   ensureSupabaseForEdgeFunctions();
   const code = intake.employeeReferenceCode?.trim();
@@ -264,7 +267,8 @@ export async function submitStrategySessionBooking(
       additionalNotes: intake.additionalNotes || "",
       slotStart: slotStartIso,
       timezone,
-      squarePaymentId: options.squarePaymentId.trim(),
+      ...(pay ? { squarePaymentId: pay } : {}),
+      ...(promo ? { promoCode: promo } : {}),
       ...(code ? { employeeReferenceCode: code.toUpperCase() } : {}),
       ...(options?.bookingKind ? { bookingKind: options.bookingKind } : {}),
     },

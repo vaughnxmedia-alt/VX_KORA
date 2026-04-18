@@ -9,39 +9,72 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { resolveStrategySessionHost } from "../_shared/strategy-session-resolve-host.ts";
 import { isSlotBookableForHost } from "../_shared/strategy-session-schedule.ts";
 
-const bookSchema = z.object({
-  fullName: z.string().min(2).max(200),
-  businessName: z.string().min(1).max(200),
-  email: z.string().email(),
-  phone: z.string().min(7).max(40),
-  websiteOrSocial: z.string().max(500).optional().or(z.literal("")),
-  industry: z.string().min(1).max(200),
-  offerSummary: z.string().min(1).max(4000),
-  targetAudience: z.string().min(1).max(4000),
-  currentChallenge: z.string().min(1).max(4000),
-  sessionGoal: z.string().min(1).max(4000),
-  sessionType: z.enum(["zoom", "in_person"]),
-  inPersonLocation: z.string().max(500).optional().or(z.literal("")),
-  additionalNotes: z.string().max(4000).optional().or(z.literal("")),
-  /** ISO 8601 instant for the start of the session */
-  slotStart: z.string().refine((s) => !Number.isNaN(Date.parse(s)), "Invalid datetime"),
-  /** IANA timezone used for display in emails (e.g. America/New_York) */
-  timezone: z.string().min(2).max(80),
-  /** Maps to strategy_session_hosts.reference_code (optional — default public host if omitted) */
-  employeeReferenceCode: z.string().max(32).optional(),
-  /** Dashboard / Leads filter label — stored on meetings.booking_kind */
-  bookingKind: z
-    .enum([
-      "full_program_sales",
-      "creative_consultation",
-      "telegram",
-      "strategy_session",
-      "campaign_retainer",
-    ])
-    .optional(),
-  /** Square payment id from square-strategy-session-payment (CreatePayment response) */
-  squarePaymentId: z.string().min(4).max(128),
-});
+/** Optional override for tests / rotation — must match client UX for known complimentary codes. */
+const FREE_STRATEGY_SESSION_PROMO = Deno.env.get("STRATEGY_SESSION_FREE_PROMO") ?? "789586";
+
+const bookSchema = z
+  .object({
+    fullName: z.string().min(2).max(200),
+    businessName: z.string().min(1).max(200),
+    email: z.string().email(),
+    phone: z.string().min(7).max(40),
+    websiteOrSocial: z.string().max(500).optional().or(z.literal("")),
+    industry: z.string().min(1).max(200),
+    offerSummary: z.string().min(1).max(4000),
+    targetAudience: z.string().min(1).max(4000),
+    currentChallenge: z.string().min(1).max(4000),
+    sessionGoal: z.string().min(1).max(4000),
+    sessionType: z.enum(["zoom", "in_person"]),
+    inPersonLocation: z.string().max(500).optional().or(z.literal("")),
+    additionalNotes: z.string().max(4000).optional().or(z.literal("")),
+    /** ISO 8601 instant for the start of the session */
+    slotStart: z.string().refine((s) => !Number.isNaN(Date.parse(s)), "Invalid datetime"),
+    /** IANA timezone used for display in emails (e.g. America/New_York) */
+    timezone: z.string().min(2).max(80),
+    /** Maps to strategy_session_hosts.reference_code (optional — default public host if omitted) */
+    employeeReferenceCode: z.string().max(32).optional(),
+    /** Dashboard / Leads filter label — stored on meetings.booking_kind */
+    bookingKind: z
+      .enum([
+        "full_program_sales",
+        "creative_consultation",
+        "telegram",
+        "strategy_session",
+        "campaign_retainer",
+      ])
+      .optional(),
+    /** Square payment id from square-strategy-session-payment (CreatePayment response) */
+    squarePaymentId: z.string().min(4).max(128).optional(),
+    /** Server-validated complimentary session — cannot be combined with squarePaymentId */
+    promoCode: z.string().max(32).optional().or(z.literal("")),
+  })
+  .superRefine((data, ctx) => {
+    const pay = data.squarePaymentId?.trim();
+    const promo = data.promoCode?.trim() ?? "";
+    if (pay && promo) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Use either card payment or a promo code, not both.",
+        path: ["promoCode"],
+      });
+      return;
+    }
+    if (pay) return;
+    if (promo === FREE_STRATEGY_SESSION_PROMO) return;
+    if (promo.length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Unknown promo code.",
+        path: ["promoCode"],
+      });
+      return;
+    }
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Payment is required unless you have a valid promo code.",
+      path: ["squarePaymentId"],
+    });
+  });
 
 function splitName(full: string): { first: string; last: string | null } {
   const t = full.trim();
@@ -132,37 +165,46 @@ serve(async (req) => {
       });
     }
 
-    const { data: payRow, error: payErr } = await supabase
-      .from("payment_transactions")
-      .select("id, amount_cents, meeting_id")
-      .eq("provider", "square")
-      .eq("external_payment_id", p.squarePaymentId.trim())
-      .maybeSingle();
+    const payId = p.squarePaymentId?.trim();
+    const promoTrim = p.promoCode?.trim() ?? "";
+    const complimentary = !payId && promoTrim === FREE_STRATEGY_SESSION_PROMO;
 
-    if (payErr) throw payErr;
-    if (!payRow) {
-      return new Response(
-        JSON.stringify({
-          error:
-            "No matching payment found. Complete payment on the previous step, then try again.",
-        }),
-        { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-    if (payRow.meeting_id) {
-      return new Response(
-        JSON.stringify({
-          error: "This payment is already linked to a booking.",
-          meetingId: payRow.meeting_id,
-        }),
-        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-    if (payRow.amount_cents !== 15000) {
-      return new Response(
-        JSON.stringify({ error: "Payment amount does not match Strategy Session pricing." }),
-        { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+    let payRow: { id: string; amount_cents: number; meeting_id: string | null } | null = null;
+
+    if (!complimentary) {
+      const { data: row, error: payErr } = await supabase
+        .from("payment_transactions")
+        .select("id, amount_cents, meeting_id")
+        .eq("provider", "square")
+        .eq("external_payment_id", payId!)
+        .maybeSingle();
+
+      if (payErr) throw payErr;
+      if (!row) {
+        return new Response(
+          JSON.stringify({
+            error:
+              "No matching payment found. Complete payment on the previous step, then try again.",
+          }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      if (row.meeting_id) {
+        return new Response(
+          JSON.stringify({
+            error: "This payment is already linked to a booking.",
+            meetingId: row.meeting_id,
+          }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      if (row.amount_cents !== 15000) {
+        return new Response(
+          JSON.stringify({ error: "Payment amount does not match Strategy Session pricing." }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      payRow = row;
     }
 
     const { first, last } = splitName(p.fullName);
@@ -241,9 +283,9 @@ serve(async (req) => {
       /** Held until Jocelyn confirms in Leads; then confirmation emails go out */
       booking_status: "pending",
       payment_status: "paid",
-      payment_transaction_id: payRow.id,
+      payment_transaction_id: payRow?.id ?? null,
       confirmation_status: "pending",
-      internal_notes: null,
+      internal_notes: complimentary ? "Complimentary Strategy Session (promo)." : null,
       additional_notes: p.additionalNotes || null,
       host_user_id: hostUserId,
       employee_reference_code: employeeRefNormalized,
@@ -267,11 +309,13 @@ serve(async (req) => {
 
     const meetingId = meetingRow!.id as string;
 
-    const { error: linkPayErr } = await supabase
-      .from("payment_transactions")
-      .update({ meeting_id: meetingId })
-      .eq("id", payRow.id);
-    if (linkPayErr) throw linkPayErr;
+    if (payRow) {
+      const { error: linkPayErr } = await supabase
+        .from("payment_transactions")
+        .update({ meeting_id: meetingId })
+        .eq("id", payRow.id);
+      if (linkPayErr) throw linkPayErr;
+    }
 
     /** Confirmation emails are sent from strategy-session-admin-confirm after team approval (Leads). */
     return new Response(

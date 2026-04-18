@@ -27,7 +27,19 @@ const Navigation = () => {
     
     if (path === '/' || path === '/home') return 'landing';
     if (path.startsWith('/dashboard')) return 'app';
-    if (['/about', '/work-with-me', '/the-brief', '/auth', '/brand-strategy-session'].includes(path)) return 'public';
+    if (
+      [
+        '/about',
+        '/work-with-me',
+        '/the-brief',
+        '/auth',
+        '/brand-strategy-session',
+        '/privacy',
+        '/terms',
+        '/data-deletion',
+      ].includes(path)
+    )
+      return 'public';
     
     return 'landing'; // default
   }, [location.pathname]);

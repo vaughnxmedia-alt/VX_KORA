@@ -40,8 +40,8 @@ interface IndustryInsight {
 const systemAgents: SystemAgent[] = [
   { id: "core", name: "Core Intelligence", description: "Global ingestion, enrichment, and RAG updates", icon: Brain, status: "idle", lastRun: "—", itemsProcessed: 0, route: "/core" },
   { id: "intake", name: "Intake Clarifier", description: "User intake processing and profile structuring", icon: MessageSquareText, status: "idle", lastRun: "—", itemsProcessed: 0, route: "/intake" },
-  { id: "strategy", name: "Content Strategy", description: "Strategy generation and content planning", icon: PenTool, status: "idle", lastRun: "—", itemsProcessed: 0, route: "/strategy" },
-  { id: "campaigns", name: "Campaign Assembly", description: "Campaign creation and asset generation", icon: Layers, status: "idle", lastRun: "—", itemsProcessed: 0, route: "/campaigns" },
+  { id: "strategy", name: "Content Strategy", description: "Strategy generation and content planning", icon: PenTool, status: "idle", lastRun: "—", itemsProcessed: 0, route: "/agents/content-strategy" },
+  { id: "campaigns", name: "Campaign Assembly", description: "Campaign creation and asset generation", icon: Layers, status: "idle", lastRun: "—", itemsProcessed: 0, route: "/agents/campaign-assembly" },
 ]
 
 const mockContentStrategies: ContentStrategy[] = []
@@ -129,7 +129,7 @@ export function Overview() {
               <Lightbulb className="h-5 w-5 text-amber-400" />
               <h2 className="font-semibold text-white">Content Strategies</h2>
             </div>
-            <Link to="/strategy/runs" className="text-sm text-blue-400 hover:underline flex items-center gap-1">
+            <Link to="/agents/content-strategy" className="text-sm text-blue-400 hover:underline flex items-center gap-1">
               View all <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
@@ -173,7 +173,7 @@ export function Overview() {
               <TrendingUp className="h-5 w-5 text-purple-400" />
               <h2 className="font-semibold text-white">Industry Insights</h2>
             </div>
-            <Link to="/strategy/insights" className="text-sm text-blue-400 hover:underline flex items-center gap-1">
+            <Link to="/core/intelligence-pool" className="text-sm text-blue-400 hover:underline flex items-center gap-1">
               View all <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>

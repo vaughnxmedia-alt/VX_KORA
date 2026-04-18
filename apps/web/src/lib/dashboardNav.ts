@@ -2,8 +2,8 @@ import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
   FileText,
+  ClipboardList,
   Users,
-  Lightbulb,
   Calendar,
   Video,
   BookText,
@@ -46,9 +46,9 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
   {
     label: "STRATEGY",
     items: [
-      { key: "blueprints", title: "Brand Blueprints", url: "/dashboard/blueprints", icon: FileText },
-      { key: "audience", title: "Audience Intelligence", url: "/dashboard/audience", icon: Users },
-      { key: "strategy", title: "Brand Strategy", url: "/dashboard/strategy", icon: Lightbulb },
+      { key: "intake", title: "Intake", url: "/dashboard/intake", icon: ClipboardList, adminOnly: true },
+      { key: "blueprints", title: "Brand Identities", url: "/dashboard/identities", icon: FileText },
+      { key: "audience", title: "Audiences", url: "/dashboard/audience", icon: Users },
     ],
   },
   {
@@ -80,7 +80,6 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
         adminOnly: true,
       },
       { key: "events", title: "Events", url: "/dashboard/events", icon: CalendarDays, adminOnly: true },
-      { key: "clients", title: "Active Clients", url: "/dashboard/clients", icon: UserCheck, adminOnly: true },
     ],
   },
   {
@@ -88,6 +87,7 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
     items: [
       { key: "leads", title: "Leads", url: "/dashboard/leads", icon: Target, adminOnly: true },
       { key: "subscribers", title: "Subscribers", url: "/dashboard/subscribers", icon: Mail },
+      { key: "clients", title: "Telegram users", url: "/dashboard/clients", icon: UserCheck, adminOnly: true },
     ],
   },
   {
@@ -111,6 +111,7 @@ export const ADMIN_ONLY_KEYS = [
   "events",
   "leads",
   "clients",
+  "intake",
   "admin",
   "sources",
   "strategy-session-calendar",

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { Link } from "react-router-dom"
 import { Users, RefreshCw, Send, Building2, CheckCircle2, Circle } from "lucide-react"
 import { useClients, getClientDisplayName, type Client } from "@/hooks/useClients"
 import { cn } from "@/lib/utils"
@@ -186,18 +187,19 @@ export default function Clients() {
               <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Reports</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Status</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Created</th>
+              <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">RAG</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
             {loading && clients.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-gray-500 text-sm">
+                <td colSpan={7} className="px-4 py-10 text-center text-gray-500 text-sm">
                   Loading…
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-gray-500 text-sm">
+                <td colSpan={7} className="px-4 py-10 text-center text-gray-500 text-sm">
                   No clients yet. Run the seed SQL in{" "}
                   <code className="text-gray-400">docs/TELEGRAM_CLIENTS_SEED.md</code> for Juss &amp; Jocelyn,
                   or complete intake so rows appear in <code className="text-gray-400">customers</code>.
@@ -307,6 +309,14 @@ function ClientRow({
       </td>
       <td className="px-4 py-3 text-sm text-gray-400">
         {c.created_at ? new Date(c.created_at).toLocaleDateString() : "—"}
+      </td>
+      <td className="px-4 py-3">
+        <Link
+          to={`/core/tenant-rag?customerId=${c.id}`}
+          className="text-sm text-blue-400 hover:text-blue-300 hover:underline"
+        >
+          View RAG
+        </Link>
       </td>
     </tr>
   )

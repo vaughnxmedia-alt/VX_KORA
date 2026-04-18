@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,11 @@ import {
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { PipelineProgressCard } from "@/components/dashboard/PipelineProgressCard";
+import {
+  ContentStrategyReportSections,
+  type ContentStrategyRecord,
+} from "@/components/dashboard/ContentStrategyReportSections";
+import { fetchCustomerIdsWithBrandIdentity } from "@/lib/brandIdentityScope";
 
 interface BrandBlueprint {
   id: string;
@@ -64,7 +69,7 @@ function BlueprintCard({
           <div className="space-y-1">
             <CardTitle className="text-lg font-semibold">{blueprint.business_name}</CardTitle>
             <CardDescription className="line-clamp-2">
-              {blueprint.business_type || "Brand Blueprint"}
+              {blueprint.business_type || "Brand Identity"}
             </CardDescription>
           </div>
           <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800">
@@ -96,7 +101,7 @@ function BlueprintCard({
           </div>
         </div>
         <div className="mt-3 flex items-center text-primary text-sm font-medium">
-          View Blueprint <ChevronRight className="w-4 h-4 ml-1" />
+          View identity <ChevronRight className="w-4 h-4 ml-1" />
         </div>
       </CardContent>
     </Card>
@@ -110,6 +115,46 @@ function BlueprintDetail({
   blueprint: BrandBlueprint; 
   onBack: () => void;
 }) {
+  const [brandStrategy, setBrandStrategy] = useState<ContentStrategyRecord | null>(null);
+  const [strategyLoading, setStrategyLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadStrategy() {
+      setStrategyLoading(true);
+      // Table exists in DB; regenerate Supabase types to drop `as any`.
+      const { data, error } = await (supabase as any)
+        .from("content_strategies")
+        .select("*")
+        .eq("client_id", blueprint.client_id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (cancelled) return;
+      if (error) {
+        console.error("Error loading content strategy:", error);
+        setBrandStrategy(null);
+      } else {
+        setBrandStrategy((data as ContentStrategyRecord) ?? null);
+      }
+      setStrategyLoading(false);
+    }
+    void loadStrategy();
+    return () => {
+      cancelled = true;
+    };
+  }, [blueprint.client_id]);
+
+  const hasStrategyContent = useMemo(() => {
+    if (!brandStrategy) return false;
+    return Boolean(
+      brandStrategy.content_pillars?.length ||
+        brandStrategy.growth_strategy ||
+        (brandStrategy.key_tips?.length ?? 0) > 0 ||
+        (brandStrategy.platform_strategy?.length ?? 0) > 0,
+    );
+  }, [brandStrategy]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -289,6 +334,16 @@ function BlueprintDetail({
           </Card>
         </TabsContent>
       </Tabs>
+
+      {strategyLoading ? (
+        <p className="text-muted-foreground text-sm py-4">Loading brand strategy…</p>
+      ) : hasStrategyContent && brandStrategy ? (
+        <ContentStrategyReportSections strategy={brandStrategy} />
+      ) : (
+        <div className="rounded-xl border border-dashed p-6 text-center text-muted-foreground text-sm">
+          Brand strategy details will appear here once the content strategy step has finished generating.
+        </div>
+      )}
     </div>
   );
 }
@@ -306,11 +361,17 @@ export default function BrandBlueprints() {
     setLoading(true);
     try {
       if (role === "admin") {
-        const { data: clientsData } = await supabase
-          .from("customers")
-          .select("id, business_name")
-          .order("business_name");
-        setClients(clientsData || []);
+        const identityIds = await fetchCustomerIdsWithBrandIdentity();
+        if (identityIds.length === 0) {
+          setClients([]);
+        } else {
+          const { data: clientsData } = await supabase
+            .from("customers")
+            .select("id, business_name")
+            .in("id", identityIds)
+            .order("business_name");
+          setClients(clientsData || []);
+        }
       }
 
       let query = supabase
@@ -335,7 +396,7 @@ export default function BrandBlueprints() {
           // Use the first one for pipeline progress tracking
           setCustomerId(customerIds[0]);
           // Filter blueprints by all customer IDs belonging to this user
-          query = query.in("client_id", customerIds);
+          query = (query as any).in("client_id", customerIds);
         } else {
           // No customer record found - return empty
           console.log("No customer records found for user:", user.id);
@@ -395,12 +456,12 @@ export default function BrandBlueprints() {
       <div className="flex items-start justify-between">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-primary mb-2">
-            {role === "admin" ? "All Brand Blueprints" : "Brand Blueprints"}
+            {role === "admin" ? "All brand identities" : "Brand identities"}
           </h1>
           <p className="text-lg text-muted-foreground">
             {role === "admin" 
-              ? "View and manage all client brand identity blueprints generated via @koranewstrategy." 
-              : "Your brand identity blueprints generated by KORA."}
+              ? "Brand Identity reports for each client (foundation + brand strategy when available)." 
+              : "Your Brand Identity report from KORA—including strategy when it has been generated."}
           </p>
         </div>
         {role === "admin" && clients.length > 0 && (
@@ -441,11 +502,11 @@ export default function BrandBlueprints() {
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
               <FileText className="w-8 h-8 text-primary" />
             </div>
-            <h3 className="text-xl font-semibold mb-2">No Blueprints Yet</h3>
+            <h3 className="text-xl font-semibold mb-2">No identities yet</h3>
             <p className="text-muted-foreground max-w-md mx-auto mb-6">
               {role === "admin" 
-                ? "No brand blueprints have been generated yet. Blueprints are created when users complete the @koranewstrategy intake via Telegram." 
-                : "Start your brand journey by completing the KORA intake process. Message @koranewstrategy on Telegram to get started."}
+                ? "No Brand Identity reports yet. They appear after intake and processing (Strategy Session data and/or Telegram)." 
+                : "Complete intake and processing to generate your Brand Identity report. You can also start via Telegram (@koranewstrategy)."}
             </p>
             <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
               <Send className="w-4 h-4" />

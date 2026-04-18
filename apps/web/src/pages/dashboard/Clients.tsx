@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
@@ -61,6 +61,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { TabPermissionsDialog } from "@/components/dashboard/TabPermissionsDialog";
 import { ClientOpsHoverCard } from "@/components/dashboard/ClientOpsHoverCard";
+import { fetchCustomersTelegramIntakeComplete } from "@/lib/brandIdentityScope";
 import { isSuperOpsUser, isAppOwnerJustice } from "@/lib/super-ops";
 import { useAuth } from "@/components/AuthProvider";
 import type { Enums } from "@/integrations/supabase/types";
@@ -81,6 +82,9 @@ interface Customer {
   website: string | null;
   social_media_links: SocialMediaLink[] | null;
   created_at: string | null;
+  telegram_id?: number | null;
+  /** From `telegram_intake_sessions` when joined for display */
+  telegram_username?: string | null;
 }
 
 interface UserWithRole {
@@ -235,18 +239,12 @@ export default function Clients() {
     ) || []),
   ];
 
-  // Fetch customers - only show active clients in this tab
+  // Telegram-linked customers whose bot intake is completed or generating (see telegram_intake_sessions.phase)
   const { data: customers, isLoading: isLoadingCustomers } = useQuery({
-    queryKey: ["customers-active"],
+    queryKey: ["customers-telegram-intake-complete"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("customers")
-        .select("*")
-        .eq("client_status", "active_client")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      return (data || []).map((item) => ({
+      const rows = await fetchCustomersTelegramIntakeComplete();
+      return rows.map((item) => ({
         ...item,
         social_media_links: (item.social_media_links as unknown) as SocialMediaLink[] | null,
       })) as Customer[];
@@ -299,7 +297,8 @@ export default function Clients() {
       return { customer: customerData, hasMeeting: !!clientData.meeting_date };
     },
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ["customers-active"] });
+      queryClient.invalidateQueries({ queryKey: ["customers-telegram-intake-complete"] });
+      queryClient.invalidateQueries({ queryKey: ["customers-pending-intake"] });
       queryClient.invalidateQueries({ queryKey: ["customers-pipeline"] });
       queryClient.invalidateQueries({ queryKey: ["meetings"] });
       toast.success("Client added successfully");
@@ -336,7 +335,8 @@ export default function Clients() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["customers-active"] });
+      queryClient.invalidateQueries({ queryKey: ["customers-telegram-intake-complete"] });
+      queryClient.invalidateQueries({ queryKey: ["customers-pending-intake"] });
       queryClient.invalidateQueries({ queryKey: ["customers-pipeline"] });
       toast.success("Client removed successfully");
       setClientToDelete(null);
@@ -470,6 +470,13 @@ export default function Clients() {
 
   const admins = usersWithRoles?.filter((u) => u.role === "admin") || [];
   const clientUsers = usersWithRoles?.filter((u) => u.role === "client") || [];
+
+  const clientUsersWithTelegramIntake = useMemo(() => {
+    const uid = new Set(
+      (customers ?? []).map((c) => c.user_id).filter((id): id is string => Boolean(id?.trim())),
+    );
+    return clientUsers.filter((u) => u.user_id && uid.has(u.user_id));
+  }, [clientUsers, customers]);
 
   const ownersCardRows =
     isAppOwner && ownerSessionId
@@ -721,15 +728,20 @@ export default function Clients() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <User className="w-5 h-5 text-muted-foreground" />
-                Clients ({(customers?.length || 0) + clientUsers.length})
+                Telegram users ({(customers?.length || 0) + clientUsersWithTelegramIntake.length})
               </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                CRM rows tied to Telegram where intake finished (phase completed or generating). Everyone else stays
+                under Intake.
+              </p>
             </CardHeader>
             <CardContent>
-              {(customers && customers.length > 0) || clientUsers.length > 0 ? (
+              {(customers && customers.length > 0) || clientUsersWithTelegramIntake.length > 0 ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Name</TableHead>
+                      <TableHead>Telegram</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Phone</TableHead>
                       <TableHead>Business</TableHead>
@@ -741,7 +753,7 @@ export default function Clients() {
                   </TableHeader>
                   <TableBody>
                     {/* Show registered client users */}
-                    {clientUsers.map((client) => (
+                    {clientUsersWithTelegramIntake.map((client) => (
                       <TableRow key={client.user_id}>
                         <TableCell className="font-medium">
                           <ClientOpsHoverCard
@@ -757,6 +769,7 @@ export default function Clients() {
                             <span>{client.full_name || "—"}</span>
                           </ClientOpsHoverCard>
                         </TableCell>
+                        <TableCell>—</TableCell>
                         <TableCell>—</TableCell>
                         <TableCell>—</TableCell>
                         <TableCell>—</TableCell>
@@ -828,6 +841,15 @@ export default function Clients() {
                                   : "—"}
                               </span>
                             </ClientOpsHoverCard>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {customer.telegram_username ? (
+                              <span>@{customer.telegram_username.replace(/^@/, "")}</span>
+                            ) : customer.telegram_id != null ? (
+                              <span className="font-mono text-xs tabular-nums">{String(customer.telegram_id)}</span>
+                            ) : (
+                              "—"
+                            )}
                           </TableCell>
                           <TableCell>
                             {customer.email ? (
@@ -946,9 +968,10 @@ export default function Clients() {
               ) : (
                 <div className="text-center py-8">
                   <Users className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-lg font-semibold mb-2">No Clients Yet</h3>
-                  <p className="text-muted-foreground">
-                    Add your first client to get started.
+                  <h3 className="text-lg font-semibold mb-2">No Telegram users in this list yet</h3>
+                  <p className="text-muted-foreground max-w-md mx-auto">
+                    Rows appear when a CRM contact is linked to Telegram and their bot intake reaches completed or
+                    generating. Everyone else stays under Intake until then.
                   </p>
                 </div>
               )}

@@ -179,9 +179,9 @@ export default function AudienceIntelligence() {
             <div className="p-2 bg-cyan-500/10 rounded-lg">
               <Users className="h-6 w-6 text-cyan-400" />
             </div>
-            <h1 className="text-2xl font-bold text-white">Audience Intelligence</h1>
+            <h1 className="text-2xl font-bold text-white">Audiences</h1>
           </div>
-          <p className="text-gray-400 text-sm">Target audience analyses from Telegram intake</p>
+          <p className="text-gray-400 text-sm max-w-prose leading-relaxed">Audience analyses from intake and linked client data</p>
         </div>
         <div className="flex items-center gap-3">
           <button

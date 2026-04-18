@@ -10,6 +10,7 @@ import {
   readPaymentProofFromStorage,
   type StrategySessionBookingDraft,
 } from "@/features/strategy-session/strategySessionDraft";
+import { isComplimentaryStrategySessionPromo } from "@/features/strategy-session/strategySessionPromo";
 
 type Status = "loading" | "success" | "error" | "missing" | "missing_payment";
 const SUPPORT_ERROR_MESSAGE = "Something went wrong. Please contact support.";
@@ -18,6 +19,7 @@ export default function StrategySessionThankYou() {
   const navigate = useNavigate();
   const [status, setStatus] = useState<Status>("loading");
   const [meetingId, setMeetingId] = useState<string | undefined>();
+  const [bookedWithPromo, setBookedWithPromo] = useState(false);
   const ran = useRef(false);
 
   /** Logged-in team (admin/author) lands on Leads to confirm the booking; public guests stay on thank-you. */
@@ -53,20 +55,27 @@ export default function StrategySessionThankYou() {
         if (!cancelled) setStatus("missing");
         return;
       }
-      if (!proof?.squarePaymentId) {
+      const complimentary = isComplimentaryStrategySessionPromo(draft.values.promoCode);
+      if (!proof?.squarePaymentId && !complimentary) {
         if (!cancelled) setStatus("missing_payment");
         return;
       }
 
       try {
+        if (complimentary) setBookedWithPromo(true);
         const res = await submitStrategySessionBooking(
           draft.values,
           draft.selectedSlotIso,
           draft.timezone,
-          {
-            squarePaymentId: proof.squarePaymentId,
-            ...(draft.bookingKind ? { bookingKind: draft.bookingKind } : {}),
-          },
+          complimentary
+            ? {
+                promoCode: (draft.values.promoCode ?? "").trim(),
+                ...(draft.bookingKind ? { bookingKind: draft.bookingKind } : {}),
+              }
+            : {
+                squarePaymentId: proof!.squarePaymentId,
+                ...(draft.bookingKind ? { bookingKind: draft.bookingKind } : {}),
+              },
         );
         if (cancelled) return;
         if (!res.ok && !res.meetingId) {
@@ -144,7 +153,9 @@ export default function StrategySessionThankYou() {
         <h1 className="text-3xl font-semibold tracking-tight">Thank you</h1>
         <div className="space-y-3 text-muted-foreground leading-relaxed">
           <p className="text-foreground font-medium">
-            Payment received — please wait for our email confirmation for your Strategy Session time.
+            {bookedWithPromo
+              ? "Your complimentary session request was received — please wait for our email confirmation for your Strategy Session time."
+              : "Payment received — please wait for our email confirmation for your Strategy Session time."}
           </p>
           <p className="text-sm">
             We&apos;ll confirm your slot and send details from our team. If you don&apos;t see an email within 24 hours,

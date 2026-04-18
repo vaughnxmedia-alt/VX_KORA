@@ -69,7 +69,7 @@ const initialAgents: Agent[] = [
   },
   {
     id: "audience-intelligence",
-    name: "Audience Intelligence",
+    name: "Audiences",
     description: "Builds audience profiles. Identifies demographics, behaviors, and interests.",
     status: "idle",
     icon: "users",

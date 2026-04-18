@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from "react"
 import { Shield, CheckCircle2, Clock, Eye, FileText, RefreshCw } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ClientDropdown } from "@/components/ClientDropdown"
+import { ContentStrategyReportSections } from "@/components/ContentStrategyReportSections"
+import type { ContentStrategyRecord } from "@/components/ContentStrategyReportSections"
 import { supabase } from "@/lib/supabase"
 
 interface BrandBlueprint {
@@ -28,6 +30,8 @@ export default function BrandIdentity() {
   const [blueprints, setBlueprints] = useState<BrandBlueprint[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedBlueprint, setSelectedBlueprint] = useState<BrandBlueprint | null>(null)
+  const [brandStrategy, setBrandStrategy] = useState<ContentStrategyRecord | null>(null)
+  const [strategyLoading, setStrategyLoading] = useState(false)
 
   useEffect(() => {
     fetchBlueprints()
@@ -47,6 +51,37 @@ export default function BrandIdentity() {
     }
     setLoading(false)
   }
+
+  useEffect(() => {
+    if (!selectedBlueprint?.client_id) {
+      setBrandStrategy(null)
+      return
+    }
+    let cancelled = false
+    async function loadStrategy() {
+      setStrategyLoading(true)
+      const { data, error } = await supabase
+        .from("content_strategies")
+        .select("*")
+        .eq("client_id", selectedBlueprint.client_id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (!cancelled) {
+        if (error) {
+          console.error("Error fetching content strategy:", error)
+          setBrandStrategy(null)
+        } else {
+          setBrandStrategy((data as ContentStrategyRecord) ?? null)
+        }
+        setStrategyLoading(false)
+      }
+    }
+    void loadStrategy()
+    return () => {
+      cancelled = true
+    }
+  }, [selectedBlueprint?.client_id])
 
   const filteredBlueprints = useMemo(() => {
     if (!selectedClientId) return blueprints
@@ -93,7 +128,7 @@ export default function BrandIdentity() {
               onClick={() => setSelectedBlueprint(null)}
               className="text-gray-400 hover:text-white text-sm mb-2"
             >
-              ← Back to Blueprints
+              ← Back to identities
             </button>
             <h1 className="text-2xl font-bold text-white">{selectedBlueprint.business_name}</h1>
             <p className="text-gray-400 text-sm">{selectedBlueprint.business_type}</p>
@@ -160,6 +195,17 @@ export default function BrandIdentity() {
           <h3 className="font-semibold text-white mb-3">Brand Story</h3>
           <p className="text-gray-300 whitespace-pre-wrap">{selectedBlueprint.brand_story}</p>
         </div>
+
+        {strategyLoading ? (
+          <div className="text-gray-500 text-sm py-6">Loading brand strategy…</div>
+        ) : brandStrategy ? (
+          <ContentStrategyReportSections strategy={brandStrategy} />
+        ) : (
+          <div className="rounded-xl border border-dashed border-white/10 p-6 text-center text-gray-500 text-sm">
+            No content strategy document yet for this client. It is generated after intake completes and
+            processing runs.
+          </div>
+        )}
       </div>
     )
   }
@@ -174,7 +220,10 @@ export default function BrandIdentity() {
             </div>
             <h1 className="text-2xl font-bold text-white">Brand Identity</h1>
           </div>
-          <p className="text-gray-400 text-sm">Brand blueprints generated from Telegram intake</p>
+          <p className="text-gray-400 text-sm">
+            Full report: brand identity plus content strategy once Strategy Session and Telegram intake data are
+            processed.
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -194,7 +243,7 @@ export default function BrandIdentity() {
 
       <div className="grid grid-cols-4 gap-4">
         <div className="bg-gray-800/50 rounded-xl p-4 border border-white/5">
-          <p className="text-gray-400 text-sm mb-1">Total Blueprints</p>
+          <p className="text-gray-400 text-sm mb-1">Total identities</p>
           <p className="text-2xl font-bold text-white">{stats.total}</p>
         </div>
         <div className="bg-gray-800/50 rounded-xl p-4 border border-white/5">
@@ -213,14 +262,14 @@ export default function BrandIdentity() {
 
       <div className="bg-gray-800/50 rounded-xl border border-white/5 overflow-hidden">
         <div className="p-4 border-b border-white/5">
-          <h2 className="font-semibold text-white">Brand Blueprints</h2>
+          <h2 className="font-semibold text-white">Brand identities</h2>
         </div>
         {loading ? (
           <div className="p-8 text-center text-gray-400">Loading...</div>
         ) : filteredBlueprints.length === 0 ? (
           <div className="p-8 text-center">
-            <p className="text-gray-400 mb-2">No brand blueprints yet</p>
-            <p className="text-sm text-gray-500">Complete a Telegram intake to generate blueprints</p>
+            <p className="text-gray-400 mb-2">No brand identities yet</p>
+            <p className="text-sm text-gray-500">Complete intake processing to generate reports</p>
           </div>
         ) : (
           <table className="w-full">

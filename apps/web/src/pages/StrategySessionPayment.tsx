@@ -13,6 +13,7 @@ import {
   writeDraftToStorage,
   writePaymentProofToStorage,
 } from "@/features/strategy-session/strategySessionDraft";
+import { isComplimentaryStrategySessionPromo } from "@/features/strategy-session/strategySessionPromo";
 import { processSquareStrategySessionPayment } from "@/features/strategy-session/api";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -58,11 +59,19 @@ export default function StrategySessionPayment() {
     const fromNav = location.state as StrategySessionBookingDraft | null;
     if (fromNav?.values && fromNav?.selectedSlotIso && fromNav?.timezone) {
       writeDraftToStorage(fromNav);
+      if (isComplimentaryStrategySessionPromo(fromNav.values.promoCode)) {
+        navigate("/strategy-session/thank-you", { replace: true });
+        return;
+      }
       setDraft(fromNav);
       return;
     }
     const stored = readDraftFromStorage();
     if (stored?.values && stored?.selectedSlotIso && stored?.timezone) {
+      if (isComplimentaryStrategySessionPromo(stored.values.promoCode)) {
+        navigate("/strategy-session/thank-you", { replace: true });
+        return;
+      }
       setDraft(stored);
       return;
     }

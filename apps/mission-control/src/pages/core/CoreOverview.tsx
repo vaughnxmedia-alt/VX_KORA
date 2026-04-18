@@ -39,7 +39,7 @@ const coreAgents: AgentStatus[] = [
 const quickLinks = [
   { to: "/core/sources", label: "Manage Sources", icon: Rss, description: "47 active sources" },
   { to: "/core/ingest-runs", label: "Ingest Runs", icon: PlayCircle, description: "Last run 30 mins ago" },
-  { to: "/core/global-pool", label: "Intelligence Pool", icon: Database, description: "1,234 items" },
+  { to: "/core/intelligence-pool", label: "Intelligence Pool", icon: Database, description: "1,234 items" },
   { to: "/core/tenant-rag", label: "Tenant RAG", icon: GitBranch, description: "5 tenants" },
   { to: "/core/enrichment", label: "Enrichment Queue", icon: Sparkles, description: "12 pending" },
   { to: "/core/events-queue", label: "Events Queue", icon: ListTodo, description: "8 events" },

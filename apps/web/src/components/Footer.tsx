@@ -50,6 +50,7 @@ export const Footer = () => {
                 </SupportDialog>
               </li>
               <li><FooterLink to="/privacy">Privacy Policy</FooterLink></li>
+              <li><FooterLink to="/data-deletion">Data deletion</FooterLink></li>
               <li><FooterLink to="/terms">Terms of Service</FooterLink></li>
             </ul>
           </div>
@@ -72,6 +73,7 @@ export const Footer = () => {
           <p>© {currentYear} JahKnowsPR. All rights reserved.</p>
           <div className="flex gap-6">
             <Link to="/privacy" className="hover:text-primary transition-colors">Privacy</Link>
+            <Link to="/data-deletion" className="hover:text-primary transition-colors">Data deletion</Link>
             <Link to="/terms" className="hover:text-primary transition-colors">Terms</Link>
             <Link to="/sitemap" className="hover:text-primary transition-colors">Sitemap</Link>
           </div>

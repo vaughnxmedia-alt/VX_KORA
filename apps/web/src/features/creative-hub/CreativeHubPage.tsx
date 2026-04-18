@@ -21,6 +21,7 @@ import {
   MIN_KORA_IDEAS_FOR_CAMPAIGN_SUBMIT,
 } from "./strategyModel";
 import { fetchCreativeHubIntel } from "./creativeHubIntel";
+import { fetchCustomersWithBrandIdentity } from "@/lib/brandIdentityScope";
 import { parseKoraIdeaText } from "./parseKoraIdea";
 
 type ContentPlan = Tables<"content_plans">;
@@ -65,15 +66,8 @@ export function CreativeHubPage() {
   });
 
   const { data: customers = [] } = useQuery({
-    queryKey: ["customers-list"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("customers")
-        .select("id, business_name, first_name, last_name")
-        .order("business_name", { ascending: true, nullsFirst: false });
-      if (error) throw error;
-      return data ?? [];
-    },
+    queryKey: ["customers-list-with-brand-identity"],
+    queryFn: fetchCustomersWithBrandIdentity,
   });
 
   const { data: creativeIntel } = useQuery({

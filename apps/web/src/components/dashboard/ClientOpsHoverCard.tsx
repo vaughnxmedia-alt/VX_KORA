@@ -320,7 +320,8 @@ function EditableOpsPanelBody({
       });
       queryClient.invalidateQueries({ queryKey: ["users-with-roles"] });
       queryClient.invalidateQueries({ queryKey: ["all-profiles"] });
-      queryClient.invalidateQueries({ queryKey: ["customers-active"] });
+      queryClient.invalidateQueries({ queryKey: ["customers-telegram-intake-complete"] });
+      queryClient.invalidateQueries({ queryKey: ["customers-pending-intake"] });
       queryClient.invalidateQueries({ queryKey: ["super-ops-profile-extras", authUserId] });
       queryClient.invalidateQueries({ queryKey: ["super-ops-auth-summary", authUserId] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-mandatory-profile"] });

@@ -68,7 +68,7 @@ const Kora = () => {
       description:
         "Research-backed understanding that helps teams make smarter brand decisions before they produce more content.",
       icon: Brain,
-      items: ["Creative Hub", "Brand Blueprints", "Target Audience", "Brand Strategy", "Intelligence Sources"],
+      items: ["Creative Hub", "Brand Identities", "Audiences", "Intelligence Sources"],
     },
     {
       principle: "Creative second",

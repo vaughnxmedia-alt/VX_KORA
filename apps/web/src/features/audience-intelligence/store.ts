@@ -90,7 +90,7 @@ export function createCustomAudienceProfile(input: {
       ctaSuggestions: [],
     },
     analysisRun: {
-      generatedBy: "Audience Intelligence Agent",
+      generatedBy: "Audiences",
       triggeredBy: "manual_run",
       sourceInputsUsed: ["Custom audience form"],
       analysisDate: now,

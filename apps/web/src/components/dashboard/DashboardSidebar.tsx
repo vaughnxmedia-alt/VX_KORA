@@ -27,6 +27,14 @@ import {
 } from "@/lib/dashboardNav";
 import { isAppOwnerJustice } from "@/lib/super-ops";
 
+/** Mission Control Vite app (see apps/mission-control/vite.config.ts). Production must set VITE_MISSION_CONTROL_URL. */
+function resolveMissionControlUrl(): string | undefined {
+  const fromEnv = (import.meta.env.VITE_MISSION_CONTROL_URL as string | undefined)?.trim();
+  if (fromEnv) return fromEnv.replace(/\/$/, "");
+  if (import.meta.env.DEV) return "http://localhost:5174";
+  return undefined;
+}
+
 export function DashboardSidebar() {
   const { user, role } = useAuth();
   const navigate = useNavigate();
@@ -74,11 +82,7 @@ export function DashboardSidebar() {
   );
 
   const isDashboardOwner = isAppOwnerJustice(user?.email ?? null);
-  const missionControlUrl = (
-    import.meta.env.VITE_MISSION_CONTROL_URL as string | undefined
-  )
-    ?.trim()
-    .replace(/\/$/, "");
+  const missionControlUrl = resolveMissionControlUrl();
 
   const { data: userPermissions } = useQuery({
     queryKey: ["user-tab-permissions", user?.id],

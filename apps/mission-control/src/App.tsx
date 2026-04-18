@@ -8,7 +8,6 @@ import { Placeholder } from "@/pages/Placeholder"
 const IntakeOverview = lazy(() => import("@/pages/intake/IntakeOverview"))
 const IntakeClarifier = lazy(() => import("@/pages/intake/IntakeClarifier"))
 const BrandIdentity = lazy(() => import("@/pages/intake/BrandIdentity"))
-const StrategyArchitect = lazy(() => import("@/pages/intake/StrategyArchitect"))
 const AudienceIntelligence = lazy(() => import("@/pages/intake/AudienceIntelligence"))
 
 // Core Intelligence Pages (lazy loaded)
@@ -73,8 +72,8 @@ function App() {
           <Route path="intake/users" element={<Clients />} />
           <Route path="intake/clarifier" element={<IntakeClarifier />} />
           <Route path="intake/brand-identity" element={<BrandIdentity />} />
-          <Route path="intake/strategy-architect" element={<StrategyArchitect />} />
           <Route path="intake/audience-intelligence" element={<AudienceIntelligence />} />
+          <Route path="intake/strategy-architect" element={<Navigate to="/intake/brand-identity" replace />} />
 
           {/* Core Intelligence Routes */}
           <Route path="core" element={<CoreOverview />} />

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Upstream discussions (ByteDance trae-agent)
+    url: https://github.com/bytedance/trae-agent/discussions
+    about: General questions and ideas for the original open-source project this vendor tree is based on.
+  - name: Community Discord (related ecosystem)
+    url: https://discord.gg/VwaQ4ZBHvC
+    about: Third-party community for related tooling and IDE topics.

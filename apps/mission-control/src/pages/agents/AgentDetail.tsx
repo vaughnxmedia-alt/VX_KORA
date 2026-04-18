@@ -1,10 +1,12 @@
 import { useState } from "react"
+import { Link } from "react-router-dom"
 import { 
-  Search, Cpu, Brain, PenTool, Layers, Send, BookOpen, MessageSquareText,
+  Search, Cpu, PenTool, Layers, Send, BookOpen, MessageSquareText,
   PlayCircle, CheckCircle2, XCircle, Clock, AlertCircle, RefreshCw,
   Activity, ListTodo, FileText, BarChart3, TrendingUp
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { AGENT_DELIVERABLES } from "@/lib/agentCatalog"
 
 interface AgentDetailProps {
   agentId: string
@@ -176,6 +178,28 @@ export default function AgentDetail({ agentId }: AgentDetailProps) {
               </div>
             </div>
             <p className="text-gray-400 text-sm max-w-2xl">{agent.description}</p>
+            {AGENT_DELIVERABLES[agentId] && (
+              <div className="mt-4 max-w-2xl">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                  Required outcomes
+                </p>
+                <ul className="list-disc list-inside space-y-1 text-sm text-gray-300">
+                  {AGENT_DELIVERABLES[agentId].map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+                {agentId === "rag-intelligence" && (
+                  <p className="mt-3 text-sm">
+                    <Link
+                      to="/core/tenant-rag"
+                      className="text-blue-400 hover:text-blue-300 hover:underline"
+                    >
+                      Open Tenant RAG (per-customer documents)
+                    </Link>
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
