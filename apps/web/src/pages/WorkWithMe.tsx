@@ -118,7 +118,7 @@ const WorkWithMe = () => {
             access, or long-term support.
           </WhoItBelongsTo>
           <Button variant="hero" size="lg" className="mt-2 w-full sm:w-auto" asChild>
-            <Link to="/strategy-session">Book a Strategy Session</Link>
+            <Link to="/brand-strategy-session">Book a Strategy Session</Link>
           </Button>
         </div>
       </section>
