@@ -7,6 +7,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "https://deno.land/x/zod/mod.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { safeRecordOutcome } from "../_shared/lls.ts";
 
 const STRATEGY_SESSION_AMOUNT_CENTS = 150_00;
 
@@ -150,6 +151,39 @@ serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+
+    await Promise.allSettled([
+      safeRecordOutcome(supabase, {
+        lead_id: buyerEmail?.trim().toLowerCase() || null,
+        subject_kind: "payment",
+        subject_id: paymentId,
+        actor_kind: "client",
+        action: "payment_succeeded",
+        strategy_origin: "human_defined",
+        learning_mode: "validated_learning",
+        intended_metric_type: "strategy_session_revenue",
+        actual_metric_type: "square_payment",
+        delta_value: STRATEGY_SESSION_AMOUNT_CENTS / 100,
+        success_flag: true,
+        revenue_impact: STRATEGY_SESSION_AMOUNT_CENTS / 100,
+        outcome_verified: true,
+        verification_source: "system",
+        verification_confidence_component: 0.98,
+        causal_method: "direct_attribution",
+        causal_confidence_component: 0.85,
+        evidence_strength_component: 0.55,
+        status: "success",
+        business_goal: "revenue",
+        correlation_id: buyerEmail?.trim().toLowerCase() || idempotencyKey,
+        strategy_id: "system:strategy-session-payment",
+        messaging_angle: "strategy_session_payment",
+        hook: "paid_strategy_session",
+        projection_version: "lls-projection-v1:strategy-session",
+        intended_outcome: { amount_cents: STRATEGY_SESSION_AMOUNT_CENTS, currency: "USD" },
+        actual_outcome: { payment_id: paymentId, square_status: payStatus },
+        metadata: { idempotency_key: idempotencyKey, square_environment: envRaw },
+      }),
+    ]);
 
     return new Response(
       JSON.stringify({

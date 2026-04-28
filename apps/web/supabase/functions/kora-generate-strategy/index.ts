@@ -1,5 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  loadMemoryProjection,
+  type MemoryProjection,
+} from "../_shared/lls_memory_projection.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -43,6 +47,7 @@ interface ContentStrategy {
   };
   key_messages: string[];
   expansion_strategy: string;
+  learned_strategy_controls?: MemoryProjection;
 }
 
 serve(async (req) => {
@@ -86,13 +91,22 @@ serve(async (req) => {
 
     const blueprint = customer.brand_blueprints?.[0];
     const businessName = customer.business_name || `${customer.first_name} ${customer.last_name}`;
+    const memoryProjection = await loadMemoryProjection(supabase, request.customer_id);
+    const llsTrace = {
+      strategy_id: memoryProjection.strategy_id,
+      proposal_id: memoryProjection.proposal_id,
+      messaging_angle: memoryProjection.messaging_angle,
+      hook: memoryProjection.hook,
+      projection_version: memoryProjection.projection_version,
+    };
 
     // Generate strategy using AI or template
     const strategy: ContentStrategy = generateStrategyFromBlueprint(
       businessName,
       blueprint,
       request,
-      recentInsights || []
+      recentInsights || [],
+      memoryProjection,
     );
 
     // Save to database
@@ -109,6 +123,7 @@ serve(async (req) => {
         key_messages: strategy.key_messages,
         target_personas: blueprint?.target_audience ? [blueprint.target_audience] : [],
         recommended_channels: request.platforms,
+        lls_trace: llsTrace,
       })
       .select()
       .single();
@@ -116,6 +131,24 @@ serve(async (req) => {
     if (saveError) {
       throw new Error(`Failed to save strategy: ${saveError.message}`);
     }
+
+    await supabase.from("lls_behavior_signals").insert({
+      tenant_id: request.customer_id,
+      subject_kind: "content_strategy",
+      subject_id: savedStrategy.id,
+      tone_type: "authority",
+      emotional_trigger: memoryProjection.priority_angles[0]?.angle ?? null,
+      audience_response_type: "strategy_generated",
+      conversion_path: "content_strategy_generation",
+      decision_confidence: memoryProjection.priority_angles.length > 0 ? "medium" : "low",
+      time_to_decision_seconds: null,
+      metadata: {
+        priority_angles: memoryProjection.priority_angles,
+        avoid_patterns: memoryProjection.avoid_patterns,
+        hard_constraints: memoryProjection.hard_constraints,
+        ...llsTrace,
+      },
+    });
 
     // Create deliverable record
     const { data: deliverable } = await supabase
@@ -128,6 +161,7 @@ serve(async (req) => {
         title: strategy.title,
         status: "complete",
         content: strategy,
+        lls_trace: llsTrace,
         completed_at: new Date().toISOString(),
       })
       .select()
@@ -176,7 +210,8 @@ function generateStrategyFromBlueprint(
   businessName: string,
   blueprint: Record<string, unknown> | null,
   request: StrategyRequest,
-  insights: Array<{ title: string; snippet: string; categories: string[] }>
+  insights: Array<{ title: string; snippet: string; categories: string[] }>,
+  memoryProjection: MemoryProjection,
 ): ContentStrategy {
   const personality = (blueprint?.brand_personality as string) || "professional, approachable";
   const targetAudience = (blueprint?.target_audience as string) || "business professionals";
@@ -258,6 +293,16 @@ function generateStrategyFromBlueprint(
     ],
   };
 
+  const weightedAngles = memoryProjection.priority_angles
+    .map((item) => `${item.angle} (${item.weight})`)
+    .join(", ");
+  const learnedMessages = [
+    ...memoryProjection.prompt_modifiers,
+    weightedAngles ? `Prioritize learned angles by weight: ${weightedAngles}` : "",
+    ...memoryProjection.hard_constraints.map((constraint) => `Hard constraint: ${constraint}`),
+    ...memoryProjection.avoid_patterns.map((pattern) => `Avoid pattern: ${pattern}`),
+  ].filter(Boolean);
+
   return {
     title: `${businessName} Social Media Strategy - ${new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}`,
     content_pillars: contentPillars,
@@ -276,7 +321,14 @@ function generateStrategyFromBlueprint(
       "Expert insights delivered in an approachable way",
       "Real stories, real results",
       "Building in public, growing together",
+      ...learnedMessages,
     ],
-    expansion_strategy: "Once top-performing short-form content is identified, expand to long-form (YouTube, blog posts) on the same topics. Short-form validates, long-form deepens.",
+    expansion_strategy: [
+      "Once top-performing short-form content is identified, expand to long-form (YouTube, blog posts) on the same topics. Short-form validates, long-form deepens.",
+      memoryProjection.hard_constraints.length
+        ? `LLS hard constraints override this strategy: ${memoryProjection.hard_constraints.join("; ")}`
+        : "",
+    ].filter(Boolean).join(" "),
+    learned_strategy_controls: memoryProjection,
   };
 }

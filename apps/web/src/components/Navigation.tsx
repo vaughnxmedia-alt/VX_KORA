@@ -8,7 +8,7 @@ import {
   LayoutDashboard,
   Briefcase,
   CalendarDays,
-  Sparkles,
+  SearchCheck,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "./AuthProvider";
@@ -34,6 +34,8 @@ const Navigation = () => {
         '/the-brief',
         '/auth',
         '/brand-strategy-session',
+        '/free-audit',
+        '/free-audit/thank-you',
         '/privacy',
         '/terms',
         '/data-deletion',
@@ -48,18 +50,18 @@ const Navigation = () => {
   const navigationItems = useMemo(() => {
     const baseItems = [
       { name: "Home", icon: Home, route: "/home", type: "route" as const },
+      { name: "FREE", icon: SearchCheck, route: "/free-audit", type: "route" as const },
       { name: "Services", icon: Briefcase, route: "/work-with-me", type: "route" as const },
-      { name: "The Brief", icon: BookText, route: "/events", type: "route" as const },
+      { name: "The Brief", icon: BookText, route: "/the-brief", type: "route" as const },
     ];
 
     const landingItems = [
       ...baseItems,
-      { name: "Early Access", icon: Sparkles, route: "/kora", type: "route" as const },
     ];
 
     const appItems = [
       { name: "Home", icon: Home, route: "/home", type: "route" as const },
-      { name: "The Brief", icon: BookText, route: "/events", type: "route" as const },
+      { name: "The Brief", icon: BookText, route: "/the-brief", type: "route" as const },
     ];
 
     const publicItems = [...baseItems];

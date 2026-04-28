@@ -11,6 +11,7 @@ import { useToast } from "./ui/use-toast";
 import { useState } from "react";
 import { Spinner } from "./ui/spinner";
 import { suppressSubscriberPopupAsSignedUp } from "@/lib/subscriber-popup-storage";
+import { readFreeAuditAttribution } from "@/lib/freeAuditAttribution";
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -34,8 +35,9 @@ export const SubscriptionForm = () => {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
+    const leadSource = readFreeAuditAttribution();
     const { data, error } = await supabase.functions.invoke("new-subscriber", {
-      body: { record: { name: values.name, email: values.email } },
+      body: { record: { name: values.name, email: values.email }, leadSource },
     });
 
     if (error) {

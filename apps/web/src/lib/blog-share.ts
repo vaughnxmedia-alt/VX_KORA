@@ -13,23 +13,23 @@ export function getSiteOrigin(): string {
   if (typeof window !== "undefined" && window.location?.origin) {
     return window.location.origin;
   }
-  return "https://jahknowspr.com";
+  return "https://www.jahknowspr.com";
 }
 
 /** Production marketing site origin for links copied from the dashboard (avoid localhost). */
 export function getPublicSiteOrigin(): string {
   const fromEnv = (import.meta.env.VITE_PUBLIC_SITE_URL as string | undefined)?.trim();
-  if (fromEnv) return fromEnv.replace(/\/$/, "");
-  return "https://jahknowspr.com";
+  if (fromEnv) return fromEnv.replace(/\/$/, "").replace("https://jahknowspr.com", "https://www.jahknowspr.com");
+  return "https://www.jahknowspr.com";
 }
 
 export function getDefaultOgImageAbsoluteUrl(): string {
-  return `${getSiteOrigin()}${DEFAULT_OG_IMAGE_PATH}`;
+  return `${getPublicSiteOrigin()}${DEFAULT_OG_IMAGE_PATH}`;
 }
 
 /** URL path segment for /the-brief/:segment — prefers slug when set. */
 export function buildBlogPathSegment(post: { id: string; slug?: string | null }): string {
-  const slug = post.slug?.trim();
+  const slug = post.slug?.trim().replace(/^\/+|\/+$/g, "");
   if (slug) return slug;
   return post.id;
 }
@@ -39,7 +39,7 @@ export function buildBlogPathSegment(post: { id: string; slug?: string | null })
  * Uses slug in the path when the post has one so links match the readable URL.
  */
 export function buildBlogCanonicalUrlFromPost(post: { id: string; slug?: string | null }): string {
-  return `${getSiteOrigin()}/the-brief/${encodeURIComponent(buildBlogPathSegment(post))}`;
+  return `${getPublicSiteOrigin()}/the-brief/${encodeURIComponent(buildBlogPathSegment(post))}`;
 }
 
 /**
@@ -53,7 +53,7 @@ export function buildBlogPublicUrlForShare(post: { id: string; slug?: string | n
  * Legacy helper when you only have an id (no slug context).
  */
 export function buildBlogCanonicalUrl(postId: string): string {
-  return `${getSiteOrigin()}/the-brief/${encodeURIComponent(postId)}`;
+  return `${getPublicSiteOrigin()}/the-brief/${encodeURIComponent(postId.replace(/^\/+|\/+$/g, ""))}`;
 }
 
 /**

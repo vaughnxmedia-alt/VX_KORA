@@ -4,10 +4,15 @@ import { Resend } from "resend";
 import { z } from "https://deno.land/x/zod/mod.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { logOutboundEmail } from "../_shared/outbound-email-log.ts";
+import {
+  readAttributionFromPayload,
+  safeRecordOutcome,
+  safeUpsertFunnelAttribution,
+} from "../_shared/lls.ts";
 
 const FROM_NAME = "Jah Jah";
 const FROM_EMAIL = "welcome@jahknowspr.com";
-const THE_BRIEF_URL = "https://jahknowspr.com/the-brief";
+const THE_BRIEF_URL = "https://www.jahknowspr.com/the-brief";
 
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -35,7 +40,8 @@ serve(async (req) => {
         }
       );
     }
-    const { record } = await req.json();
+    const body = await req.json();
+    const { record } = body;
     const validationResult = subscriberSchema.safeParse(record);
     if (!validationResult.success) {
       return new Response(
@@ -53,6 +59,7 @@ serve(async (req) => {
       );
     }
     const { name, email } = validationResult.data;
+    const leadSource = readAttributionFromPayload(body as Record<string, unknown>);
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const resend = new Resend(RESEND_API_KEY);
 
@@ -67,6 +74,7 @@ serve(async (req) => {
         name,
         email,
         access_token: accessToken,
+        lead_source: leadSource,
       })
       .select()
       .single();
@@ -138,6 +146,48 @@ serve(async (req) => {
         bodyText: toPlainText(emailHtml),
       });
     }
+    await Promise.allSettled([
+      safeUpsertFunnelAttribution(supabaseAdmin, {
+        lead_key: email.trim().toLowerCase(),
+        lead_kind: "subscriber",
+        attribution_confidence: 0.55,
+        multi_touch_weight: 0.35,
+        ...leadSource,
+        metadata: { ...leadSource.metadata, subscriber_id: subscriber.id },
+      }),
+      safeRecordOutcome(supabaseAdmin, {
+        lead_id: email.trim().toLowerCase(),
+        subject_kind: "lead",
+        subject_id: subscriber.id,
+        actor_kind: "anonymous",
+        action: "lead_captured",
+        strategy_origin: "human_defined",
+        learning_mode: "validated_learning",
+        intended_metric_type: "strategy_session_booking",
+        actual_metric_type: "subscriber_created",
+        predicted_conversion_probability: 0.08,
+        expected_baseline: 0,
+        delta_value: 1,
+        success_flag: true,
+        revenue_impact: 0,
+        outcome_verified: true,
+        verification_source: "system",
+        verification_confidence_component: 0.85,
+        causal_method: "heuristic",
+        causal_confidence_component: 0.45,
+        evidence_strength_component: 0.2,
+        status: "success",
+        business_goal: "lead_quality",
+        correlation_id: leadSource.correlation_id ?? email.trim().toLowerCase(),
+        strategy_id: "system:subscriber-lead-capture",
+        messaging_angle: leadSource.messaging_angle ?? "subscriber_signup",
+        hook: leadSource.hook ?? "newsletter_signup",
+        projection_version: "lls-projection-v1:lead-capture",
+        intended_outcome: { target: "book_strategy_session" },
+        actual_outcome: { subscriber_id: subscriber.id, email_sent: true },
+        metadata: { name, leadSource },
+      }),
+    ]);
     return new Response(
       JSON.stringify({
         message: "Subscription successful.",

@@ -476,7 +476,7 @@ const BrandBlueprint = () => {
             }
 
             // Insert brand blueprint data
-            const { error: blueprintError } = await supabase
+            const { data: blueprintData, error: blueprintError } = await supabase
                 .from("brand_blueprints")
                 .insert({
                     customer_id: customerData.id,
@@ -488,12 +488,57 @@ const BrandBlueprint = () => {
                     submitted_at: new Date().toISOString(),
                     payment_status: 'pending',
                     payment_amount: 250.00,
-                });
+                })
+                .select("id")
+                .single();
 
             if (blueprintError) {
                 console.error("Brand blueprint data error:", blueprintError);
                 throw blueprintError;
             }
+
+            await Promise.allSettled([
+                supabase.functions.invoke("lls-record-outcome", {
+                    body: {
+                        tenant_id: customerData.id,
+                        lead_id: data.email.trim().toLowerCase(),
+                        subject_kind: "brand_blueprint",
+                        subject_id: blueprintData?.id ?? customerData.id,
+                        actor_kind: "client",
+                        actor_id: user.id,
+                        action: "intake_submitted",
+                        strategy_origin: "human_defined",
+                        learning_mode: "validated_learning",
+                        intended_metric_type: "client_readiness",
+                        actual_metric_type: "brand_blueprint_submission",
+                        delta_value: 1,
+                        success_flag: true,
+                        revenue_impact: 250,
+                        outcome_verified: true,
+                        verification_source: "system",
+                        verification_confidence_component: 0.9,
+                        causal_method: "direct_attribution",
+                        causal_confidence_component: 0.7,
+                        evidence_strength_component: 0.4,
+                        status: "success",
+                        business_goal: "client_readiness",
+                        correlation_id: data.email.trim().toLowerCase(),
+                        strategy_id: "system:brand-blueprint-intake",
+                        messaging_angle: "brand_blueprint_intake",
+                        hook: "paid_brand_blueprint",
+                        projection_version: "lls-projection-v1:brand-blueprint",
+                        intended_outcome: { submitted_brand_blueprint: true },
+                        actual_outcome: {
+                            brand_blueprint_id: blueprintData?.id ?? null,
+                            payment_status: "pending",
+                        },
+                        metadata: {
+                            business_name: data.businessName,
+                            website_or_social: data.websiteOrSocial,
+                        },
+                    },
+                }),
+            ]);
 
             toast({
                 title: "Success!",

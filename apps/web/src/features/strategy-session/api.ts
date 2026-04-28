@@ -4,6 +4,7 @@ import {
   FunctionsRelayError,
 } from "@supabase/supabase-js";
 import { supabase, supabaseIsConfigured } from "@/integrations/supabase/client";
+import { readFreeAuditAttribution } from "@/lib/freeAuditAttribution";
 import type { IntakeValues } from "./schema";
 
 function ensureSupabaseForEdgeFunctions() {
@@ -250,6 +251,7 @@ export async function submitStrategySessionBooking(
   }
   ensureSupabaseForEdgeFunctions();
   const code = intake.employeeReferenceCode?.trim();
+  const leadSource = readFreeAuditAttribution();
   const { data, error } = await supabase.functions.invoke("strategy-session-book", {
     body: {
       fullName: intake.fullName,
@@ -271,6 +273,7 @@ export async function submitStrategySessionBooking(
       ...(promo ? { promoCode: promo } : {}),
       ...(code ? { employeeReferenceCode: code.toUpperCase() } : {}),
       ...(options?.bookingKind ? { bookingKind: options.bookingKind } : {}),
+      leadSource,
     },
   });
   if (error) {

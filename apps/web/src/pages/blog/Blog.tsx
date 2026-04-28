@@ -7,7 +7,11 @@ import { Clock, ArrowRight, X, User, Flame } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { deriveBriefPageSections } from "@/lib/brief-listing";
-import { buildBlogPathSegment } from "@/lib/blog-share";
+import {
+  buildBlogPathSegment,
+  getDefaultOgImageAbsoluteUrl,
+  getPublicSiteOrigin,
+} from "@/lib/blog-share";
 import {
   Pagination,
   PaginationContent,
@@ -39,10 +43,72 @@ type BlogPost = {
 
 const updateTheBriefSEO = () => {
   document.title = "The Brief | JahKnowsPR";
-  const metaDescription = document.querySelector('meta[name="description"]');
-  if (metaDescription) {
-    metaDescription.setAttribute('content', 'Strategic insights on brand intelligence, public relations, and influence for founders and organizations.');
-  }
+  const description = "Strategic insights on brand intelligence, public relations, positioning, and influence for founders and organizations.";
+  const canonicalUrl = `${getPublicSiteOrigin()}/the-brief`;
+  const head = document.head;
+
+  document.querySelectorAll('meta[property^="og:"], meta[name^="twitter:"], link[rel="canonical"], script[data-seo="the-brief"]').forEach((tag) => tag.remove());
+
+  const setMeta = (selector: string, attr: "name" | "property", key: string, content: string) => {
+    let meta = document.querySelector(selector) as HTMLMetaElement | null;
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.setAttribute(attr, key);
+      head.appendChild(meta);
+    }
+    meta.setAttribute("content", content);
+  };
+
+  setMeta('meta[name="description"]', "name", "description", description);
+  setMeta('meta[name="robots"]', "name", "robots", "index,follow,max-image-preview:large");
+
+  const canonical = document.createElement("link");
+  canonical.rel = "canonical";
+  canonical.href = canonicalUrl;
+  head.appendChild(canonical);
+
+  [
+    ["og:title", "The Brief | JahKnowsPR"],
+    ["og:description", description],
+    ["og:type", "website"],
+    ["og:url", canonicalUrl],
+    ["og:site_name", "JahKnowsPR"],
+    ["og:image", getDefaultOgImageAbsoluteUrl()],
+  ].forEach(([property, content]) => {
+    const meta = document.createElement("meta");
+    meta.setAttribute("property", property);
+    meta.setAttribute("content", content);
+    head.appendChild(meta);
+  });
+
+  [
+    ["twitter:card", "summary_large_image"],
+    ["twitter:title", "The Brief | JahKnowsPR"],
+    ["twitter:description", description],
+    ["twitter:image", getDefaultOgImageAbsoluteUrl()],
+  ].forEach(([name, content]) => {
+    const meta = document.createElement("meta");
+    meta.setAttribute("name", name);
+    meta.setAttribute("content", content);
+    head.appendChild(meta);
+  });
+
+  const structuredData = document.createElement("script");
+  structuredData.type = "application/ld+json";
+  structuredData.dataset.seo = "the-brief";
+  structuredData.textContent = JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "Blog",
+    name: "The Brief",
+    description,
+    url: canonicalUrl,
+    publisher: {
+      "@type": "Organization",
+      name: "JahKnowsPR Firm",
+      url: getPublicSiteOrigin(),
+    },
+  });
+  head.appendChild(structuredData);
 };
 
 const Blog = () => {
@@ -385,6 +451,22 @@ const Blog = () => {
           </div>
         )}
       </div>
+
+      <section className="border-t bg-muted/20 px-4 py-12 sm:px-6">
+        <div className="mx-auto flex max-w-4xl flex-col items-center gap-4 text-center">
+          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-gold-dark">Next Step</p>
+          <h2 className="font-serif text-3xl font-bold text-primary">Turn the insight into a diagnosis.</h2>
+          <p className="max-w-2xl text-muted-foreground">
+            Read the thinking, then diagnose where your brand is losing clarity before you push for more visibility.
+          </p>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Button onClick={() => navigate("/free-audit")}>Start Free Audit</Button>
+            <Button variant="outline" onClick={() => navigate("/brand-strategy-session")}>
+              Book Strategy Session
+            </Button>
+          </div>
+        </div>
+      </section>
 
     </div>
   );

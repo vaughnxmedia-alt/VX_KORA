@@ -20,6 +20,11 @@
       "import": "./dist/events/index.mjs",
       "require": "./dist/events/index.js",
       "types": "./dist/events/index.d.ts"
+    },
+    "./lls": {
+      "import": "./dist/lls/index.mjs",
+      "require": "./dist/lls/index.js",
+      "types": "./dist/lls/index.d.ts"
     }
   },
   "scripts": {

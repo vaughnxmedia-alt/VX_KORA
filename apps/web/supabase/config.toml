@@ -43,6 +43,9 @@ verify_jwt = true
 [functions.leads-email-draft-generate]
 verify_jwt = true
 
+[functions.send-free-audit-report]
+verify_jwt = true
+
 [functions.new-subscriber]
 verify_jwt = false
 

@@ -2,6 +2,12 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "https://deno.land/x/zod/mod.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import {
+  buildMemoryProjectionPrompt,
+  findHardConstraintViolation,
+  loadMemoryProjection,
+  type MemoryProjection,
+} from "../_shared/lls_memory_projection.ts";
 
 const bodySchema = z.object({
   templateType: z.enum(["lead_confirmation"]).default("lead_confirmation"),
@@ -81,6 +87,28 @@ serve(async (req) => {
     }
 
     const lead = parsed.data.lead;
+    let memoryProjection: MemoryProjection = {
+      priority_angles: [],
+      avoid_patterns: [],
+      prompt_modifiers: [],
+      hard_constraints: [],
+      projection_version: "lls-projection-v1:empty",
+      strategy_id: null,
+      proposal_id: null,
+      messaging_angle: "unclassified",
+      hook: "unclassified",
+    };
+    if (lead.meetingId) {
+      const { data: meeting } = await supabase
+        .from("meetings")
+        .select("customer_id")
+        .eq("id", lead.meetingId)
+        .maybeSingle();
+      if (meeting?.customer_id) {
+        memoryProjection = await loadMemoryProjection(supabase, meeting.customer_id as string);
+      }
+    }
+    const projectionPrompt = buildMemoryProjectionPrompt(memoryProjection);
     const prompt = [
       "Draft a concise, high-conviction confirmation email for a paid Strategy Session.",
       "Return strict JSON only with keys: subject, bodyHtml, rationale.",
@@ -89,6 +117,8 @@ serve(async (req) => {
       "- Mention this is employee-approved communication.",
       "- Include exact booking context where provided.",
       "- bodyHtml should be valid HTML fragment (no markdown, no code fences).",
+      "- Apply all active LLS behavior controls below. Hard constraints override copy generation.",
+      projectionPrompt,
       `Lead context: ${JSON.stringify(lead)}`,
     ].join("\n");
 
@@ -134,12 +164,30 @@ serve(async (req) => {
       };
     }
 
+    const violation = findHardConstraintViolation(
+      `${draft.subject ?? ""}\n${draft.bodyHtml ?? ""}`,
+      memoryProjection,
+    );
+    if (violation) {
+      return new Response(
+        JSON.stringify({ error: `Generated draft violated active LLS hard constraint: ${violation}` }),
+        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     return new Response(
       JSON.stringify({
         subject: draft.subject || "Confirmed — Your Strategy Session ($150)",
         bodyHtml: draft.bodyHtml || "",
         rationale: draft.rationale || "",
         generatedBy: "gemini",
+        lls_trace: {
+          strategy_id: memoryProjection.strategy_id,
+          proposal_id: memoryProjection.proposal_id,
+          messaging_angle: memoryProjection.messaging_angle,
+          hook: memoryProjection.hook,
+          projection_version: memoryProjection.projection_version,
+        },
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );

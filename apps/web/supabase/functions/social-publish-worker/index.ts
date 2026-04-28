@@ -1,6 +1,7 @@
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { decryptToken } from "../_shared/token-crypto.ts";
+import { safeRecordOutcome } from "../_shared/lls.ts";
 
 async function publishToFacebookPage(pageId: string, token: string, message: string) {
   const res = await fetch(`https://graph.facebook.com/v20.0/${pageId}/feed`, {
@@ -158,6 +159,43 @@ Deno.serve(async (req) => {
           lock_acquired_at: null,
         })
         .eq("id", job.id);
+
+      await Promise.allSettled([
+        safeRecordOutcome(admin, {
+          subject_kind: "publish_job",
+          subject_id: job.id,
+          actor_kind: "system",
+          action: status === "published" ? "content_published" : "content_publish_failed",
+          strategy_origin: "ai_discovered",
+          learning_mode: "validated_learning",
+          intended_metric_type: "campaign_performance",
+          actual_metric_type: status === "published" ? "provider_post_created" : "publish_error",
+          delta_value: status === "published" ? 1 : -1,
+          success_flag: status === "published",
+          revenue_impact: 0,
+          failure_type: status === "published" ? "unknown" : "execution_failure",
+          outcome_verified: true,
+          verification_source: "system",
+          verification_confidence_component: 0.9,
+          causal_method: "heuristic",
+          causal_confidence_component: 0.35,
+          evidence_strength_component: 0.25,
+          status: status === "published" ? "success" : nextRetry ? "pending" : "failed",
+          business_goal: "campaign_performance",
+          correlation_id: job.content_item_id ?? job.id,
+          strategy_id: "system:social-publish-policy",
+          messaging_angle: "campaign_execution",
+          hook: job.provider ?? "social_publish",
+          projection_version: "lls-projection-v1:social-publish",
+          intended_outcome: { publish_provider: job.provider, content_item_id: job.content_item_id },
+          actual_outcome: {
+            provider_post_id: providerPostId,
+            publish_status: nextStatus,
+            error_message: errorMessage,
+          },
+          metadata: { raw_provider_response: raw },
+        }),
+      ]);
 
       processed += 1;
     }

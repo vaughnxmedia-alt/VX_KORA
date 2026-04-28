@@ -10,6 +10,7 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { buildStrategySessionConfirmationHtml } from "../_shared/strategy-session-confirmation-email.ts";
 import { buildStrategySessionInternalNotificationHtml } from "../_shared/strategy-session-internal-notification-email.ts";
 import { logOutboundEmail } from "../_shared/outbound-email-log.ts";
+import { safeRecordOutcome } from "../_shared/lls.ts";
 
 const bodySchema = z.object({
   meetingId: z.string().uuid(),
@@ -250,6 +251,41 @@ serve(async (req) => {
       })
       .eq("id", meetingId);
 
+    await Promise.allSettled([
+      safeRecordOutcome(supabase, {
+        tenant_id: (meeting.customer_id as string | null) ?? null,
+        lead_id: guestEmail,
+        subject_kind: "meeting",
+        subject_id: meetingId,
+        actor_kind: "employee",
+        actor_id: approvedByUserId,
+        action: "strategy_session_confirmed",
+        strategy_origin: "human_defined",
+        learning_mode: "validated_learning",
+        intended_metric_type: "strategy_session_show_up",
+        actual_metric_type: "confirmation_sent",
+        delta_value: 1,
+        success_flag: true,
+        revenue_impact: 0,
+        outcome_verified: true,
+        verification_source: "system",
+        verification_confidence_component: 0.95,
+        causal_method: "direct_attribution",
+        causal_confidence_component: 0.75,
+        evidence_strength_component: 0.5,
+        status: "success",
+        business_goal: "booked_strategy_session",
+        correlation_id: guestEmail,
+        strategy_id: "system:strategy-session-confirmation",
+        messaging_angle: "strategy_session_confirmation",
+        hook: "employee_confirmation",
+        projection_version: "lls-projection-v1:strategy-session",
+        intended_outcome: { confirmation_status: "sent" },
+        actual_outcome: { guest_email_sent: true, ops_email_sent: true },
+        metadata: { generated_by: generatedByValue, host_user_id: meeting.host_user_id },
+      }),
+    ]);
+
     return new Response(
       JSON.stringify({ ok: true, meetingId, confirmationStatus: "sent" }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -272,6 +308,41 @@ serve(async (req) => {
       bodyText: toPlainText(htmlGuest),
     });
     await supabase.from("meetings").update({ confirmation_status: "failed" }).eq("id", meetingId);
+    await Promise.allSettled([
+      safeRecordOutcome(supabase, {
+        tenant_id: (meeting.customer_id as string | null) ?? null,
+        lead_id: guestEmail,
+        subject_kind: "meeting",
+        subject_id: meetingId,
+        actor_kind: "employee",
+        actor_id: approvedByUserId,
+        action: "strategy_session_confirmation_failed",
+        strategy_origin: "human_defined",
+        learning_mode: "validated_learning",
+        intended_metric_type: "strategy_session_show_up",
+        actual_metric_type: "confirmation_failed",
+        delta_value: -1,
+        success_flag: false,
+        revenue_impact: 0,
+        failure_type: "execution_failure",
+        outcome_verified: true,
+        verification_source: "system",
+        verification_confidence_component: 0.9,
+        causal_method: "direct_attribution",
+        causal_confidence_component: 0.8,
+        evidence_strength_component: 0.45,
+        status: "failed",
+        business_goal: "execution_compliance",
+        correlation_id: guestEmail,
+        strategy_id: "system:strategy-session-confirmation",
+        messaging_angle: "strategy_session_confirmation",
+        hook: "employee_confirmation",
+        projection_version: "lls-projection-v1:strategy-session",
+        intended_outcome: { confirmation_status: "sent" },
+        actual_outcome: { error: e instanceof Error ? e.message : "Failed to send confirmation emails" },
+        metadata: { generated_by: generatedByValue },
+      }),
+    ]);
     return new Response(
       JSON.stringify({
         error: e instanceof Error ? e.message : "Failed to send confirmation emails",

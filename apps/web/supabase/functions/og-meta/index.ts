@@ -1,6 +1,6 @@
 /**
  * Open Graph / crawler HTML for blog posts.
- * Optional secret: SITE_URL — public site origin for canonical links (default https://jahknowspr.com).
+ * Optional secret: SITE_URL — public site origin for canonical links (default https://www.jahknowspr.com).
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
@@ -115,8 +115,8 @@ Deno.serve(async (req) => {
     console.log(`Found post: ${post.title}`);
 
     // Get the site URL from environment or construct it
-    const siteUrl = (Deno.env.get("SITE_URL") || "https://jahknowspr.com").replace(/\/$/, "");
-    const pathSegment = (post.slug && String(post.slug).trim()) || post.id;
+    const siteUrl = (Deno.env.get("SITE_URL") || "https://www.jahknowspr.com").replace(/\/$/, "");
+    const pathSegment = ((post.slug && String(post.slug).trim()) || post.id).replace(/^\/+|\/+$/g, "");
     const postUrl = `${siteUrl}/the-brief/${encodeURIComponent(pathSegment)}`;
     const rawCover = (post.cover_image_url || "").trim();
     const imageUrl = rawCover

@@ -75,7 +75,7 @@ export const Footer = () => {
             <Link to="/privacy" className="hover:text-primary transition-colors">Privacy</Link>
             <Link to="/data-deletion" className="hover:text-primary transition-colors">Data deletion</Link>
             <Link to="/terms" className="hover:text-primary transition-colors">Terms</Link>
-            <Link to="/sitemap" className="hover:text-primary transition-colors">Sitemap</Link>
+            <a href="/sitemap.xml" className="hover:text-primary transition-colors">Sitemap</a>
           </div>
         </div>
       </div>

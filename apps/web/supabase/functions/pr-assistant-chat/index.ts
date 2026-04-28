@@ -20,9 +20,128 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { safeRecordOutcome } from "../_shared/lls.ts";
+import {
+  buildMemoryProjectionPrompt,
+  findHardConstraintViolation,
+  loadMemoryProjection,
+  type MemoryProjection,
+} from "../_shared/lls_memory_projection.ts";
 
 const DEFAULT_CHAT_MODEL = "gpt-4o";
 const DEFAULT_RESPONSES_MODEL = "gpt-5.4";
+
+function normalizeTone(value: unknown):
+  | "authority"
+  | "relatability"
+  | "challenger"
+  | "educational"
+  | "inspirational"
+  | "direct"
+  | "unknown" {
+  if (typeof value !== "string") return "unknown";
+  const normalized = value.toLowerCase();
+  if (normalized.includes("authority")) return "authority";
+  if (normalized.includes("relatable")) return "relatability";
+  if (normalized.includes("challenger")) return "challenger";
+  if (normalized.includes("educat")) return "educational";
+  if (normalized.includes("inspir")) return "inspirational";
+  if (normalized.includes("direct")) return "direct";
+  return "unknown";
+}
+
+async function recordAssistantOutcome(payload: {
+  userId: string;
+  context: Record<string, unknown>;
+  action: string;
+  success: boolean;
+  responseId?: string;
+  metadata?: Record<string, unknown>;
+  projection?: MemoryProjection;
+}) {
+  const url = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !serviceKey) return;
+  const admin = createClient(url, serviceKey);
+  try {
+    const result = await safeRecordOutcome(admin, {
+      tenant_id: typeof payload.context.customer_id === "string" ? payload.context.customer_id : null,
+      lead_id: payload.userId,
+      subject_kind: "assistant_message",
+      subject_id: payload.responseId ?? crypto.randomUUID(),
+      actor_kind: "agent",
+      actor_id: payload.userId,
+      action: payload.action,
+      strategy_origin: "ai_discovered",
+      learning_mode: "validated_learning",
+      intended_metric_type: "client_readiness",
+      actual_metric_type: payload.success ? "assistant_response" : "assistant_error",
+      delta_value: payload.success ? 1 : -1,
+      success_flag: payload.success,
+      revenue_impact: 0,
+      failure_type: payload.success ? "unknown" : "execution_failure",
+      outcome_verified: true,
+      verification_source: "system",
+      verification_confidence_component: 0.75,
+      causal_method: "unknown",
+      causal_confidence_component: 0.15,
+      evidence_strength_component: 0.15,
+      status: payload.success ? "success" : "failed",
+      business_goal: "client_readiness",
+      correlation_id: typeof payload.context.content_plan_id === "string"
+        ? payload.context.content_plan_id
+        : payload.userId,
+      strategy_id: payload.projection?.strategy_id ?? "system:pr-assistant",
+      proposal_id: payload.projection?.proposal_id ?? null,
+      messaging_angle: payload.projection?.messaging_angle ?? "assistant_response",
+      hook: payload.projection?.hook ?? "assistant_response",
+      projection_version: payload.projection?.projection_version ?? "lls-projection-v1:unavailable",
+      intended_outcome: { page_context: payload.context.page_context ?? "pr_assistant" },
+      actual_outcome: { response_id: payload.responseId ?? null },
+      metadata: {
+        ...(payload.metadata ?? {}),
+        priority_angles: payload.projection?.priority_angles ?? [],
+      },
+    });
+    if (result.id) {
+      await admin.from("lls_behavior_signals").insert({
+        outcome_event_id: result.id,
+        tenant_id: typeof payload.context.customer_id === "string" ? payload.context.customer_id : null,
+        subject_kind: "assistant_message",
+        subject_id: payload.responseId ?? null,
+        tone_type: normalizeTone(payload.context.tone_direction),
+        emotional_trigger: typeof payload.context.messaging_direction === "string"
+          ? payload.context.messaging_direction
+          : null,
+        audience_response_type: payload.success ? "assistant_response_delivered" : "assistant_response_failed",
+        conversion_path: typeof payload.context.page_context === "string"
+          ? payload.context.page_context
+          : "pr_assistant",
+        decision_confidence: payload.success ? "medium" : "low",
+        time_to_decision_seconds: null,
+        metadata: payload.metadata ?? {},
+      });
+    }
+  } catch (error) {
+    console.error("[LLS] assistant behavior signal write failed", error);
+  }
+}
+
+async function loadProjectionForContext(ctx: Record<string, unknown>) {
+  const tenantId = typeof ctx.customer_id === "string" ? ctx.customer_id : null;
+  const url = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!tenantId || !url || !serviceKey) {
+    return {
+      priority_angles: [],
+      avoid_patterns: [],
+      prompt_modifiers: [],
+      hard_constraints: [],
+    };
+  }
+  const admin = createClient(url, serviceKey);
+  return await loadMemoryProjection(admin, tenantId);
+}
 
 const SYSTEM_PROMPT = `You are K.O.R.A (Knowledge Oriented Retrieval Assistant), the strategic AI partner for JahKnowsPR — a brand intelligence and public relations consultancy that transforms founders, creators, and organizations into industry authorities.
 
@@ -293,6 +412,8 @@ serve(async (req) => {
     }
 
     const creativeHubText = typeof userMessage === "string" ? userMessage.trim() : "";
+    const memoryProjection = await loadProjectionForContext(ctx);
+    const memoryProjectionPrompt = buildMemoryProjectionPrompt(memoryProjection);
 
     if (ctx.page_context === "creative_hub" && creativeHubText) {
       const openaiKey = Deno.env.get("OPENAI_API_KEY");
@@ -305,7 +426,7 @@ serve(async (req) => {
       }
 
       const model = Deno.env.get("OPENAI_RESPONSES_MODEL")?.trim() || DEFAULT_RESPONSES_MODEL;
-      const instructions = SYSTEM_PROMPT + buildCreativeHubStrategySuffix(ctx);
+      const instructions = SYSTEM_PROMPT + memoryProjectionPrompt + buildCreativeHubStrategySuffix(ctx);
 
       const planId = typeof ctx.content_plan_id === "string" ? ctx.content_plan_id : null;
       if (planId) {
@@ -389,6 +510,13 @@ serve(async (req) => {
 
       const responseId = typeof oaiData.id === "string" ? oaiData.id : "";
       const text = extractResponsesAssistantText(oaiData);
+      const violation = findHardConstraintViolation(text, memoryProjection);
+      if (violation) {
+        return new Response(
+          JSON.stringify({ error: `Generated response violated active LLS hard constraint: ${violation}` }),
+          { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
       if (!text) {
         const preview = typeof oaiData.output === "object"
           ? JSON.stringify(oaiData.output).slice(0, 1200)
@@ -406,13 +534,33 @@ serve(async (req) => {
         }
       }
 
-      return new Response(JSON.stringify({ responseId, text }), {
+      await recordAssistantOutcome({
+        userId: user.id,
+        context: ctx,
+        action: "assistant_response_delivered",
+        success: true,
+        responseId,
+        metadata: { mode: "creative_hub", model },
+        projection: memoryProjection,
+      });
+
+      return new Response(JSON.stringify({
+        responseId,
+        text,
+        lls_trace: {
+          strategy_id: memoryProjection.strategy_id,
+          proposal_id: memoryProjection.proposal_id,
+          messaging_angle: memoryProjection.messaging_angle,
+          hook: memoryProjection.hook,
+          projection_version: memoryProjection.projection_version,
+        },
+      }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const systemPrompt = SYSTEM_PROMPT + buildCreativeHubStrategySuffix(ctx);
+    const systemPrompt = SYSTEM_PROMPT + memoryProjectionPrompt + buildCreativeHubStrategySuffix(ctx);
 
     if (!messages || !Array.isArray(messages as unknown[])) {
       return new Response(
@@ -477,8 +625,23 @@ serve(async (req) => {
       });
     }
 
+    await recordAssistantOutcome({
+      userId: user.id,
+      context: ctx,
+      action: "assistant_response_delivered",
+      success: true,
+      metadata: { mode: "pr_assistant", model, message_count: trimmedMessages.length },
+      projection: memoryProjection,
+    });
+
     return new Response(response.body, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "text/event-stream",
+        "X-LLS-Projection-Version": memoryProjection.projection_version,
+        "X-LLS-Messaging-Angle": memoryProjection.messaging_angle ?? "unclassified",
+        "X-LLS-Hook": memoryProjection.hook ?? "unclassified",
+      },
     });
   } catch (error) {
     console.error("Chat error:", error);

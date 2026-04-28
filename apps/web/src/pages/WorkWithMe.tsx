@@ -25,6 +25,10 @@ function WhoItBelongsTo({ children }: { children: string }) {
   );
 }
 
+/** Same destination as each section’s primary CTA; shared affordance for title + button. */
+const sectionHeadingLinkClass =
+  "text-foreground hover:text-primary underline-offset-4 hover:underline transition-colors rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
+
 /**
  * Services (/work-with-me) — JahKnowsPR / KORA offer ladder.
  */
@@ -68,7 +72,11 @@ const WorkWithMe = () => {
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">01 · Paid session</p>
           </div>
           <div className="flex flex-wrap items-center gap-3 md:gap-4">
-            <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Strategy Session</h2>
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
+              <Link to="/brand-strategy-session" className={sectionHeadingLinkClass}>
+                Strategy Session
+              </Link>
+            </h2>
             <span
               className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/50 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-300"
               title="Bestseller"
@@ -130,7 +138,11 @@ const WorkWithMe = () => {
             <BookOpen className="h-8 w-8 shrink-0" aria-hidden />
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">02 · Free</p>
           </div>
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">The Brief</h2>
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
+            <Link to="/the-brief" className={sectionHeadingLinkClass}>
+              The Brief
+            </Link>
+          </h2>
           <div className="space-y-4 text-base md:text-lg text-foreground/90 leading-relaxed">
             <p>
               The Brief is our free perspective layer for founders, creatives, and operators who want sharper thinking
@@ -160,7 +172,11 @@ const WorkWithMe = () => {
             <Palette className="h-8 w-8 shrink-0" aria-hidden />
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">03 · Production</p>
           </div>
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Creative Work &amp; Production</h2>
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
+            <Link to="/consultation/creative-production" className={sectionHeadingLinkClass}>
+              Creative Work &amp; Production
+            </Link>
+          </h2>
           <div className="space-y-4 text-base md:text-lg text-foreground/90 leading-relaxed">
             <p>
               When you need execution, this is where creative work lives. That includes videography, photography,
@@ -188,7 +204,11 @@ const WorkWithMe = () => {
             <MessageCircle className="h-8 w-8 shrink-0" aria-hidden />
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">04 · Add-on</p>
           </div>
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Join KORA on Telegram</h2>
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
+            <Link to="/kora/telegram-subscription" className={sectionHeadingLinkClass}>
+              Join KORA on Telegram
+            </Link>
+          </h2>
           <div className="space-y-4 text-base md:text-lg text-foreground/90 leading-relaxed">
             <p>
               KORA on Telegram gives you light, ongoing support in a faster format. It is designed for people who want
@@ -218,7 +238,11 @@ const WorkWithMe = () => {
             <Megaphone className="h-8 w-8 shrink-0" aria-hidden />
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">05 · Ongoing</p>
           </div>
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Campaigns &amp; Retainers</h2>
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
+            <Link to="/consultation/campaign-retainer" className={sectionHeadingLinkClass}>
+              Campaigns &amp; Retainers
+            </Link>
+          </h2>
           <div className="space-y-4 text-base md:text-lg text-foreground/90 leading-relaxed">
             <p>
               Our retainers are for brands that need ongoing strategy, campaign leadership, and consistent movement over

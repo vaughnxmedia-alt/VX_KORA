@@ -22,6 +22,7 @@ import {
   Wand2,
   Globe,
   Truck,
+  SearchCheck,
 } from "lucide-react";
 
 export interface NavItem {
@@ -85,6 +86,7 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
   {
     label: "GROWTH",
     items: [
+      { key: "audits", title: "Audits", url: "/dashboard/audits", icon: SearchCheck, adminOnly: true },
       { key: "leads", title: "Leads", url: "/dashboard/leads", icon: Target, adminOnly: true },
       { key: "subscribers", title: "Subscribers", url: "/dashboard/subscribers", icon: Mail },
       { key: "clients", title: "Telegram users", url: "/dashboard/clients", icon: UserCheck, adminOnly: true },
@@ -110,6 +112,7 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
 export const ADMIN_ONLY_KEYS = [
   "events",
   "leads",
+  "audits",
   "clients",
   "intake",
   "admin",

@@ -29,12 +29,21 @@ import { isAppOwnerJustice } from "@/lib/super-ops";
 
 /**
  * Mission Control admin app (see apps/mission-control/vite.config.ts).
- * Local dev defaults to port 5174. Production requires VITE_MISSION_CONTROL_URL on the host (e.g. Vercel) so the
- * dashboard sidebar can open the correct origin; rebuild after changing env.
+ * Local dev defaults to port 5174 (apps/web often runs on 5173 — do not point MC there).
+ * Production requires VITE_MISSION_CONTROL_URL on the host (e.g. Vercel); rebuild after changing env.
  */
+function normalizeMissionControlOrigin(url: string): string {
+  const trimmed = url.replace(/\/$/, "");
+  // Common mistake: copy the main site dev port (5173) instead of Mission Control (5174).
+  return trimmed.replace(/^(https?:\/\/127\.0\.0\.1):5173(?=$|[/:])/i, "$1:5174").replace(
+    /^(https?:\/\/localhost):5173(?=$|[/:])/i,
+    "$1:5174",
+  );
+}
+
 function resolveMissionControlUrl(): string | undefined {
   const fromEnv = (import.meta.env.VITE_MISSION_CONTROL_URL as string | undefined)?.trim();
-  if (fromEnv) return fromEnv.replace(/\/$/, "");
+  if (fromEnv) return normalizeMissionControlOrigin(fromEnv);
   if (import.meta.env.DEV) return "http://localhost:5174";
   return undefined;
 }

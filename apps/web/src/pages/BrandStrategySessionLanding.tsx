@@ -10,7 +10,8 @@ const strategySessionBookPath = "/strategy-session";
  * and set `VITE_PR_VS_MARKETING_VIDEO_URL` on Vercel. Local: optional `public/videos/pr-vs-marketing.mp4` (gitignored).
  */
 function prVsMarketingVideoSrc(): string {
-  const url = (import.meta.env.VITE_PR_VS_MARKETING_VIDEO_URL as string | undefined)?.trim();
+  const raw = (import.meta.env.VITE_PR_VS_MARKETING_VIDEO_URL as string | undefined)?.trim();
+  const url = raw?.replace(/^['"]|['"]$/g, "");
   if (url) return url;
   return "/videos/pr-vs-marketing.mp4";
 }

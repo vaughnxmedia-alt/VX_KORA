@@ -11,5 +11,8 @@ export * from "./types"
 // Re-export all events
 export * from "./events"
 
+// Re-export Learning Log System contracts
+export * from "./lls"
+
 // Version
 export const SDK_VERSION = "1.0.0"

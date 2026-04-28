@@ -11,6 +11,7 @@ import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import rehypeSanitize from "rehype-sanitize";
 import {
   buildBlogCanonicalUrlFromPost,
+  buildBlogPathSegment,
   getDefaultOgImageAbsoluteUrl,
   isBlogRouteParamUuid,
 } from "@/lib/blog-share";
@@ -39,24 +40,39 @@ type BlogPostType = {
 // Comprehensive SEO function for individual blog post
 const updateBlogPostSEO = (post: BlogPostType) => {
   // Title tag
-  document.title = `${post.title} | The Brief - Expert Brand Strategy Insights`;
+  document.title = `${post.title} | The Brief | JahKnowsPR`;
   
   // Meta description
-  const metaDescription = document.querySelector('meta[name="description"]');
+  const head = document.head;
+  const description = post.description || `${post.title} - Strategic insights on brand intelligence and public relations from JahKnowsPR.`;
+  const canonicalUrl = buildBlogCanonicalUrlFromPost(post);
+
+  const metaDescription = document.querySelector('meta[name="description"]') as HTMLMetaElement | null;
   if (metaDescription) {
-    metaDescription.setAttribute('content', post.description || `${post.title} - Strategic insights on brand intelligence and public relations from JahKnowsPR.`);
+    metaDescription.setAttribute('content', description);
+  } else {
+    const meta = document.createElement("meta");
+    meta.name = "description";
+    meta.content = description;
+    head.appendChild(meta);
   }
+
+  let robots = document.querySelector('meta[name="robots"]') as HTMLMetaElement | null;
+  if (!robots) {
+    robots = document.createElement("meta");
+    robots.name = "robots";
+    head.appendChild(robots);
+  }
+  robots.content = "index,follow,max-image-preview:large";
   
   // Remove existing meta tags
-  const existingTags = document.querySelectorAll('meta[property^="og:"], meta[name^="twitter:"], link[rel="canonical"]');
+  const existingTags = document.querySelectorAll('meta[property^="og:"], meta[name^="twitter:"], link[rel="canonical"], script[data-seo="blog-post"]');
   existingTags.forEach(tag => tag.remove());
-  
-  const head = document.head;
-  
+
   // Canonical URL
   const canonical = document.createElement('link');
   canonical.rel = 'canonical';
-  canonical.href = window.location.href;
+  canonical.href = canonicalUrl;
   head.appendChild(canonical);
   
   // Open Graph tags
@@ -66,10 +82,10 @@ const updateBlogPostSEO = (post: BlogPostType) => {
 
   const ogTags = [
     { property: 'og:title', content: post.title },
-    { property: 'og:description', content: post.description },
+    { property: 'og:description', content: description },
     { property: 'og:type', content: 'article' },
-    { property: 'og:url', content: window.location.href },
-    { property: 'og:site_name', content: 'The Brief' },
+    { property: 'og:url', content: canonicalUrl },
+    { property: 'og:site_name', content: 'JahKnowsPR' },
     { property: 'og:image', content: ogImage },
     { property: 'og:image:width', content: '940' },
     { property: 'og:image:height', content: '788' },
@@ -91,7 +107,7 @@ const updateBlogPostSEO = (post: BlogPostType) => {
   const twitterTags = [
     { name: 'twitter:card', content: 'summary_large_image' },
     { name: 'twitter:title', content: post.title },
-    { name: 'twitter:description', content: post.description },
+    { name: 'twitter:description', content: description },
     { name: 'twitter:creator', content: '@jahknowspr' },
     { name: 'twitter:image', content: ogImage },
     { name: 'twitter:image:alt', content: post.title }
@@ -107,17 +123,16 @@ const updateBlogPostSEO = (post: BlogPostType) => {
   // Structured Data (JSON-LD)
   const structuredData = {
     "@context": "https://schema.org",
-    "@type": "Article",
+    "@type": "BlogPosting",
     "headline": post.title,
-    "description": post.description,
+    "description": description,
     "author": {
-      "@type": "Person",
-      "name": post.author_name,
-      "jobTitle": "Senior Brand Strategist"
+      "@type": "Organization",
+      "name": "JahKnowsPR Firm"
     },
     "publisher": {
       "@type": "Organization",
-      "name": "JahKnowsPR",
+      "name": "JahKnowsPR Firm",
       "logo": {
         "@type": "ImageObject",
         "url": getDefaultOgImageAbsoluteUrl()
@@ -127,8 +142,10 @@ const updateBlogPostSEO = (post: BlogPostType) => {
     "dateModified": post.published_date,
     "mainEntityOfPage": {
       "@type": "WebPage",
-      "@id": window.location.href
+      "@id": canonicalUrl
     },
+    "url": canonicalUrl,
+    "image": ogImage,
     "articleSection": post.category,
     "keywords": "brand strategy, marketing, business growth, content creation",
     "wordCount": post.content.split(' ').length,
@@ -137,6 +154,7 @@ const updateBlogPostSEO = (post: BlogPostType) => {
   
   const script = document.createElement('script');
   script.type = 'application/ld+json';
+  script.dataset.seo = "blog-post";
   script.textContent = JSON.stringify(structuredData);
   head.appendChild(script);
 };
@@ -188,12 +206,19 @@ const BlogPost = () => {
   const fetchBlogPost = useCallback(async () => {
     if (!id) return;
 
-    const byUuid = isBlogRouteParamUuid(id);
-    const { data, error } = await supabase
+    const normalizedId = id.trim().replace(/^\/+|\/+$/g, "");
+    const byUuid = isBlogRouteParamUuid(normalizedId);
+    let query = supabase
       .from("blog_posts")
       .select("*")
-      .eq(byUuid ? "id" : "slug", id)
-      .single();
+      .eq("is_hidden", false)
+      .eq("status", "published");
+    if (byUuid) {
+      query = query.eq("id", normalizedId);
+    } else {
+      query = query.or(`slug.eq.${normalizedId},slug.eq./${normalizedId}`);
+    }
+    const { data, error } = await query.single();
 
     if (error) {
       console.error("Error fetching blog post:", error);
@@ -229,12 +254,32 @@ const BlogPost = () => {
       .from("blog_posts")
       .select("*")
       .eq("category", post.category)
+      .eq("is_hidden", false)
+      .eq("status", "published")
       .neq("id", post.id)
       .limit(3);
 
-    if (data) {
-      setRelatedPosts(data as BlogPostType[]);
+    const categoryMatches = (data ?? []) as BlogPostType[];
+    if (categoryMatches.length >= 3) {
+      setRelatedPosts(categoryMatches);
+      return;
     }
+
+    const { data: latest } = await supabase
+      .from("blog_posts")
+      .select("*")
+      .eq("is_hidden", false)
+      .eq("status", "published")
+      .neq("id", post.id)
+      .order("published_date", { ascending: false })
+      .limit(3);
+
+    const merged = [...categoryMatches];
+    for (const candidate of (latest ?? []) as BlogPostType[]) {
+      if (!merged.some((item) => item.id === candidate.id)) merged.push(candidate);
+      if (merged.length >= 3) break;
+    }
+    setRelatedPosts(merged);
   }, [post]);
 
   useEffect(() => {
@@ -630,7 +675,7 @@ const BlogPost = () => {
                   className="group cursor-pointer"
                   onClick={() =>
                     navigate(
-                      `/the-brief/${encodeURIComponent(relatedPost.slug || relatedPost.id)}`,
+                      `/the-brief/${encodeURIComponent(buildBlogPathSegment(relatedPost))}`,
                     )
                   }
                 >
@@ -676,16 +721,24 @@ const BlogPost = () => {
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-serif font-bold mb-6">Ready to execute<span className="text-gold">?</span></h2>
           <p className="text-background/80 text-xl mb-10 max-w-2xl mx-auto leading-relaxed">
-            Stop guessing and start growing. Get your custom brand blueprint today.
+            Stop guessing and start growing. Diagnose the gap, then turn it into a strategy.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button 
               variant="secondary" 
               size="lg" 
-              onClick={() => navigate("/brand-blueprint")}
+              onClick={() => navigate("/free-audit")}
               className="text-lg px-8 py-6 font-bold rounded-full shadow-xl hover:scale-105 transition-transform"
             >
-              Get Your Blueprint
+              Start Free Audit
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => navigate("/brand-strategy-session")}
+              className="border-background/40 bg-transparent text-background hover:bg-background hover:text-foreground text-lg px-8 py-6 font-bold rounded-full"
+            >
+              Book Strategy Session
             </Button>
           </div>
         </div>

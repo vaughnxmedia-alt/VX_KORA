@@ -1,0 +1,40 @@
+name: LLS Revenue Intelligence Fallback
+
+on:
+  schedule:
+    - cron: "7 * * * *"
+    - cron: "17 5 * * *"
+    - cron: "27 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "RIA mode to run"
+        required: false
+        default: "hourly_scoring"
+
+jobs:
+  run-ria:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve RIA mode
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "mode=${{ github.event.inputs.mode }}" >> "$GITHUB_OUTPUT"
+          elif [ "$(date -u +%u)" = "1" ] && [ "$(date -u +%H%M)" = "0627" ]; then
+            echo "mode=weekly_memory_batch" >> "$GITHUB_OUTPUT"
+          elif [ "$(date -u +%H%M)" = "0517" ]; then
+            echo "mode=daily_insights" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=hourly_scoring" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Invoke revenue-intelligence-run
+        run: |
+          curl --fail-with-body --request POST "$LLS_RIA_FUNCTION_URL" \
+            --header "Content-Type: application/json" \
+            --header "x-lls-ria-secret: $LLS_RIA_SHARED_SECRET" \
+            --data "{\"mode\":\"${{ steps.mode.outputs.mode }}\"}"
+        env:
+          LLS_RIA_FUNCTION_URL: ${{ secrets.LLS_RIA_FUNCTION_URL }}
+          LLS_RIA_SHARED_SECRET: ${{ secrets.LLS_RIA_SHARED_SECRET }}

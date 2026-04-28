@@ -8,6 +8,11 @@ import { z } from "https://deno.land/x/zod/mod.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { resolveStrategySessionHost } from "../_shared/strategy-session-resolve-host.ts";
 import { isSlotBookableForHost } from "../_shared/strategy-session-schedule.ts";
+import {
+  readAttributionFromPayload,
+  safeRecordOutcome,
+  safeUpsertFunnelAttribution,
+} from "../_shared/lls.ts";
 
 /** Optional override for tests / rotation — must match client UX for known complimentary codes. */
 const FREE_STRATEGY_SESSION_PROMO = Deno.env.get("STRATEGY_SESSION_FREE_PROMO") ?? "789586";
@@ -117,6 +122,7 @@ serve(async (req) => {
       );
     }
     const p = parsed.data;
+    const leadSource = readAttributionFromPayload(body as Record<string, unknown>);
     const slotDate = new Date(p.slotStart);
     if (Number.isNaN(slotDate.getTime())) {
       return new Response(JSON.stringify({ error: "Invalid slot time" }), {
@@ -233,6 +239,7 @@ serve(async (req) => {
           business_name: p.businessName,
           phone_number: p.phone,
           website: p.websiteOrSocial || null,
+          lead_source: leadSource,
           ...(keepActive ? {} : { client_status: "strategy_session_pending" as const }),
         })
         .eq("id", existing.id);
@@ -248,6 +255,7 @@ serve(async (req) => {
           business_name: p.businessName,
           phone_number: p.phone,
           website: p.websiteOrSocial || null,
+          lead_source: leadSource,
           client_status: "strategy_session_pending",
         })
         .select("id")
@@ -289,6 +297,7 @@ serve(async (req) => {
       additional_notes: p.additionalNotes || null,
       host_user_id: hostUserId,
       employee_reference_code: employeeRefNormalized,
+      lead_source: leadSource,
     };
 
     const { data: meetingRow, error: meetErr } = await supabase
@@ -309,6 +318,11 @@ serve(async (req) => {
 
     const meetingId = meetingRow!.id as string;
 
+    await supabase
+      .from("free_audits")
+      .update({ follow_up_status: "booked_strategy_session" })
+      .or(`correlation_id.eq.${leadSource.correlation_id ?? emailNorm},lead_key.eq.${emailNorm}`);
+
     if (payRow) {
       const { error: linkPayErr } = await supabase
         .from("payment_transactions")
@@ -316,6 +330,63 @@ serve(async (req) => {
         .eq("id", payRow.id);
       if (linkPayErr) throw linkPayErr;
     }
+
+    await Promise.allSettled([
+      safeUpsertFunnelAttribution(supabase, {
+        lead_key: emailNorm,
+        lead_kind: "meeting",
+        tenant_id: customerId,
+        attribution_confidence: 0.75,
+        multi_touch_weight: 0.55,
+        ...leadSource,
+        metadata: {
+          ...leadSource.metadata,
+          meeting_id: meetingId,
+          booking_kind: p.bookingKind ?? "full_program_sales",
+        },
+      }),
+      safeRecordOutcome(supabase, {
+        tenant_id: customerId,
+        lead_id: emailNorm,
+        subject_kind: "meeting",
+        subject_id: meetingId,
+        actor_kind: "client",
+        action: "strategy_session_booked",
+        strategy_origin: "human_defined",
+        learning_mode: "validated_learning",
+        intended_metric_type: "strategy_session_booking",
+        actual_metric_type: "meeting_created",
+        predicted_conversion_probability: 0.2,
+        expected_baseline: 1,
+        delta_value: 1,
+        success_flag: true,
+        revenue_impact: complimentary ? 0 : 150,
+        outcome_verified: true,
+        verification_source: "system",
+        verification_confidence_component: 0.95,
+        causal_method: "direct_attribution",
+        causal_confidence_component: 0.8,
+        evidence_strength_component: 0.45,
+        status: "success",
+        business_goal: "booked_strategy_session",
+        correlation_id: leadSource.correlation_id ?? emailNorm,
+        strategy_id: "system:strategy-session-funnel",
+        messaging_angle: leadSource.messaging_angle ?? "strategy_session_booking",
+        hook: leadSource.hook ?? p.sessionGoal ?? "book_strategy_session",
+        projection_version: "lls-projection-v1:strategy-session",
+        intended_outcome: {
+          service_name: "Strategy Session",
+          session_goal: p.sessionGoal,
+          booking_kind: p.bookingKind ?? "full_program_sales",
+        },
+        actual_outcome: {
+          meeting_id: meetingId,
+          complimentary,
+          payment_transaction_id: payRow?.id ?? null,
+        },
+        metadata: { leadSource, employee_reference_code: employeeRefNormalized },
+      }),
+    ]);
 
     /** Confirmation emails are sent from strategy-session-admin-confirm after team approval (Leads). */
     return new Response(

@@ -1,6 +1,6 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as Sonner } from '@/components/ui/sonner';
@@ -38,6 +38,8 @@ import FilmingSchedule from './pages/dashboard/FilmingSchedule';
 import Meetings from './pages/dashboard/Meetings';
 import Analytics from './pages/dashboard/Analytics';
 import Leads from './pages/dashboard/Leads';
+import Audits from './pages/dashboard/Audits';
+import AuditTemplates from './pages/dashboard/AuditTemplates';
 import Clients from './pages/dashboard/Clients';
 import EventsManagement from './pages/dashboard/EventsManagement';
 import Subscribers from './pages/dashboard/Subscribers';
@@ -57,6 +59,8 @@ import { CampaignDetailPage } from '@/features/campaigns/pages/CampaignDetailPag
 import Events from './pages/Events';
 import Kora from './pages/Kora';
 import BrandStrategySessionLanding from './pages/BrandStrategySessionLanding';
+import FreeAudit from './pages/FreeAudit';
+import FreeAuditThankYou from './pages/FreeAuditThankYou';
 import StrategySessionBooking from './pages/StrategySessionBooking';
 import StrategySessionPayment from './pages/StrategySessionPayment';
 import StrategySessionThankYou from './pages/StrategySessionThankYou';
@@ -70,6 +74,11 @@ import './index.css';
 
 const queryClient = new QueryClient();
 
+const LegacyBlogPostRedirect = () => {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={id ? `/the-brief/${encodeURIComponent(id)}` : "/the-brief"} replace />;
+};
+
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
@@ -82,6 +91,8 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/shop" element={<Shop />} />
               <Route path="/work-with-me" element={<WorkWithMe />} />
               <Route path="/brand-strategy-session" element={<BrandStrategySessionLanding />} />
+              <Route path="/free-audit" element={<FreeAudit />} />
+              <Route path="/free-audit/thank-you" element={<FreeAuditThankYou />} />
               <Route path="/strategy-session" element={<StrategySessionBooking />} />
               <Route path="/strategy-session/payment" element={<StrategySessionPayment />} />
               <Route path="/strategy-session/thank-you" element={<StrategySessionThankYou />} />
@@ -92,6 +103,8 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/privacy" element={<PrivacyPolicy />} />
               <Route path="/terms" element={<TermsOfService />} />
               <Route path="/data-deletion" element={<DataDeletionPolicy />} />
+              <Route path="/blog" element={<Navigate to="/the-brief" replace />} />
+              <Route path="/blog/:id" element={<LegacyBlogPostRedirect />} />
               <Route path="/the-brief" element={<TheBriefRoute />} />
               <Route path="/the-brief/:id" element={<TheBriefPostRoute />} />
               <Route path="/events" element={<Events />} />
@@ -145,6 +158,16 @@ createRoot(document.getElementById('root')!).render(
                   <Route path="leads" element={
                       <ProtectedRoute allowedRoles={['admin', 'author', 'intern', '3pv']}>
                         <Leads />
+                      </ProtectedRoute>
+                  } />
+                  <Route path="audits" element={
+                      <ProtectedRoute allowedRoles={['admin', 'author', 'intern', '3pv']}>
+                        <Audits />
+                      </ProtectedRoute>
+                  } />
+                  <Route path="audits/templates" element={
+                      <ProtectedRoute allowedRoles={['admin', 'author', 'intern', '3pv']}>
+                        <AuditTemplates />
                       </ProtectedRoute>
                   } />
                   <Route path="clients" element={

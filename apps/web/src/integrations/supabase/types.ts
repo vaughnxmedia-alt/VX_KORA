@@ -14,6 +14,243 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_aesthetic_signals: {
+        Row: {
+          id: string
+          audit_id: string
+          lead_key: string
+          detected_industry: string | null
+          detected_aesthetic: string | null
+          recommended_vibe: string | null
+          confidence: number
+          source_urls: string[]
+          signals: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          audit_id: string
+          lead_key: string
+          detected_industry?: string | null
+          detected_aesthetic?: string | null
+          recommended_vibe?: string | null
+          confidence?: number
+          source_urls?: string[]
+          signals?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          audit_id?: string
+          lead_key?: string
+          detected_industry?: string | null
+          detected_aesthetic?: string | null
+          recommended_vibe?: string | null
+          confidence?: number
+          source_urls?: string[]
+          signals?: Json
+          created_at?: string
+        }
+        Relationships: []
+      }
+      audit_industry_inspiration_profiles: {
+        Row: {
+          id: string
+          industry_key: string
+          label: string
+          creative_direction: string
+          visual_cues: string[]
+          avoid_rules: string[]
+          tone_keywords: string[]
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          industry_key: string
+          label: string
+          creative_direction: string
+          visual_cues?: string[]
+          avoid_rules?: string[]
+          tone_keywords?: string[]
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          industry_key?: string
+          label?: string
+          creative_direction?: string
+          visual_cues?: string[]
+          avoid_rules?: string[]
+          tone_keywords?: string[]
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      free_audit_templates: {
+        Row: {
+          id: string
+          title: string
+          file_name: string
+          file_path: string
+          file_type: string
+          storage_bucket: string
+          is_active: boolean
+          metadata: Json
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          file_name: string
+          file_path: string
+          file_type: string
+          storage_bucket?: string
+          is_active?: boolean
+          metadata?: Json
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          file_name?: string
+          file_path?: string
+          file_type?: string
+          storage_bucket?: string
+          is_active?: boolean
+          metadata?: Json
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      free_audits: {
+        Row: {
+          id: string
+          lead_key: string
+          lead_email_lower: string | null
+          customer_id: string | null
+          contact_name: string | null
+          phone: string | null
+          business_name: string | null
+          website_link: string | null
+          instagram: string | null
+          facebook: string | null
+          tiktok: string | null
+          other_socials: string | null
+          growth_goal: string | null
+          current_blocker: string | null
+          target_audience_belief: string | null
+          intent: string | null
+          readiness_level: string | null
+          follow_up_status: string
+          retargeting_ready: boolean
+          audience_segment: string | null
+          correlation_id: string | null
+          lead_source: string | null
+          audit_angle: string
+          intended_cta: string | null
+          strategy_origin: string
+          learning_mode: string
+          predicted_conversion_probability: number | null
+          expected_baseline: number | null
+          completion_status: string
+          score_summary: Json
+          actual_outcome: Json
+          metadata: Json
+          started_at: string
+          completed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          lead_key: string
+          lead_email_lower?: string | null
+          customer_id?: string | null
+          contact_name?: string | null
+          phone?: string | null
+          business_name?: string | null
+          website_link?: string | null
+          instagram?: string | null
+          facebook?: string | null
+          tiktok?: string | null
+          other_socials?: string | null
+          growth_goal?: string | null
+          current_blocker?: string | null
+          target_audience_belief?: string | null
+          intent?: string | null
+          readiness_level?: string | null
+          follow_up_status?: string
+          retargeting_ready?: boolean
+          audience_segment?: string | null
+          correlation_id?: string | null
+          lead_source?: string | null
+          audit_angle: string
+          intended_cta?: string | null
+          strategy_origin?: string
+          learning_mode?: string
+          predicted_conversion_probability?: number | null
+          expected_baseline?: number | null
+          completion_status?: string
+          score_summary?: Json
+          actual_outcome?: Json
+          metadata?: Json
+          started_at?: string
+          completed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          lead_key?: string
+          lead_email_lower?: string | null
+          customer_id?: string | null
+          contact_name?: string | null
+          phone?: string | null
+          business_name?: string | null
+          website_link?: string | null
+          instagram?: string | null
+          facebook?: string | null
+          tiktok?: string | null
+          other_socials?: string | null
+          growth_goal?: string | null
+          current_blocker?: string | null
+          target_audience_belief?: string | null
+          intent?: string | null
+          readiness_level?: string | null
+          follow_up_status?: string
+          retargeting_ready?: boolean
+          audience_segment?: string | null
+          correlation_id?: string | null
+          lead_source?: string | null
+          audit_angle?: string
+          intended_cta?: string | null
+          strategy_origin?: string
+          learning_mode?: string
+          predicted_conversion_probability?: number | null
+          expected_baseline?: number | null
+          completion_status?: string
+          score_summary?: Json
+          actual_outcome?: Json
+          metadata?: Json
+          started_at?: string
+          completed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       blog_posts: {
         Row: {
           author_id: string | null
@@ -587,6 +824,7 @@ export type Database = {
           first_name: string | null
           id: string
           last_name: string | null
+          lead_source: Json | null
           phone_number: string | null
           social_media_links: Json | null
           user_id: string | null
@@ -600,6 +838,7 @@ export type Database = {
           first_name?: string | null
           id?: string
           last_name?: string | null
+          lead_source?: Json | null
           phone_number?: string | null
           social_media_links?: Json | null
           user_id?: string | null
@@ -613,6 +852,7 @@ export type Database = {
           first_name?: string | null
           id?: string
           last_name?: string | null
+          lead_source?: Json | null
           phone_number?: string | null
           social_media_links?: Json | null
           user_id?: string | null
@@ -720,6 +960,7 @@ export type Database = {
           industry: string | null
           in_person_location: string | null
           internal_notes: string | null
+          lead_source: Json | null
           meeting_date: string
           offer_summary: string | null
           payment_status: string | null
@@ -758,6 +999,7 @@ export type Database = {
           industry?: string | null
           in_person_location?: string | null
           internal_notes?: string | null
+          lead_source?: Json | null
           meeting_date: string
           offer_summary?: string | null
           payment_status?: string | null
@@ -796,6 +1038,7 @@ export type Database = {
           industry?: string | null
           in_person_location?: string | null
           internal_notes?: string | null
+          lead_source?: Json | null
           meeting_date?: string
           offer_summary?: string | null
           payment_status?: string | null
@@ -1133,6 +1376,7 @@ export type Database = {
           email: string
           email_sent: boolean
           id: string
+          lead_source: Json | null
           name: string
         }
         Insert: {
@@ -1141,6 +1385,7 @@ export type Database = {
           email: string
           email_sent?: boolean
           id?: string
+          lead_source?: Json | null
           name: string
         }
         Update: {
@@ -1149,6 +1394,7 @@ export type Database = {
           email?: string
           email_sent?: boolean
           id?: string
+          lead_source?: Json | null
           name?: string
         }
         Relationships: []

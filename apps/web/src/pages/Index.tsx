@@ -138,35 +138,41 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Hero Image / Visual */}
-            <div className="hidden md:block relative w-full max-w-md animate-in fade-in zoom-in-95 duration-1000 delay-200 mt-8 md:mt-0">
+            {/* Free Audit Hero Ad */}
+            <div className="relative w-full max-w-md animate-in fade-in zoom-in-95 duration-1000 delay-200 mt-8 md:mt-0">
                {/* Decorative background blur */}
                <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 to-accent/20 rounded-full blur-[100px] opacity-60"></div>
                
-               <div className="relative">
-                 <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-primary/10 border border-white/10 rotate-3 transition-transform hover:rotate-0 duration-500">
-                   <div className="absolute inset-0 bg-gradient-to-t from-primary/40 to-transparent z-10 mix-blend-multiply"></div>
-                   <img 
-                     src="hero-image.png" 
-                     alt="JahKnowsPR Strategy" 
-                     className="w-full h-auto object-cover"
-                   />
-                   
-                   {/* Floating Badge */}
-                    <div className="absolute bottom-6 left-6 z-20 bg-background/90 backdrop-blur-md p-4 rounded-xl border border-gold/30 shadow-lg max-w-[200px]">
-                      <div className="flex gap-1 text-gold mb-2">
-                        <Star className="w-4 h-4 fill-gold" />
-                        <Star className="w-4 h-4 fill-gold" />
-                        <Star className="w-4 h-4 fill-gold" />
-                        <Star className="w-4 h-4 fill-gold" />
-                        <Star className="w-4 h-4 fill-gold" />
+               <Link to="/free-audit" className="relative block group" aria-label="Start the Free Brand Audit">
+                 <div className="relative overflow-hidden rounded-2xl border border-gold/40 bg-gradient-to-br from-gold/25 via-background to-primary/15 shadow-2xl shadow-primary/10 rotate-3 transition-transform duration-500 group-hover:rotate-0 group-hover:-translate-y-1">
+                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,215,130,0.35),transparent_35%),linear-gradient(to_bottom,transparent,rgba(0,0,0,0.22))]"></div>
+                   <div className="relative p-6 min-h-[420px] flex flex-col justify-between">
+                     <div className="space-y-3">
+                       <Badge variant="outline" className="border-gold/50 bg-background/70 text-gold-dark">
+                         Free Audit
+                       </Badge>
+                       <h2 className="font-serif text-4xl font-bold leading-tight text-foreground">
+                         Find the gap before you post again.
+                       </h2>
+                       <p className="text-sm leading-relaxed text-muted-foreground">
+                         Diagnose your positioning, presence, audience clarity, and conversion blockers.
+                       </p>
                      </div>
-                     <p className="text-xs font-medium italic text-muted-foreground leading-tight">
-                       "Strategic clarity that actually moves the needle."
-                     </p>
+
+                     <div className="rounded-2xl border border-gold/30 bg-background/85 p-4 shadow-lg backdrop-blur">
+                       <div className="mb-4 aspect-video rounded-xl border border-gold/30 bg-gradient-to-br from-gold/20 via-gold/10 to-gold/5 flex items-center justify-center">
+                         <span className="text-xs font-semibold uppercase tracking-[0.25em] text-gold-dark">Video Audit</span>
+                       </div>
+                       <div className="flex items-center justify-between gap-4">
+                         <p className="text-sm font-medium text-foreground">Start the diagnosis</p>
+                         <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground transition group-hover:translate-x-1">
+                           <ArrowRight className="h-5 w-5" />
+                         </span>
+                       </div>
+                     </div>
                    </div>
                  </div>
-               </div>
+               </Link>
             </div>
             
           </div>
