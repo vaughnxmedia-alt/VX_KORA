@@ -32,6 +32,23 @@ function escapeHtml(value = "") {
     .replace(/'/g, "&#039;");
 }
 
+function renderInlineMarkdown(value = "") {
+  const input = String(value);
+  let output = "";
+  let lastIndex = 0;
+  const linkPattern = /\[([^\]]+)\]\((https?:\/\/[^)\s]+|\/[^)\s]+)\)/g;
+  for (const match of input.matchAll(linkPattern)) {
+    output += escapeHtml(input.slice(lastIndex, match.index));
+    const href = match[2].startsWith("/")
+      ? `${SITE_ORIGIN}${match[2]}`
+      : match[2];
+    output += `<a href="${escapeHtml(href)}">${escapeHtml(match[1])}</a>`;
+    lastIndex = (match.index ?? 0) + match[0].length;
+  }
+  output += escapeHtml(input.slice(lastIndex));
+  return output;
+}
+
 function cleanSegment(post) {
   return String(post.slug || post.id).trim().replace(/^\/+|\/+$/g, "");
 }
@@ -80,13 +97,13 @@ function basicMarkdownToHtml(markdown = "") {
         html.push("<ul>");
         listOpen = true;
       }
-      html.push(`<li>${escapeHtml(line.replace(/^[-*]\s+/, ""))}</li>`);
+      html.push(`<li>${renderInlineMarkdown(line.replace(/^[-*]\s+/, ""))}</li>`);
     } else {
       if (listOpen) {
         html.push("</ul>");
         listOpen = false;
       }
-      html.push(`<p>${escapeHtml(line)}</p>`);
+      html.push(`<p>${renderInlineMarkdown(line)}</p>`);
     }
   }
   if (listOpen) html.push("</ul>");

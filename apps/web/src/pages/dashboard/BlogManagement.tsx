@@ -51,6 +51,7 @@ import {
   EyeOff,
   FileText,
   Image,
+  Link2,
   Video,
   CheckCircle2,
   PenLine,
@@ -117,6 +118,37 @@ type BlogPost = {
   author_id?: string | null;
 };
 
+const PUBLIC_SITE_ORIGIN = "https://www.jahknowspr.com";
+const CUSTOM_LINK_TARGET = "custom";
+
+const CORE_SEO_LINKS = [
+  {
+    id: "free-audit",
+    label: "Free Audit",
+    url: `${PUBLIC_SITE_ORIGIN}/free-audit`,
+    anchor: "start with a free brand audit",
+    hint: "Primary audit conversion link",
+  },
+  {
+    id: "strategy-session",
+    label: "Strategy Session",
+    url: `${PUBLIC_SITE_ORIGIN}/brand-strategy-session`,
+    anchor: "book a brand strategy session",
+    hint: "High-intent booking link",
+  },
+  {
+    id: "the-brief",
+    label: "The Brief Hub",
+    url: `${PUBLIC_SITE_ORIGIN}/the-brief`,
+    anchor: "read more from The Brief",
+    hint: "Blog hub link",
+  },
+];
+
+function blogPathSegment(post: BlogPost): string {
+  return (post.slug?.trim() || post.id || "").replace(/^\/+|\/+$/g, "");
+}
+
 const BlogManagement = () => {
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
   const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null);
@@ -151,6 +183,38 @@ const BlogManagement = () => {
   const [publishTimeEt, setPublishTimeEt] = useState("09:00");
   const [publishMode, setPublishMode] = useState<"publish_now" | "schedule">("publish_now");
   const [showScheduleFields, setShowScheduleFields] = useState(false);
+  const [seoLinkTarget, setSeoLinkTarget] = useState(CORE_SEO_LINKS[0].id);
+  const [seoAnchorText, setSeoAnchorText] = useState(CORE_SEO_LINKS[0].anchor);
+  const [customSeoUrl, setCustomSeoUrl] = useState("");
+
+  const briefLinkOptions = useMemo(() => {
+    return blogPosts
+      .filter((post) => post.id && post.id !== selectedPost?.id && !post.is_hidden && (post.status ?? "published") === "published")
+      .slice(0, 8)
+      .map((post) => ({
+        id: `brief:${post.id}`,
+        label: `Brief: ${post.title}`,
+        url: `${PUBLIC_SITE_ORIGIN}/the-brief/${encodeURIComponent(blogPathSegment(post))}`,
+        anchor: post.title,
+        hint: "Related article link",
+      }));
+  }, [blogPosts, selectedPost?.id]);
+
+  const seoLinkOptions = useMemo(() => [...CORE_SEO_LINKS, ...briefLinkOptions], [briefLinkOptions]);
+
+  const selectedSeoLink = seoLinkOptions.find((option) => option.id === seoLinkTarget);
+
+  const seoLinkStats = useMemo(() => {
+    const markdownLinks = contentValue.match(/\[[^\]]+\]\((https?:\/\/|\/)[^)]+\)/g) ?? [];
+    const externalLinks = markdownLinks.filter((link) => !/https?:\/\/(www\.)?jahknowspr\.com/i.test(link) && !link.includes("](/"));
+    return {
+      totalLinks: markdownLinks.length,
+      externalLinks: externalLinks.length,
+      hasFreeAudit: contentValue.includes("/free-audit"),
+      hasStrategySession: contentValue.includes("/brand-strategy-session"),
+      hasRelatedBrief: /\/the-brief\/[^)\s]+/.test(contentValue),
+    };
+  }, [contentValue]);
 
   const fetchBlogPosts = useCallback(async () => {
     const { data, error } = await supabase
@@ -363,6 +427,45 @@ const BlogManagement = () => {
       fetchBlogPosts();
     }
     setMenuBusyPostId(null);
+  };
+
+  const handleSeoLinkTargetChange = (target: string) => {
+    setSeoLinkTarget(target);
+    const option = seoLinkOptions.find((item) => item.id === target);
+    if (option) {
+      setSeoAnchorText(option.anchor);
+    }
+  };
+
+  const insertSeoLink = () => {
+    const url = seoLinkTarget === CUSTOM_LINK_TARGET ? customSeoUrl.trim() : selectedSeoLink?.url;
+    const anchor = seoAnchorText.trim() || selectedSeoLink?.anchor || "learn more";
+
+    if (!url) {
+      toast({
+        title: "Add a URL first",
+        description: "Choose a destination or paste a custom URL.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!/^https?:\/\/|^\//.test(url)) {
+      toast({
+        title: "Use a clean URL",
+        description: "Links should start with https:// or /.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const markdownLink = `[${anchor}](${url})`;
+    const separator = contentValue.trim().length > 0 ? "\n\n" : "";
+    setContentValue(`${contentValue}${separator}${markdownLink}`);
+    toast({
+      title: "SEO link inserted",
+      description: `${anchor} → ${url}`,
+    });
   };
 
   // Generate slug from title
@@ -1234,6 +1337,86 @@ const BlogManagement = () => {
               <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
                 Content
               </h3>
+              <div className="rounded-lg border bg-muted/20 p-4 space-y-4">
+                <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <h4 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                      <Link2 className="h-4 w-4 text-gold" />
+                      Smart SEO Link Assistant
+                    </h4>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Insert useful internal links and backlink-ready external URLs with descriptive anchor text.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
+                  <div className="space-y-2">
+                    <Label htmlFor="seo-link-target">Destination</Label>
+                    <Select value={seoLinkTarget} onValueChange={handleSeoLinkTargetChange}>
+                      <SelectTrigger id="seo-link-target">
+                        <SelectValue placeholder="Choose a link destination" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CORE_SEO_LINKS.map((option) => (
+                          <SelectItem key={option.id} value={option.id}>
+                            {option.label} — {option.hint}
+                          </SelectItem>
+                        ))}
+                        {briefLinkOptions.length > 0 ? (
+                          <>
+                            {briefLinkOptions.map((option) => (
+                              <SelectItem key={option.id} value={option.id}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </>
+                        ) : null}
+                        <SelectItem value={CUSTOM_LINK_TARGET}>Custom external URL / backlink</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="seo-anchor-text">Anchor text</Label>
+                    <Input
+                      id="seo-anchor-text"
+                      value={seoAnchorText}
+                      onChange={(event) => setSeoAnchorText(event.target.value)}
+                      placeholder="Use natural, keyword-aware anchor text"
+                    />
+                  </div>
+
+                  <Button type="button" onClick={insertSeoLink} className="lg:mb-0">
+                    Insert SEO Link
+                  </Button>
+                </div>
+
+                {seoLinkTarget === CUSTOM_LINK_TARGET ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="custom-seo-url">Custom URL</Label>
+                    <Input
+                      id="custom-seo-url"
+                      value={customSeoUrl}
+                      onChange={(event) => setCustomSeoUrl(event.target.value)}
+                      placeholder="https://example.com/source-or-partner-page"
+                    />
+                  </div>
+                ) : selectedSeoLink ? (
+                  <p className="text-xs text-muted-foreground">
+                    Link target: <span className="font-medium text-foreground">{selectedSeoLink.url}</span>
+                  </p>
+                ) : null}
+
+                <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
+                  <div className="rounded-md bg-background p-2">
+                    <span className="font-medium text-foreground">{seoLinkStats.totalLinks}</span> total markdown links
+                  </div>
+                  <div className="rounded-md bg-background p-2">
+                    <span className="font-medium text-foreground">{seoLinkStats.externalLinks}</span> external/backlink references
+                  </div>
+                </div>
+              </div>
               <div data-color-mode="light" className="border rounded-md overflow-hidden">
                 <MDEditor
                   value={contentValue}
