@@ -18,20 +18,6 @@
       "destination": "/index.html"
     }
   ],
-  "crons": [
-    {
-      "path": "/api/lls-ria?mode=hourly_scoring",
-      "schedule": "7 * * * *"
-    },
-    {
-      "path": "/api/lls-ria?mode=daily_insights",
-      "schedule": "17 5 * * *"
-    },
-    {
-      "path": "/api/lls-ria?mode=weekly_memory_batch",
-      "schedule": "27 6 * * 1"
-    }
-  ],
   "headers": [
     {
       "source": "/(.*)",
