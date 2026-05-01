@@ -3,17 +3,17 @@
   "redirects": [
     {
       "source": "/kora",
-      "destination": "https://kora.jahknowspr.com",
+      "destination": "/",
       "permanent": false
     },
     {
       "source": "/kora/:path*",
-      "destination": "https://kora.jahknowspr.com/:path*",
+      "destination": "/",
       "permanent": false
     },
     {
       "source": "/consultation/kora-platform",
-      "destination": "https://kora.jahknowspr.com/platform-consultation",
+      "destination": "/",
       "permanent": false
     },
     {

@@ -69,7 +69,7 @@ import CampaignRetainerConsultation from './pages/consultations/CampaignRetainer
 import './index.css';
 
 const queryClient = new QueryClient();
-const KORA_PUBLIC_URL = String(import.meta.env.VITE_KORA_PUBLIC_URL || "https://kora.jahknowspr.com").replace(/\/$/, "");
+const KORA_PUBLIC_URL = String(import.meta.env.VITE_KORA_PUBLIC_URL || "/").replace(/\/$/, "") || "/";
 
 const LegacyBlogPostRedirect = () => {
   const { id } = useParams<{ id: string }>();
@@ -78,7 +78,7 @@ const LegacyBlogPostRedirect = () => {
 
 const KoraExternalRedirect = ({ path = "" }: { path?: string }) => {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  const targetUrl = `${KORA_PUBLIC_URL}${normalizedPath === "/" ? "" : normalizedPath}`;
+  const targetUrl = KORA_PUBLIC_URL === "/" ? "/" : `${KORA_PUBLIC_URL}${normalizedPath === "/" ? "" : normalizedPath}`;
 
   React.useEffect(() => {
     window.location.replace(targetUrl);

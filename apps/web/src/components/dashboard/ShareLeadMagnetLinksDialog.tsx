@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { getPublicSiteOrigin } from "@/lib/publicSite";
 
 const TELEGRAM_BOT_URL = "https://t.me/VX_kora_bot";
-const KORA_PUBLIC_URL = String(import.meta.env.VITE_KORA_PUBLIC_URL || "https://kora.jahknowspr.com").replace(/\/$/, "");
+const KORA_PUBLIC_URL = String(import.meta.env.VITE_KORA_PUBLIC_URL || "").trim().replace(/\/$/, "");
 
 type LinkRow = { id: string; label: string; url: string };
 
@@ -25,7 +25,7 @@ export function ShareLeadMagnetLinksDialog() {
 
   const rows: LinkRow[] = useMemo(() => {
     const origin = getPublicSiteOrigin();
-    return [
+    const links: LinkRow[] = [
       { id: "telegram", label: "Telegram (KORA bot)", url: TELEGRAM_BOT_URL },
       { id: "strategy", label: "Strategy intake (paid Strategy Session)", url: `${origin}/strategy-session` },
       {
@@ -38,12 +38,17 @@ export function ShareLeadMagnetLinksDialog() {
         label: "Campaign & retainer consultation",
         url: `${origin}/consultation/campaign-retainer`,
       },
-      {
+    ];
+
+    if (KORA_PUBLIC_URL) {
+      links.push({
         id: "kora-platform",
         label: "Full KORA platform inquiry",
         url: `${KORA_PUBLIC_URL}/platform-consultation`,
-      },
-    ];
+      });
+    }
+
+    return links;
   }, []);
 
   const copy = async (row: LinkRow) => {
