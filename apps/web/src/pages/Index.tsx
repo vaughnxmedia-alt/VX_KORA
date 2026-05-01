@@ -5,9 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   ArrowRight,
   BookOpen,
-  LayoutDashboard,
   Megaphone,
-  MessageCircle,
   Palette,
   Star,
   Target,
@@ -240,8 +238,8 @@ const Index = () => {
               Services<span className="text-gold">.</span>
             </h2>
             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-              Same ladder as our Services page: free perspective → light add-on → first paid strategy session →
-              production → ongoing campaigns → invitation-based platform. Full positioning lives on{" "}
+              Same ladder as our Services page: free perspective → first paid strategy session → production → ongoing
+              campaigns. Full positioning lives on{" "}
               <Link to="/work-with-me" className="font-medium text-primary underline-offset-4 hover:underline">
                 How we work with you
               </Link>
@@ -265,19 +263,6 @@ const Index = () => {
               },
               {
                 step: "02",
-                eyebrow: "Add-on",
-                title: "Join KORA on Telegram",
-                body: "Light support in chat — ideas, prompts, back-and-forth without full platform login. Not core software access.",
-                who: "People who live in chat and want KORA in a simple daily format.",
-                href: "/kora/telegram-subscription",
-                cta: "Meet KORA in Telegram",
-                price: "$15/mo",
-                external: false,
-                icon: MessageCircle,
-                delay: 0.1,
-              },
-              {
-                step: "03",
                 eyebrow: "Paid session",
                 title: "Strategy Session",
                 bestseller: true,
@@ -287,10 +272,10 @@ const Index = () => {
                 cta: "Book a Strategy Session",
                 external: false,
                 icon: Target,
-                delay: 0.15,
+                delay: 0.1,
               },
               {
-                step: "04",
+                step: "03",
                 eyebrow: "Production",
                 title: "Creative Work & Production",
                 body: "Videography, photography, branding, sites — scoped on timeline and deliverables for clients ready to execute.",
@@ -299,10 +284,10 @@ const Index = () => {
                 cta: "Book a Creative Consultation",
                 external: true,
                 icon: Palette,
-                delay: 0.2,
+                delay: 0.15,
               },
               {
-                step: "05",
+                step: "04",
                 eyebrow: "Ongoing",
                 title: "Campaigns & Retainers",
                 body: "Ongoing strategy and campaign leadership — not a one-off. Launches, visibility, cadence, and coordination month to month.",
@@ -311,19 +296,7 @@ const Index = () => {
                 cta: "Discuss a Campaign Retainer",
                 external: true,
                 icon: Megaphone,
-                delay: 0.25,
-              },
-              {
-                step: "06",
-                eyebrow: "Platform",
-                title: "KORA Full Platform Access",
-                body: "Strategy, workflows, calendars, and support in one system — offered by invitation after fit and onboarding.",
-                who: "Qualified clients ready for structured workflow and deeper access.",
-                href: "/kora",
-                cta: "Learn About Full KORA Access",
-                external: false,
-                icon: LayoutDashboard,
-                delay: 0.3,
+                delay: 0.2,
               },
             ].map(
               ({

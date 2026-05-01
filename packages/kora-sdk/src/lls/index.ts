@@ -306,7 +306,6 @@ export async function recordOutcome(client: SupabaseLikeClient, payload: Outcome
     actual_outcome: {},
     requires_review: false,
     freshness_score: 1,
-    metadata: {},
     ...payload,
     strategy_id: strategyId && uuidPattern.test(strategyId) ? strategyId : null,
     proposal_id: proposalId && uuidPattern.test(proposalId) ? proposalId : null,
@@ -338,8 +337,6 @@ export async function attachAttribution(client: SupabaseLikeClient, payload: Fun
   const attribution = {
     attribution_confidence: 0,
     multi_touch_weight: 0,
-    first_touch_at: now,
-    last_touch_at: now,
     metadata: {},
     ...payload,
     first_touch_at: payload.first_touch_at ?? now,

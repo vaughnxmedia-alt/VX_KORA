@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { getPublicSiteOrigin } from "@/lib/publicSite";
 
 const TELEGRAM_BOT_URL = "https://t.me/VX_kora_bot";
+const KORA_PUBLIC_URL = String(import.meta.env.VITE_KORA_PUBLIC_URL || "https://kora.jahknowspr.com").replace(/\/$/, "");
 
 type LinkRow = { id: string; label: string; url: string };
 
@@ -40,7 +41,7 @@ export function ShareLeadMagnetLinksDialog() {
       {
         id: "kora-platform",
         label: "Full KORA platform inquiry",
-        url: `${origin}/consultation/kora-platform`,
+        url: `${KORA_PUBLIC_URL}/platform-consultation`,
       },
     ];
   }, []);

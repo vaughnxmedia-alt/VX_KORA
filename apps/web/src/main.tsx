@@ -57,26 +57,45 @@ import { CampaignsLayout } from '@/features/campaigns/CampaignsLayout';
 import { CampaignsIndexPage } from '@/features/campaigns/pages/CampaignsIndexPage';
 import { CampaignDetailPage } from '@/features/campaigns/pages/CampaignDetailPage';
 import Events from './pages/Events';
-import Kora from './pages/Kora';
 import BrandStrategySessionLanding from './pages/BrandStrategySessionLanding';
 import FreeAudit from './pages/FreeAudit';
 import FreeAuditThankYou from './pages/FreeAuditThankYou';
 import StrategySessionBooking from './pages/StrategySessionBooking';
 import StrategySessionPayment from './pages/StrategySessionPayment';
 import StrategySessionThankYou from './pages/StrategySessionThankYou';
-import TelegramSubscriptionPayment from './pages/TelegramSubscriptionPayment';
-import TelegramSubscriptionThankYou from './pages/TelegramSubscriptionThankYou';
 import CreativeProductionConsultation from './pages/consultations/CreativeProductionConsultation';
 import CampaignRetainerConsultation from './pages/consultations/CampaignRetainerConsultation';
-import KoraPlatformConsultation from './pages/consultations/KoraPlatformConsultation';
 
 import './index.css';
 
 const queryClient = new QueryClient();
+const KORA_PUBLIC_URL = String(import.meta.env.VITE_KORA_PUBLIC_URL || "https://kora.jahknowspr.com").replace(/\/$/, "");
 
 const LegacyBlogPostRedirect = () => {
   const { id } = useParams<{ id: string }>();
   return <Navigate to={id ? `/the-brief/${encodeURIComponent(id)}` : "/the-brief"} replace />;
+};
+
+const KoraExternalRedirect = ({ path = "" }: { path?: string }) => {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const targetUrl = `${KORA_PUBLIC_URL}${normalizedPath === "/" ? "" : normalizedPath}`;
+
+  React.useEffect(() => {
+    window.location.replace(targetUrl);
+  }, [targetUrl]);
+
+  return (
+    <main className="min-h-screen grid place-items-center px-4 text-center">
+      <a className="text-primary underline underline-offset-4" href={targetUrl}>
+        Continue to KORA
+      </a>
+    </main>
+  );
+};
+
+const KoraWildcardRedirect = () => {
+  const { "*": path } = useParams();
+  return <KoraExternalRedirect path={path || ""} />;
 };
 
 createRoot(document.getElementById('root')!).render(
@@ -98,7 +117,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/strategy-session/thank-you" element={<StrategySessionThankYou />} />
               <Route path="/consultation/creative-production" element={<CreativeProductionConsultation />} />
               <Route path="/consultation/campaign-retainer" element={<CampaignRetainerConsultation />} />
-              <Route path="/consultation/kora-platform" element={<KoraPlatformConsultation />} />
+              <Route path="/consultation/kora-platform" element={<KoraExternalRedirect path="/platform-consultation" />} />
               <Route path="/about" element={<About />} />
               <Route path="/privacy" element={<PrivacyPolicy />} />
               <Route path="/terms" element={<TermsOfService />} />
@@ -108,9 +127,8 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/the-brief" element={<TheBriefRoute />} />
               <Route path="/the-brief/:id" element={<TheBriefPostRoute />} />
               <Route path="/events" element={<Events />} />
-              <Route path="/kora" element={<Kora />} />
-              <Route path="/kora/telegram-subscription" element={<TelegramSubscriptionPayment />} />
-              <Route path="/kora/telegram-thank-you" element={<TelegramSubscriptionThankYou />} />
+              <Route path="/kora" element={<KoraExternalRedirect />} />
+              <Route path="/kora/*" element={<KoraWildcardRedirect />} />
               <Route path="/brand-blueprint" element={<BrandBlueprint />} />
               <Route path="/payment" element={<Payment />} />
               

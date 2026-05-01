@@ -14,5 +14,9 @@ export * from "./events"
 // Re-export Learning Log System contracts
 export * from "./lls"
 
+// Re-export client and auth helpers
+export * from "./http"
+export * from "./auth"
+
 // Version
 export const SDK_VERSION = "1.0.0"
