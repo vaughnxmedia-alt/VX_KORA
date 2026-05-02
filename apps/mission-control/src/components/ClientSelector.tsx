@@ -76,8 +76,8 @@ export function ClientSelector({ className }: ClientSelectorProps) {
               <Users className="h-4 w-4 text-grey-500" />
             </div>
             <div className="flex-1 text-left">
-              <p className="text-sm font-medium text-grey-400">All Clients</p>
-              <p className="text-xs text-grey-600">Viewing all deliverables</p>
+              <p className="text-sm font-medium text-grey-400">All KORA Clients</p>
+              <p className="text-xs text-grey-600">Viewing JahKnowsPR deliverables</p>
             </div>
             <ChevronDown className={cn("h-4 w-4 text-grey-500 transition-transform", isOpen && "rotate-180")} />
           </>
@@ -89,7 +89,7 @@ export function ClientSelector({ className }: ClientSelectorProps) {
           <div className="p-2 border-b border-grey-800">
             <input
               type="text"
-              placeholder="Search clients..."
+              placeholder="Search KORA client..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full px-3 py-2 bg-grey-800 border border-grey-700 rounded-lg text-sm text-white placeholder:text-grey-500 focus:outline-none focus:border-royal"
@@ -113,8 +113,8 @@ export function ClientSelector({ className }: ClientSelectorProps) {
                 <Users className="h-4 w-4 text-grey-400" />
               </div>
               <div className="flex-1 text-left">
-                <p className="text-sm font-medium text-white">All Clients</p>
-                <p className="text-xs text-grey-500">View all deliverables</p>
+                <p className="text-sm font-medium text-white">All KORA Clients</p>
+                <p className="text-xs text-grey-500">View JahKnowsPR deliverables</p>
               </div>
             </button>
 
@@ -148,7 +148,7 @@ export function ClientSelector({ className }: ClientSelectorProps) {
 
             {filteredClients.length === 0 && (
               <div className="px-3 py-6 text-center">
-                <p className="text-sm text-grey-500">No clients found</p>
+                <p className="text-sm text-grey-500">No KORA client found</p>
               </div>
             )}
           </div>

@@ -11,7 +11,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { supabase } from "@/lib/supabase"
-import { useClients, getClientDisplayName } from "@/hooks/useClients"
+import { OFFICIAL_CLIENT_ID, useClients, getClientDisplayName } from "@/hooks/useClients"
 
 type ApprovalSource = "auto" | "manual" | "telegram"
 
@@ -75,7 +75,7 @@ export default function TenantRAGRoute() {
   const [smarterByTenant, setSmarterByTenant] = useState<Record<string, boolean>>({})
   const [loadingRag, setLoadingRag] = useState(true)
   const [ragError, setRagError] = useState<string | null>(null)
-  const [selectedTenantId, setSelectedTenantId] = useState<string | null>(null)
+  const [selectedTenantId, setSelectedTenantId] = useState<string | null>(OFFICIAL_CLIENT_ID)
 
   const fetchRagData = useCallback(async () => {
     setLoadingRag(true)
@@ -232,12 +232,10 @@ export default function TenantRAGRoute() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Tenant RAG</h1>
+        <h1 className="text-2xl font-bold text-white">RAG / Copy Support</h1>
         <p className="text-gray-400 text-sm">
-          Per-customer RAG chunks in <code className="text-gray-500">kora_tenant_rag_documents</code>{" "}
-          (same tenant scope as Creative Hub / KORA bot). Open from{" "}
-          <span className="text-gray-300">Users</span> via <span className="text-gray-300">View RAG</span>
-          .
+          Client-specific knowledge for content ideas, ad copy, audience-informed hooks, and KORA answers.
+          Audience pool notes and approved documents should become the grounding layer for each client.
         </p>
       </div>
 
@@ -264,28 +262,28 @@ export default function TenantRAGRoute() {
         <div className="bg-gray-800/50 rounded-xl p-4 border border-white/5">
           <div className="flex items-center gap-2 text-gray-400 text-sm mb-1">
             <Users className="h-4 w-4" />
-            <span>Clients (customers)</span>
+            <span>KORA clients</span>
           </div>
           <p className="text-2xl font-bold text-white">{tenants.length}</p>
         </div>
         <div className="bg-gray-800/50 rounded-xl p-4 border border-white/5">
           <div className="flex items-center gap-2 text-gray-400 text-sm mb-1">
             <Database className="h-4 w-4" />
-            <span>Total RAG documents</span>
+            <span>Copy support docs</span>
           </div>
           <p className="text-2xl font-bold text-white">{totalDocuments.toLocaleString()}</p>
         </div>
         <div className="bg-gray-800/50 rounded-xl p-4 border border-white/5">
           <div className="flex items-center gap-2 text-gray-400 text-sm mb-1">
             <BarChart3 className="h-4 w-4" />
-            <span>Avg health (active + strategy)</span>
+            <span>Avg support health</span>
           </div>
           <p className="text-2xl font-bold text-emerald-400">{(avgHealthScore * 100).toFixed(0)}%</p>
         </div>
         <div className="bg-gray-800/50 rounded-xl p-4 border border-white/5">
           <div className="flex items-center gap-2 text-gray-400 text-sm mb-1">
             <Zap className="h-4 w-4" />
-            <span>Make me smarter (filters)</span>
+            <span>Make me smarter</span>
           </div>
           <p className="text-2xl font-bold text-white">
             {smarterCount}/{tenants.length}
@@ -376,7 +374,7 @@ export default function TenantRAGRoute() {
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-white">
-              {selectedTenant.tenant_name} — recent documents
+              {selectedTenant.tenant_name} — copy support inputs
             </h2>
             <span className="text-gray-500 text-xs font-mono">{selectedTenant.tenant_id}</span>
           </div>
@@ -409,7 +407,7 @@ export default function TenantRAGRoute() {
                 {documents.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-4 py-8 text-center text-gray-500 text-sm">
-                      No RAG documents for this tenant yet.
+                      No copy support documents for this client yet.
                     </td>
                   </tr>
                 ) : (

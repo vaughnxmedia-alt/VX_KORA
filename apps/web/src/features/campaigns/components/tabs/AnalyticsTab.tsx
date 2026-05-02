@@ -10,7 +10,7 @@ export interface AnalyticsTabProps {
 }
 
 const CONNECTORS = [
-  { id: "ga", label: "Google Analytics" },
+  { id: "web_analytics", label: "External Web Analytics" },
   { id: "meta", label: "Meta" },
   { id: "crm", label: "CRM" },
 ];

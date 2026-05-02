@@ -153,6 +153,32 @@ serve(async (req) => {
     }
 
     await Promise.allSettled([
+      supabase.from("revenue_attribution").insert({
+        site_id: "jahknowspr_web",
+        client_id: "jahknowspr",
+        brand_id: "jahknowspr",
+        offer_id: "strategy_session",
+        offer_name: "Strategy Session",
+        amount: STRATEGY_SESSION_AMOUNT_CENTS / 100,
+        currency: "USD",
+        page_path: "/strategy-session/payment",
+        campaign_id: null,
+        utm_source: null,
+        utm_medium: null,
+        utm_campaign: null,
+        anonymous_visitor_id: `square_${paymentId}`,
+        session_id: idempotencyKey,
+        user_id: null,
+        payment_provider: "square",
+        order_id: paymentId,
+        metadata: {
+          buyer_email: buyerEmail?.trim().toLowerCase() || null,
+          square_location_id: locationId,
+          square_status: payStatus,
+          square_environment: envRaw,
+          source: "square-strategy-session-payment",
+        },
+      }),
       safeRecordOutcome(supabase, {
         lead_id: buyerEmail?.trim().toLowerCase() || null,
         subject_kind: "payment",

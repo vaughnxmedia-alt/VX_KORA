@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { DateTime } from "luxon";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -149,6 +149,57 @@ function blogPathSegment(post: BlogPost): string {
   return (post.slug?.trim() || post.id || "").replace(/^\/+|\/+$/g, "");
 }
 
+function nodeToMarkdown(node: Node): string {
+  if (node.nodeType === Node.TEXT_NODE) return node.textContent || "";
+  if (node.nodeType !== Node.ELEMENT_NODE) return "";
+
+  const element = node as HTMLElement;
+  const tag = element.tagName.toLowerCase();
+  const children = Array.from(element.childNodes).map(nodeToMarkdown).join("");
+  const trimmedChildren = children.trim();
+
+  if (tag === "br") return "\n";
+  if (tag === "strong" || tag === "b") return trimmedChildren ? `**${trimmedChildren}**` : "";
+  if (tag === "em" || tag === "i") return trimmedChildren ? `*${trimmedChildren}*` : "";
+  if (tag === "a") {
+    const href = element.getAttribute("href");
+    return href && trimmedChildren ? `[${trimmedChildren}](${href})` : children;
+  }
+  if (/^h[1-6]$/.test(tag)) return `${"#".repeat(Number(tag.slice(1)))} ${trimmedChildren}\n\n`;
+  if (tag === "p" || tag === "div" || tag === "section") return trimmedChildren ? `${trimmedChildren}\n\n` : "";
+  if (tag === "blockquote") {
+    return trimmedChildren
+      ? `${trimmedChildren.split(/\n+/).map((line) => `> ${line.trim()}`).join("\n")}\n\n`
+      : "";
+  }
+  if (tag === "ul") {
+    return `${Array.from(element.children)
+      .filter((child) => child.tagName.toLowerCase() === "li")
+      .map((child) => `- ${nodeToMarkdown(child).trim()}`)
+      .join("\n")}\n\n`;
+  }
+  if (tag === "ol") {
+    return `${Array.from(element.children)
+      .filter((child) => child.tagName.toLowerCase() === "li")
+      .map((child, index) => `${index + 1}. ${nodeToMarkdown(child).trim()}`)
+      .join("\n")}\n\n`;
+  }
+  if (tag === "li") return trimmedChildren;
+
+  return children;
+}
+
+function htmlToMarkdown(html: string): string {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  return Array.from(doc.body.childNodes)
+    .map(nodeToMarkdown)
+    .join("")
+    .replace(/\u00a0/g, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 const BlogManagement = () => {
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
   const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null);
@@ -157,6 +208,7 @@ const BlogManagement = () => {
   const [sharePost, setSharePost] = useState<BlogPost | null>(null);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [contentValue, setContentValue] = useState("");
+  const editorContainerRef = useRef<HTMLDivElement | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
@@ -465,6 +517,34 @@ const BlogManagement = () => {
     toast({
       title: "SEO link inserted",
       description: `${anchor} → ${url}`,
+    });
+  };
+
+  const handleEditorPasteCapture = (event: React.ClipboardEvent<HTMLDivElement>) => {
+    const html = event.clipboardData.getData("text/html");
+    if (!html.trim()) return;
+
+    const markdown = htmlToMarkdown(html);
+    if (!markdown.trim()) return;
+
+    event.preventDefault();
+    const textarea =
+      editorContainerRef.current?.querySelector("textarea") ||
+      (document.activeElement instanceof HTMLTextAreaElement ? document.activeElement : null);
+    const start = textarea?.selectionStart ?? contentValue.length;
+    const end = textarea?.selectionEnd ?? contentValue.length;
+    const prefix = contentValue.slice(0, start);
+    const suffix = contentValue.slice(end);
+    const needsLeadingBreak = prefix.trim().length > 0 && !prefix.endsWith("\n\n") ? "\n\n" : "";
+    const needsTrailingBreak = suffix.trim().length > 0 && !markdown.endsWith("\n\n") ? "\n\n" : "";
+    const insertion = `${needsLeadingBreak}${markdown}${needsTrailingBreak}`;
+
+    setContentValue(`${prefix}${insertion}${suffix}`);
+    window.requestAnimationFrame(() => {
+      if (!textarea) return;
+      const cursor = start + insertion.length;
+      textarea.focus();
+      textarea.setSelectionRange(cursor, cursor);
     });
   };
 
@@ -1417,7 +1497,12 @@ const BlogManagement = () => {
                   </div>
                 </div>
               </div>
-              <div data-color-mode="light" className="border rounded-md overflow-hidden">
+              <div
+                ref={editorContainerRef}
+                data-color-mode="light"
+                className="border rounded-md overflow-hidden"
+                onPasteCapture={handleEditorPasteCapture}
+              >
                 <MDEditor
                   value={contentValue}
                   onChange={(value) => setContentValue(value || "")}

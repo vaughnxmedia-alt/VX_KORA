@@ -5,6 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { collectFreeAuditAttribution, type FreeAuditAttribution } from "@/lib/freeAuditAttribution";
+import { trackAuditPageView, trackAuditRequestSubmit, trackFormStart } from "@/lib/kora-analytics";
+import { StructuredData } from "@/components/StructuredData";
+import { breadcrumbListSchema, serviceSchema } from "@/lib/structured-data";
 
 type Intent = "ready_now" | "open_if_it_makes_sense" | "just_looking";
 type Readiness = "HOT" | "WARM" | "COLD";
@@ -183,6 +186,12 @@ export default function FreeAudit() {
     setMeta('meta[property="og:description"]', "content", "Identify what is blocking your brand from converting and move into a Strategy Session when ready.");
     setMeta('meta[property="og:url"]', "content", "https://www.jahknowspr.com/free-audit");
     setAttribution(collectFreeAuditAttribution());
+    trackAuditPageView({
+      page_path: "/free-audit",
+      funnel_id: "free_audit",
+      funnel_step: "landing",
+      offer_id: "free_audit",
+    });
   }, []);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -191,6 +200,13 @@ export default function FreeAudit() {
 
   function goNext() {
     if (currentRequiredMissing) return;
+    trackFormStart({
+      page_path: "/free-audit",
+      form_id: "free-audit-form",
+      form_name: "Free Audit Diagnosis",
+      funnel_id: "free_audit",
+      funnel_step: `question_${currentStep + 1}`,
+    });
     setCurrentStep((step) => Math.min(QUESTIONS.length - 1, step + 1));
   }
 
@@ -247,6 +263,16 @@ export default function FreeAudit() {
         },
       });
 
+      trackAuditRequestSubmit({
+        page_path: "/free-audit",
+        form_id: "free-audit-form",
+        form_name: "Free Audit Diagnosis",
+        funnel_id: "free_audit",
+        funnel_step: "submit",
+        offer_id: "free_audit",
+        metadata: { readiness_level: readiness },
+      });
+
       navigate("/free-audit/thank-you", {
         replace: true,
         state: { readiness },
@@ -261,6 +287,23 @@ export default function FreeAudit() {
 
   return (
     <main className="min-h-screen bg-background text-foreground">
+      <StructuredData
+        id="free-brand-diagnosis"
+        data={[
+          serviceSchema({
+            name: "Free Brand Diagnosis",
+            description:
+              "A free diagnostic review that helps entrepreneurs and businesses identify positioning, presence, audience clarity, and conversion blockers.",
+            url: "/free-audit",
+            serviceType: "Brand diagnosis",
+            areaServed: "Texas",
+          }),
+          breadcrumbListSchema([
+            { name: "Home", url: "/" },
+            { name: "Free Brand Diagnosis", url: "/free-audit" },
+          ]),
+        ]}
+      />
       {!started ? (
         <section className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-12 sm:px-6 md:py-16">
           <div className="space-y-4 text-center">

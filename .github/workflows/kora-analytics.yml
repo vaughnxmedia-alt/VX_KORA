@@ -1,0 +1,94 @@
+name: KORA Analytics Automation
+
+on:
+  schedule:
+    # GitHub cron is UTC. These hours cover 7AM, 12PM, and 7PM Central
+    # in both daylight and standard time; the job below skips non-matching
+    # Central-time windows.
+    - cron: "0 0,1,12,13,17,18 * * *"
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Number of days to roll up and analyze"
+        required: false
+        default: "14"
+      findings_limit:
+        description: "Maximum KORA findings to generate"
+        required: false
+        default: "10"
+
+jobs:
+  run-kora-analytics:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve Central analytics window
+        id: window
+        shell: bash
+        run: |
+          central_date="$(TZ=America/Chicago date +%F)"
+          central_hour="$(TZ=America/Chicago date +%H)"
+          central_label="$(TZ=America/Chicago date '+%Y-%m-%d %I:%M %p %Z')"
+
+          echo "central_label=$central_label" >> "$GITHUB_OUTPUT"
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "reason=manual dispatch" >> "$GITHUB_OUTPUT"
+          elif [[ "$central_date" < "2026-05-02" ]]; then
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "reason=scheduled analytics starts on 2026-05-02 Central" >> "$GITHUB_OUTPUT"
+          elif [ "$central_hour" = "07" ] || [ "$central_hour" = "12" ] || [ "$central_hour" = "19" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "reason=scheduled Central analytics window" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "reason=not a 7AM, 12PM, or 7PM Central window" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Report skipped window
+        if: steps.window.outputs.should_run != 'true'
+        run: |
+          echo "Skipping KORA analytics at ${{ steps.window.outputs.central_label }}: ${{ steps.window.outputs.reason }}"
+
+      - name: Invoke KORA analytics rollup and findings
+        if: steps.window.outputs.should_run == 'true'
+        shell: bash
+        env:
+          KORA_ANALYTICS_BASE_URL: ${{ secrets.KORA_ANALYTICS_BASE_URL }}
+          DAYS: ${{ github.event.inputs.days || '14' }}
+          FINDINGS_LIMIT: ${{ github.event.inputs.findings_limit || '10' }}
+        run: |
+          base_url="${KORA_ANALYTICS_BASE_URL:-https://www.jahknowspr.com}"
+          base_url="${base_url%/}"
+
+          invoke_endpoint() {
+            local endpoint="$1"
+            local payload="$2"
+            local response_file
+            local http_status
+            response_file="$(mktemp)"
+
+            if ! http_status="$(
+              curl --silent --show-error --output "$response_file" --write-out "%{http_code}" \
+                --request POST "$base_url$endpoint" \
+                --header "Content-Type: application/json" \
+                --data "$payload"
+            )"; then
+              http_status="000"
+            fi
+
+            echo "$endpoint HTTP status: $http_status"
+            cat "$response_file"
+            echo
+
+            if [ "$http_status" -lt 200 ] || [ "$http_status" -ge 300 ]; then
+              echo "::warning::KORA analytics endpoint $endpoint returned HTTP $http_status. The scheduled workflow will not fail to avoid noisy alert emails."
+            fi
+          }
+
+          rollup_payload="$(printf '{"site_id":"jahknowspr_web","brand_id":"jahknowspr","days":%s}' "$DAYS")"
+          findings_payload="$(printf '{"site_id":"jahknowspr_web","brand_id":"jahknowspr","days":%s,"limit":%s}' "$DAYS" "$FINDINGS_LIMIT")"
+
+          echo "Running KORA analytics for ${{ steps.window.outputs.central_label }}."
+          invoke_endpoint "/api/kora/analytics/rollup" "$rollup_payload"
+          invoke_endpoint "/api/kora/analytics/generate-findings" "$findings_payload"

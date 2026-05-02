@@ -169,6 +169,18 @@ All colors MUST be HSL.
     display: none;
   }
 
+  .blog-editorial-body ul {
+    @apply list-disc pl-7 mb-8 space-y-3;
+  }
+
+  .blog-editorial-body ol {
+    @apply list-decimal pl-7 mb-8 space-y-3;
+  }
+
+  .blog-editorial-body li {
+    @apply pl-1;
+  }
+
   /* Pull-quote styling */
   .blog-editorial .prose blockquote {
     @apply border-l-0 bg-transparent px-0 py-8 my-12 text-center italic;

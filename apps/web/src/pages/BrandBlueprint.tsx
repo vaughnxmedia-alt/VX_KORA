@@ -29,6 +29,7 @@ import jsPDF from "jspdf";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/components/AuthProvider";
 import { Spinner } from "@/components/ui/spinner";
+import { trackBrandBlueprintView, trackCheckoutStart, trackFormSubmit, trackPurchaseComplete } from "@/lib/kora-analytics";
 
 const formSchema = z.object({
     // Personal + Business Info
@@ -222,6 +223,16 @@ const BrandBlueprint = () => {
     },
     });
 
+    useEffect(() => {
+        updateBrandBlueprintSEO();
+        trackBrandBlueprintView({
+            page_path: "/brand-blueprint",
+            funnel_id: "brand_blueprint",
+            funnel_step: "landing",
+            offer_id: "brand_blueprint",
+        });
+    }, []);
+
     // Restore form data if user completed auth flow
     useEffect(() => {
         const savedFormData = sessionStorage.getItem('brandBlueprintFormData');
@@ -366,6 +377,15 @@ const BrandBlueprint = () => {
     }
 
     setIsCompletingPayment(true);
+    trackCheckoutStart({
+      page_path: "/brand-blueprint",
+      funnel_id: "brand_blueprint",
+      funnel_step: "payment_attempt",
+      offer_id: "brand_blueprint",
+      revenue_value: 250,
+      currency: "USD",
+      metadata: { payment_provider: "simulated" },
+    });
     try {
       // Get the customer ID
       const { data: customerData, error: customerError } = await supabase
@@ -397,6 +417,15 @@ const BrandBlueprint = () => {
       toast({
         title: "Payment Complete!",
         description: "Your Brand Blueprint has been purchased successfully. You now have full access to the platform.",
+      });
+      trackPurchaseComplete({
+        page_path: "/brand-blueprint",
+        funnel_id: "brand_blueprint",
+        funnel_step: "purchase_complete",
+        offer_id: "brand_blueprint",
+        revenue_value: 250,
+        currency: "USD",
+        metadata: { payment_provider: "simulated" },
       });
 
       // Redirect to dashboard after successful payment
@@ -433,6 +462,14 @@ const BrandBlueprint = () => {
     // Save all data to Supabase
     const saved = await saveAllData(finalData);
     if (!saved) return;
+    trackFormSubmit({
+      page_path: "/brand-blueprint",
+      form_id: "brand-blueprint-form",
+      form_name: "Brand Blueprint Questionnaire",
+      funnel_id: "brand_blueprint",
+      funnel_step: "intake_submit",
+      offer_id: "brand_blueprint",
+    });
 
     setIsSubmitted(true);
     setIsSubmitting(false);

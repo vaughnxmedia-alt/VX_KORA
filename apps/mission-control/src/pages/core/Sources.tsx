@@ -5,7 +5,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ClientDropdown } from "@/components/ClientDropdown"
-import { useClients } from "@/hooks/useClients"
+import { OFFICIAL_CLIENT_ID, useClients } from "@/hooks/useClients"
 
 type SourceType = "rss" | "youtube" | "social" | "web" | "search"
 type SourceStatus = "active" | "inactive" | "error" | "pending_approval"
@@ -55,7 +55,7 @@ export default function Sources() {
   const [sources] = useState<Source[]>(mockSources)
   const [filterType, setFilterType] = useState<SourceType | "all">("all")
   const [filterStatus, setFilterStatus] = useState<ApprovalStatus | "all">("all")
-  const [selectedClientId, setSelectedClientId] = useState<string | null>(null)
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(OFFICIAL_CLIENT_ID)
   const { clients, getDisplayName } = useClients()
 
   const filteredSources = useMemo(() => {
@@ -90,7 +90,7 @@ export default function Sources() {
         <ClientDropdown
           selectedClientId={selectedClientId}
           onClientChange={setSelectedClientId}
-          allOptionLabel="All Clients"
+          allOptionLabel="All KORA Clients"
         />
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4 text-gray-400" />

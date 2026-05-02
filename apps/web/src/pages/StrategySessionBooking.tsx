@@ -43,6 +43,7 @@ import { formatStrategyHostListLabel } from "@/features/strategy-session/formatH
 import { toast } from "sonner";
 import { DateTime } from "luxon";
 import { supabaseIsConfigured } from "@/integrations/supabase/client";
+import { trackBookingClick, trackFormStart, trackFormSubmit, trackStrategySessionView } from "@/lib/kora-analytics";
 const SUPPORT_ERROR_MESSAGE = "Something went wrong. Please contact support.";
 
 /**
@@ -207,6 +208,27 @@ export default function StrategySessionBooking() {
     return undefined;
   }, [searchParams]);
 
+  useEffect(() => {
+    trackStrategySessionView({
+      page_path: "/strategy-session",
+      funnel_id: "strategy_session",
+      funnel_step: "landing",
+      offer_id: "strategy_session",
+      metadata: { booking_kind: bookingKindFromUrl ?? null },
+    });
+  }, [bookingKindFromUrl]);
+
+  useEffect(() => {
+    if (step !== 1) return;
+    trackFormStart({
+      page_path: "/strategy-session",
+      form_id: "strategy-session-intake",
+      form_name: "Strategy Session Intake",
+      funnel_id: "strategy_session",
+      funnel_step: "intake_start",
+    });
+  }, [step]);
+
   /** One month before through two months after the month the user is viewing (inclusive). */
   const rangeStart = format(startOfMonth(subMonths(calendarMonth, 1)), "yyyy-MM-dd");
   const rangeEnd = format(endOfMonth(addMonths(calendarMonth, 2)), "yyyy-MM-dd");
@@ -277,6 +299,13 @@ export default function StrategySessionBooking() {
   }, [selectedDay, availability?.clientDayDiagnostics, timezone]);
 
   const onIntakeNext = form.handleSubmit(() => {
+    trackFormSubmit({
+      page_path: "/strategy-session",
+      form_id: "strategy-session-intake",
+      form_name: "Strategy Session Intake",
+      funnel_id: "strategy_session",
+      funnel_step: "intake_complete",
+    });
     const firstOpen = nextOpenDayOnOrAfter(new Date(), DEFAULT_OPEN_WEEKDAYS);
     if (!selectedDay) {
       setSelectedDay(firstOpen);
@@ -293,6 +322,15 @@ export default function StrategySessionBooking() {
       return;
     }
     const values = form.getValues();
+    trackBookingClick({
+      page_path: "/strategy-session",
+      funnel_id: "strategy_session",
+      funnel_step: "slot_selected",
+      offer_id: "strategy_session",
+      cta_id: "book_strategy_session",
+      cta_label: "Book Session",
+      metadata: { timezone, selected_slot_iso: selectedSlotIso, booking_kind: bookingKindFromUrl ?? null },
+    });
     const draft: StrategySessionBookingDraft = {
       values,
       selectedSlotIso,

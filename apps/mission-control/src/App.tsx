@@ -19,6 +19,8 @@ const TenantRAGRoute = lazy(() => import("@/pages/core/TenantRAGRoute"))
 const Enrichment = lazy(() => import("@/pages/core/Enrichment"))
 const EventsQueue = lazy(() => import("@/pages/core/EventsQueue"))
 const HealthAndLogs = lazy(() => import("@/pages/core/HealthAndLogs"))
+const AnalyticsInsights = lazy(() => import("@/pages/core/AnalyticsInsights"))
+const AdsCampaigns = lazy(() => import("@/pages/campaigns/AdsCampaigns"))
 
 // Agent Detail Pages (lazy loaded)
 const AgentDetail = lazy(() => import("@/pages/agents/AgentDetail"))
@@ -74,6 +76,12 @@ function App() {
           <Route path="intake/brand-identity" element={<BrandIdentity />} />
           <Route path="intake/audience-intelligence" element={<AudienceIntelligence />} />
           <Route path="intake/strategy-architect" element={<Navigate to="/intake/brand-identity" replace />} />
+          <Route path="audience-pools" element={<AudienceIntelligence />} />
+          <Route path="ads-campaigns" element={<AdsCampaigns />} />
+          <Route path="ads-campaigns/detail/:campaignId" element={<AdsCampaigns />} />
+          <Route path="ads-campaigns/:channel" element={<AdsCampaigns />} />
+          <Route path="analytics-revenue" element={<AnalyticsInsights />} />
+          <Route path="rag-copy-support" element={<TenantRAGRoute />} />
 
           {/* Core Intelligence Routes */}
           <Route path="core" element={<CoreOverview />} />
@@ -83,6 +91,7 @@ function App() {
           <Route path="core/tenant-rag" element={<TenantRAGRoute />} />
           <Route path="core/enrichment" element={<Enrichment />} />
           <Route path="core/events-queue" element={<EventsQueue />} />
+          <Route path="core/analytics" element={<AnalyticsInsights />} />
           <Route path="core/health" element={<HealthAndLogs />} />
 
           {/* Agent Detail Routes */}

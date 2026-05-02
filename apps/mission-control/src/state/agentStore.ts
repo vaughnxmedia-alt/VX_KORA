@@ -114,10 +114,45 @@ const initialAgents: Agent[] = [
   },
 ]
 
+const initialClients: Client[] = [
+  {
+    id: "jahknowspr",
+    name: "JahKnowsPR",
+    businessName: "JahKnowsPR",
+    email: "owner@jahknowspr.com",
+    status: "active_client",
+    createdAt: new Date(0).toISOString(),
+  },
+  {
+    id: "mont-city-network",
+    name: "Mont City Network",
+    businessName: "Mont City Network",
+    email: "studio@montcitynetwork.com",
+    status: "active_client",
+    createdAt: new Date(0).toISOString(),
+  },
+  {
+    id: "arobias-unique-boutique",
+    name: "Arobia's Unique Boutique",
+    businessName: "Arobia's Unique Boutique",
+    email: "hello@arobiasuniqueboutique.com",
+    status: "active_client",
+    createdAt: new Date(0).toISOString(),
+  },
+  {
+    id: "eb-digital-magazine",
+    name: "EB Digital Magazine",
+    businessName: "EB Digital Magazine",
+    email: "editor@ebdigitalmagazine.com",
+    status: "active_client",
+    createdAt: new Date(0).toISOString(),
+  },
+]
+
 export const useAgentStore = create<AgentStore>((set, get) => ({
   agents: initialAgents,
-  clients: [],
-  selectedClientId: null,
+  clients: initialClients,
+  selectedClientId: initialClients[0].id,
   deliverables: [],
 
   setSelectedClient: (clientId) => set({ selectedClientId: clientId }),

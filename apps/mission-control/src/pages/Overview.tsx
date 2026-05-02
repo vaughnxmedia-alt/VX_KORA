@@ -3,7 +3,7 @@ import { Brain, PenTool, Layers, MessageSquareText, FileText, Clock, CheckCircle
 import { Link } from "react-router-dom"
 import { cn } from "@/lib/utils"
 import { ClientDropdown } from "@/components/ClientDropdown"
-import { useClients } from "@/hooks/useClients"
+import { OFFICIAL_CLIENT_ID, useClients } from "@/hooks/useClients"
 
 type AgentStatus = "idle" | "running" | "healthy" | "warning" | "error"
 
@@ -58,7 +58,7 @@ const statusConfig: Record<AgentStatus, { color: string; bgColor: string; icon: 
 export function Overview() {
   const [strategies, setStrategies] = useState(mockContentStrategies)
   const [insights] = useState(mockInsights)
-  const [selectedClientId, setSelectedClientId] = useState<string | null>(null)
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(OFFICIAL_CLIENT_ID)
   const { clients, getDisplayName } = useClients()
 
   const filteredStrategies = useMemo(() => {
@@ -78,7 +78,7 @@ export function Overview() {
         <ClientDropdown
           selectedClientId={selectedClientId}
           onClientChange={setSelectedClientId}
-          allOptionLabel="All Clients"
+          allOptionLabel="All KORA Clients"
         />
       </div>
 

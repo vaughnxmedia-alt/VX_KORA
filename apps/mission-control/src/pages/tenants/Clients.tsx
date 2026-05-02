@@ -39,10 +39,6 @@ export default function Clients() {
       }
       setLoadingReports(true)
       const clientIds = clients.map((c) => c.id)
-      const telegramIds = clients
-        .map((c) => c.telegram_id)
-        .filter((v): v is number => v != null)
-
       const [intakeRes, brandRes, strategyRes, audienceRes, meetingsRes, subsRes] = await Promise.all([
         supabase.from("telegram_intake_sessions").select("client_id, telegram_id, phase"),
         supabase.from("brand_blueprints").select("client_id"),
@@ -126,11 +122,10 @@ export default function Clients() {
         <div>
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">
             <Building2 className="h-7 w-7 text-blue-400" />
-            Users
+            Clients
           </h1>
           <p className="text-gray-400 text-sm mt-1">
-            Telegram recipients and portal accounts (<code className="text-gray-500">customers</code> in
-            Supabase). Deep insights runs link here by Telegram ID.
+            Mission Control can manage JahKnowsPR as the first example client and support every client KORA works with.
           </p>
         </div>
         <button
@@ -149,7 +144,7 @@ export default function Clients() {
           {error}
           {error.includes("permission") && (
             <span className="block mt-1 text-red-300/80">
-              Sign in as an admin to list clients.
+              Sign in as an admin to list client records.
             </span>
           )}
         </div>
@@ -157,19 +152,19 @@ export default function Clients() {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-gray-800/50 rounded-xl p-4 border border-white/5">
-          <p className="text-gray-400 text-sm mb-1">Total clients</p>
+          <p className="text-gray-400 text-sm mb-1">Clients</p>
           <p className="text-2xl font-bold text-white">{clients.length}</p>
         </div>
         <div className="bg-gray-800/50 rounded-xl p-4 border border-white/5">
-          <p className="text-gray-400 text-sm mb-1">With Telegram</p>
+          <p className="text-gray-400 text-sm mb-1">Seeded clients</p>
           <p className="text-2xl font-bold text-emerald-400">
-            {clients.filter((c) => c.telegram_id != null).length}
+            {clients.length}
           </p>
         </div>
         <div className="bg-gray-800/50 rounded-xl p-4 border border-white/5 sm:col-span-1">
           <input
             type="search"
-            placeholder="Search name, email, Telegram ID…"
+            placeholder="Search clients…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             className="w-full bg-gray-900 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-gray-500"
@@ -181,7 +176,7 @@ export default function Clients() {
         <table className="w-full">
           <thead>
             <tr className="border-b border-white/5">
-              <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Client</th>
+              <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">KORA Client</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Email</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Telegram</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase">Reports</th>
@@ -200,9 +195,7 @@ export default function Clients() {
             ) : filtered.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-10 text-center text-gray-500 text-sm">
-                  No clients yet. Run the seed SQL in{" "}
-                  <code className="text-gray-400">docs/TELEGRAM_CLIENTS_SEED.md</code> for Juss &amp; Jocelyn,
-                  or complete intake so rows appear in <code className="text-gray-400">customers</code>.
+                  No clients found yet. JahKnowsPR should remain seeded as the first example client.
                 </td>
               </tr>
             ) : (

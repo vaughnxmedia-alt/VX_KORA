@@ -45,7 +45,7 @@ Campaigns turn “Get Inspired” boards into structured Marketing or PR campaig
 4. **NewCampaignModal** – Step 2 “Import from board”: replace mock board list with real boards from Supabase (e.g. `inspired_boards`). Step 3 assignees: replace `users` with org members from Supabase.
 5. **Templates drawer** – Persist `templateType` on campaign; optional “template checklist” and recommendations from DB.
 6. **Whiteboard connections** – Replace stub `WhiteboardConnection[]` with real links to Get Inspired boards (e.g. `campaign_boards` or `from_board_id` + related content).
-7. **Analytics / Connectors** – Replace disabled Google Analytics, Meta, CRM buttons with real OAuth and sync jobs.
+7. **Analytics / Connectors** – Replace disabled connector buttons with real OAuth and sync jobs.
 8. **Share / Export** – Implement share permissions and export (e.g. PDF/PNG) using real campaign data.
 
 ## Types

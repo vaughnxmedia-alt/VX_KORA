@@ -3,6 +3,7 @@ import { MessageSquareText, Shield, Users, CheckCircle2, Clock, Loader2, ArrowRi
 import { Link } from "react-router-dom"
 import { cn } from "@/lib/utils"
 import { ClientDropdown } from "@/components/ClientDropdown"
+import { OFFICIAL_CLIENT_ID } from "@/hooks/useClients"
 import { supabase } from "@/lib/supabase"
 
 type AgentStatus = "idle" | "running" | "completed" | "pending"
@@ -23,7 +24,7 @@ const statusConfig: Record<AgentStatus, { color: string; bgColor: string; icon: 
 }
 
 export default function IntakeOverview() {
-  const [selectedClientId, setSelectedClientId] = useState<string | null>(null)
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(OFFICIAL_CLIENT_ID)
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState<Stats>({
     totalIntakes: 0,
@@ -113,7 +114,7 @@ export default function IntakeOverview() {
           <ClientDropdown
             selectedClientId={selectedClientId}
             onClientChange={setSelectedClientId}
-            allOptionLabel="All Clients"
+            allOptionLabel="All KORA Clients"
           />
         </div>
       </div>

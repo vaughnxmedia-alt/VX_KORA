@@ -17,7 +17,7 @@ import {
 import { supabase } from "@/lib/supabase"
 import { cn } from "@/lib/utils"
 import { ClientDropdown } from "@/components/ClientDropdown"
-import { useClients } from "@/hooks/useClients"
+import { OFFICIAL_CLIENT_ID, useClients } from "@/hooks/useClients"
 
 type RunStatus = "pending" | "running" | "completed" | "failed"
 type TriggerSource = "scheduled" | "manual" | "webhook" | "event"
@@ -246,7 +246,7 @@ export default function IngestRuns() {
   const [triggerLoading, setTriggerLoading] = useState(false)
   const [filterAgent, setFilterAgent] = useState<string>("all")
   const [filterStatus, setFilterStatus] = useState<RunStatus | "all">("all")
-  const [selectedClientId, setSelectedClientId] = useState<string | null>(null)
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(OFFICIAL_CLIENT_ID)
   const { clients, getDisplayName } = useClients()
 
   const customerNames = useMemo(() => {
@@ -432,7 +432,7 @@ export default function IngestRuns() {
         <ClientDropdown
           selectedClientId={selectedClientId}
           onClientChange={setSelectedClientId}
-          allOptionLabel="All Clients"
+          allOptionLabel="All KORA Clients"
         />
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4 text-gray-400" />

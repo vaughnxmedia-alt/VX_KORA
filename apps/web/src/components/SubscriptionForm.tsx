@@ -8,10 +8,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast as sonnerToast } from "sonner";
 import { ArrowRight } from "lucide-react";
 import { useToast } from "./ui/use-toast";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Spinner } from "./ui/spinner";
 import { suppressSubscriberPopupAsSignedUp } from "@/lib/subscriber-popup-storage";
 import { readFreeAuditAttribution } from "@/lib/freeAuditAttribution";
+import { trackFormStart, trackNewsletterSignup } from "@/lib/kora-analytics";
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -32,6 +33,16 @@ export const SubscriptionForm = () => {
       email: "",
     },
   });
+
+  useEffect(() => {
+    trackFormStart({
+      page_path: window.location.pathname,
+      form_id: "subscription-form",
+      form_name: "The Brief Subscription",
+      funnel_id: "newsletter",
+      funnel_step: "form_start",
+    });
+  }, []);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
@@ -69,6 +80,14 @@ export const SubscriptionForm = () => {
         }
       }
       form.reset();
+      trackNewsletterSignup({
+        page_path: window.location.pathname,
+        form_id: "subscription-form",
+        form_name: "The Brief Subscription",
+        funnel_id: "newsletter",
+        funnel_step: "submit",
+        offer_id: "newsletter",
+      });
       setTimeout(() => {
         window.location.href = '/the-brief?new_access=true';
       }, 1500);

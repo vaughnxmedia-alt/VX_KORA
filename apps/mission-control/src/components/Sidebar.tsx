@@ -5,7 +5,6 @@ import {
   ChevronDown,
   ChevronRight,
   Key,
-  Globe,
   Bot,
   Bell,
   type LucideIcon,
@@ -18,7 +17,6 @@ import {
 } from "@/components/SidebarNavConfig"
 
 const settingsItems: { to: string; label: string; icon: LucideIcon }[] = [
-  { to: "/settings/integrations", label: "Integrations", icon: Globe },
   { to: "/settings/api-keys", label: "API Keys", icon: Key },
   { to: "/settings/llm-router", label: "LLM Router", icon: Bot },
   { to: "/settings/notifications", label: "Notifications", icon: Bell },
@@ -89,7 +87,7 @@ export function Sidebar() {
 
         <div className="mb-2">
           <p className="px-3 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            Pipeline agents
+            Navigation
           </p>
 
           <div className="space-y-0.5">
@@ -97,6 +95,29 @@ export function Sidebar() {
               const isExpanded = expandedGroups.has(group.id)
               const active = isGroupActive(group)
               const Icon = group.icon
+              const isDirectLink = group.items.length === 0
+
+              if (isDirectLink) {
+                return (
+                  <NavLink
+                    key={group.id}
+                    to={group.overviewPath}
+                    title={group.caption}
+                    className={({ isActive }) =>
+                      cn(
+                        "flex flex-col items-stretch gap-0.5 px-3 py-2 rounded-lg text-left transition-all",
+                        isActive || active ? "text-white bg-white/5" : "text-gray-400 hover:text-white hover:bg-white/5",
+                      )
+                    }
+                  >
+                    <div className="flex items-center gap-2.5 w-full">
+                      <Icon className="h-4 w-4 shrink-0" />
+                      <span className="flex-1 text-sm font-medium truncate">{group.label}</span>
+                    </div>
+                    <p className="text-[11px] text-gray-600 leading-snug pl-7 pr-1">{group.caption}</p>
+                  </NavLink>
+                )
+              }
 
               return (
                 <div key={group.id}>
@@ -127,9 +148,6 @@ export function Sidebar() {
                     )}
                   >
                     <div className="ml-4 pl-3 border-l border-white/10 py-1 space-y-0.5">
-                      <p className="px-2.5 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-600">
-                        {group.id === "telegram-system" ? "Agent" : "Hub"}
-                      </p>
                       <NavLink
                         to={group.overviewPath}
                         end
@@ -149,9 +167,6 @@ export function Sidebar() {
 
                       {group.items.length > 0 && (
                         <>
-                          <p className="px-2.5 pt-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-600">
-                            {group.id === "telegram-system" ? "Routing & delivery" : "Deliverables"}
-                          </p>
                           {group.items.map((item) => {
                             const ItemIcon = item.icon
                             return (

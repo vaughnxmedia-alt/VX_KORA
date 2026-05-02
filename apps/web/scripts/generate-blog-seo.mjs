@@ -46,7 +46,9 @@ function renderInlineMarkdown(value = "") {
     lastIndex = (match.index ?? 0) + match[0].length;
   }
   output += escapeHtml(input.slice(lastIndex));
-  return output;
+  return output
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*([^*]+)\*/g, "<em>$1</em>");
 }
 
 function cleanSegment(post) {
@@ -65,48 +67,65 @@ function basicMarkdownToHtml(markdown = "") {
   const lines = String(markdown).split(/\r?\n/);
   const html = [];
   let listOpen = false;
+  let listTag = "ul";
   for (const raw of lines) {
     const line = raw.trim();
     if (!line) {
       if (listOpen) {
-        html.push("</ul>");
+        html.push(`</${listTag}>`);
         listOpen = false;
       }
       continue;
     }
     if (line.startsWith("### ")) {
       if (listOpen) {
-        html.push("</ul>");
+        html.push(`</${listTag}>`);
         listOpen = false;
       }
-      html.push(`<h3>${escapeHtml(line.slice(4))}</h3>`);
+      html.push(`<h3>${renderInlineMarkdown(line.slice(4))}</h3>`);
     } else if (line.startsWith("## ")) {
       if (listOpen) {
-        html.push("</ul>");
+        html.push(`</${listTag}>`);
         listOpen = false;
       }
-      html.push(`<h2>${escapeHtml(line.slice(3))}</h2>`);
+      html.push(`<h2>${renderInlineMarkdown(line.slice(3))}</h2>`);
     } else if (line.startsWith("# ")) {
       if (listOpen) {
-        html.push("</ul>");
+        html.push(`</${listTag}>`);
         listOpen = false;
       }
-      html.push(`<h2>${escapeHtml(line.slice(2))}</h2>`);
+      html.push(`<h2>${renderInlineMarkdown(line.slice(2))}</h2>`);
     } else if (/^[-*]\s+/.test(line)) {
+      if (listOpen && listTag !== "ul") {
+        html.push(`</${listTag}>`);
+        listOpen = false;
+      }
       if (!listOpen) {
         html.push("<ul>");
         listOpen = true;
+        listTag = "ul";
       }
       html.push(`<li>${renderInlineMarkdown(line.replace(/^[-*]\s+/, ""))}</li>`);
+    } else if (/^\d+\.\s+/.test(line)) {
+      if (listOpen && listTag !== "ol") {
+        html.push(`</${listTag}>`);
+        listOpen = false;
+      }
+      if (!listOpen) {
+        html.push("<ol>");
+        listOpen = true;
+        listTag = "ol";
+      }
+      html.push(`<li>${renderInlineMarkdown(line.replace(/^\d+\.\s+/, ""))}</li>`);
     } else {
       if (listOpen) {
-        html.push("</ul>");
+        html.push(`</${listTag}>`);
         listOpen = false;
       }
       html.push(`<p>${renderInlineMarkdown(line)}</p>`);
     }
   }
-  if (listOpen) html.push("</ul>");
+  if (listOpen) html.push(`</${listTag}>`);
   return html.join("\n");
 }
 
@@ -216,12 +235,42 @@ function renderPostHtml(post, relatedPosts) {
 }
 
 function renderSitemap(posts) {
+  const locationPaths = [
+    "/locations",
+    "/locations/texas",
+    "/locations/beaumont-tx",
+    "/locations/port-arthur-tx",
+    "/locations/orange-tx",
+    "/locations/houston-tx",
+    "/locations/dallas-tx",
+    "/locations/san-antonio-tx",
+    "/locations/austin-tx",
+  ];
+  const answerPaths = [
+    "/answers",
+    "/answers/pr-vs-marketing",
+    "/answers/what-is-brand-strategy",
+    "/answers/what-does-a-publicist-do",
+    "/answers/why-content-gets-attention-but-not-clients",
+    "/answers/how-to-get-media-coverage-in-texas",
+    "/answers/do-i-need-pr-or-marketing-first",
+    "/answers/what-is-authority-strategy",
+    "/answers/how-to-build-local-brand-authority",
+  ];
+  const servicePaths = [
+    "/work-with-me",
+    "/free-audit",
+    "/brand-strategy-session",
+    "/strategy-session",
+    "/consultation/creative-production",
+    "/consultation/campaign-retainer",
+  ];
   const staticUrls = [
     ["/", "1.0"],
-    ["/free-audit", "0.9"],
-    ["/brand-strategy-session", "0.8"],
     ["/the-brief", "0.7"],
-    ["/work-with-me", "0.7"],
+    ...servicePaths.map((pathname) => [pathname, pathname === "/free-audit" ? "0.9" : "0.8"]),
+    ...locationPaths.map((pathname) => [pathname, pathname === "/locations/texas" ? "0.8" : "0.7"]),
+    ...answerPaths.map((pathname) => [pathname, pathname === "/answers" ? "0.8" : "0.7"]),
   ];
   const urls = staticUrls.map(([pathname, priority]) => `  <url>
     <loc>${SITE_ORIGIN}${pathname === "/" ? "/" : pathname}</loc>

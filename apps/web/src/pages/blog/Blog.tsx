@@ -12,6 +12,7 @@ import {
   getDefaultOgImageAbsoluteUrl,
   getPublicSiteOrigin,
 } from "@/lib/blog-share";
+import { answerPages } from "@/data/answerPages";
 import {
   Pagination,
   PaginationContent,
@@ -363,9 +364,11 @@ const Blog = () => {
 
       {/* All Briefs Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-16" id="latest-insights">
-        <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-center mb-8 sm:mb-12">
-          {selectedCategory === 'All' ? <span className="text-primary">All briefs<span className="text-gold">.</span></span> : <span className="text-primary">{selectedCategory}<span className="text-gold">.</span></span>}
-        </h2>
+        {paginatedArticles.length > 0 && (
+          <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-center mb-8 sm:mb-12">
+            {selectedCategory === 'All' ? <span className="text-primary">All briefs<span className="text-gold">.</span></span> : <span className="text-primary">{selectedCategory}<span className="text-gold">.</span></span>}
+          </h2>
+        )}
 
         {paginatedArticles.length > 0 ? (
           <>
@@ -446,8 +449,37 @@ const Blog = () => {
             )}
           </>
         ) : (
-          <div className="text-center py-16 border rounded-lg bg-muted/20">
-            <p className="text-lg text-muted-foreground">No articles found in this category yet.</p>
+          <div className="rounded-3xl border bg-muted/20 p-6 sm:p-8">
+            <div className="mx-auto max-w-3xl text-center">
+              <h2 className="text-2xl font-bold tracking-tight text-primary sm:text-4xl">
+                Answers<span className="text-gold">.</span>
+              </h2>
+              <p className="mt-3 text-muted-foreground">
+                Start with these direct answer guides while new Brief articles are being added.
+              </p>
+            </div>
+
+            <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              {answerPages.slice(0, 8).map((answer) => (
+                <button
+                  key={answer.slug}
+                  type="button"
+                  onClick={() => navigate(`/answers/${answer.slug}`)}
+                  className="group rounded-2xl border bg-white p-5 text-left shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Answer</p>
+                  <h4 className="mt-3 text-lg font-bold leading-tight text-foreground group-hover:text-primary">
+                    {answer.title}
+                  </h4>
+                  <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-muted-foreground">
+                    {answer.directAnswer}
+                  </p>
+                  <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-primary">
+                    Read answer <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>

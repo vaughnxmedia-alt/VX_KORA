@@ -8,6 +8,8 @@ import strategyConcept from "@/assets/strategy-concept.jpg";
 import militaryPrecision from "@/assets/military-precision.jpg";
 import brandClarity from "@/assets/brand-clarity.jpg";
 import missionBackground from "@/assets/mission-background.jpg";
+import { StructuredData } from "@/components/StructuredData";
+import { breadcrumbListSchema, personSchema } from "@/lib/structured-data";
 
 // SEO function for About page
 const updateAboutSEO = () => {
@@ -53,6 +55,16 @@ const About = () => {
 
   return (
     <div className="min-h-screen">
+      <StructuredData
+        id="about-person"
+        data={[
+          personSchema(),
+          breadcrumbListSchema([
+            { name: "Home", url: "/" },
+            { name: "About", url: "/about" },
+          ]),
+        ]}
+      />
       {/* Hero Section */}
       <section className="py-20 px-4">
         <div className="max-w-6xl mx-auto">

@@ -1,4 +1,4 @@
-import { useClients } from "@/hooks/useClients"
+import { OFFICIAL_CLIENT_ID, useClients } from "@/hooks/useClients"
 import { Users, ChevronDown, Building2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -7,6 +7,8 @@ interface ClientDropdownProps {
   onClientChange: (clientId: string | null) => void
   showAllOption?: boolean
   allOptionLabel?: string
+  includeOfficialClient?: boolean
+  officialClientLabel?: string
   className?: string
 }
 
@@ -14,13 +16,15 @@ export function ClientDropdown({
   selectedClientId,
   onClientChange,
   showAllOption = true,
-  allOptionLabel = "All Clients",
+  allOptionLabel = "All KORA Clients",
+  includeOfficialClient = false,
+  officialClientLabel = "JahKnowsPR",
   className
 }: ClientDropdownProps) {
   const { clients, loading, getDisplayName } = useClients()
 
-  const selectedClient = selectedClientId 
-    ? clients.find(c => c.id === selectedClientId) 
+  const selectedClient = selectedClientId
+    ? clients.find(c => c.id === selectedClientId)
     : null
 
   return (
@@ -41,6 +45,9 @@ export function ClientDropdown({
         >
           {showAllOption && (
             <option value="all">{allOptionLabel}</option>
+          )}
+          {includeOfficialClient && !clients.some((client) => client.id === OFFICIAL_CLIENT_ID) && (
+            <option value={OFFICIAL_CLIENT_ID}>{officialClientLabel}</option>
           )}
           {clients.map((client) => (
             <option key={client.id} value={client.id}>

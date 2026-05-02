@@ -190,6 +190,31 @@ const Index = () => {
         </div>
       </section>
 
+      <section className="py-16 md:py-24 px-4 sm:px-6 bg-background border-b border-gold/20">
+        <div className="max-w-5xl mx-auto grid gap-8 md:grid-cols-[0.9fr_1.1fr] md:items-center">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">Direct answers</p>
+            <h2 className="mt-3 text-3xl md:text-5xl font-serif font-bold tracking-tight">
+              What does JahKnowsPR do<span className="text-gold">?</span>
+            </h2>
+          </div>
+          <div className="rounded-3xl border border-primary/15 bg-primary/5 p-6 md:p-8">
+            <p className="text-lg leading-relaxed text-foreground/85">
+              JahKnowsPR helps entrepreneurs, creators, service providers, and growing Texas brands clarify their
+              positioning, strengthen their message, and build authority before spending more on content, ads, or PR.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Button variant="outline" asChild>
+                <Link to="/answers">Explore Answers</Link>
+              </Button>
+              <Button variant="ghost" asChild>
+                <Link to="/locations/texas">Texas PR strategy</Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* How We Work Section */}
       <section className="py-20 md:py-28 px-4 sm:px-6 bg-background border-b border-gold/20">
         <div className="max-w-4xl mx-auto">

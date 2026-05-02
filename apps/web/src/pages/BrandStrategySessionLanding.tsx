@@ -2,6 +2,8 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { StructuredData } from "@/components/StructuredData";
+import { breadcrumbListSchema, serviceSchema } from "@/lib/structured-data";
 
 const strategySessionBookPath = "/strategy-session";
 
@@ -52,6 +54,23 @@ export default function BrandStrategySessionLanding() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <StructuredData
+        id="authority-strategy-session"
+        data={[
+          serviceSchema({
+            name: "Authority Strategy Session",
+            description:
+              "A paid brand strategy session for creators, entrepreneurs, and business owners who need direct clarity on positioning, messaging, content direction, and next steps.",
+            url: "/brand-strategy-session",
+            serviceType: "Brand strategy session",
+            areaServed: "Texas",
+          }),
+          breadcrumbListSchema([
+            { name: "Home", url: "/" },
+            { name: "Authority Strategy Session", url: "/brand-strategy-session" },
+          ]),
+        ]}
+      />
       {/* 1. Hero Section */}
       <section
         className={`${sectionClass} bg-primary text-primary-foreground`}

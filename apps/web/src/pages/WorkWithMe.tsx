@@ -10,6 +10,8 @@ import {
   Target,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { StructuredData } from "@/components/StructuredData";
+import { breadcrumbListSchema, serviceSchema } from "@/lib/structured-data";
 
 function WhoItBelongsTo({ children }: { children: string }) {
   return (
@@ -34,6 +36,23 @@ const WorkWithMe = () => {
 
   return (
     <div className="min-h-screen">
+      <StructuredData
+        id="services"
+        data={[
+          serviceSchema({
+            name: "JahKnowsPR PR and Brand Strategy Services",
+            description:
+              "Strategy sessions, The Brief, creative production, and campaign support for brands that need clearer positioning, content direction, and authority-building communication.",
+            url: "/work-with-me",
+            serviceType: "Public relations and brand strategy",
+            areaServed: "Texas",
+          }),
+          breadcrumbListSchema([
+            { name: "Home", url: "/" },
+            { name: "Services", url: "/work-with-me" },
+          ]),
+        ]}
+      />
       <div className="fixed top-24 left-4 z-50">
         <Button
           variant="outline"

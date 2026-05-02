@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils"
 import { ClientDropdown } from "@/components/ClientDropdown"
 import { ContentStrategyReportSections } from "@/components/ContentStrategyReportSections"
 import type { ContentStrategyRecord } from "@/components/ContentStrategyReportSections"
+import { OFFICIAL_CLIENT_ID } from "@/hooks/useClients"
 import { supabase } from "@/lib/supabase"
 
 interface BrandBlueprint {
@@ -26,7 +27,7 @@ interface BrandBlueprint {
 }
 
 export default function BrandIdentity() {
-  const [selectedClientId, setSelectedClientId] = useState<string | null>(null)
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(OFFICIAL_CLIENT_ID)
   const [blueprints, setBlueprints] = useState<BrandBlueprint[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedBlueprint, setSelectedBlueprint] = useState<BrandBlueprint | null>(null)
@@ -236,7 +237,7 @@ export default function BrandIdentity() {
           <ClientDropdown
             selectedClientId={selectedClientId}
             onClientChange={setSelectedClientId}
-            allOptionLabel="All Clients"
+            allOptionLabel="All KORA Clients"
           />
         </div>
       </div>

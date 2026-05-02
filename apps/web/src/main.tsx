@@ -65,6 +65,8 @@ import StrategySessionPayment from './pages/StrategySessionPayment';
 import StrategySessionThankYou from './pages/StrategySessionThankYou';
 import CreativeProductionConsultation from './pages/consultations/CreativeProductionConsultation';
 import CampaignRetainerConsultation from './pages/consultations/CampaignRetainerConsultation';
+import { CityLandingPage, LocationsIndexPage } from './pages/Locations';
+import { AnswerPageDetail, AnswersHub } from './pages/Answers';
 
 import './index.css';
 
@@ -126,6 +128,10 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/blog/:id" element={<LegacyBlogPostRedirect />} />
               <Route path="/the-brief" element={<TheBriefRoute />} />
               <Route path="/the-brief/:id" element={<TheBriefPostRoute />} />
+              <Route path="/locations" element={<LocationsIndexPage />} />
+              <Route path="/locations/:citySlug" element={<CityLandingPage />} />
+              <Route path="/answers" element={<AnswersHub />} />
+              <Route path="/answers/:answerSlug" element={<AnswerPageDetail />} />
               <Route path="/events" element={<Events />} />
               <Route path="/kora" element={<KoraExternalRedirect />} />
               <Route path="/kora/*" element={<KoraWildcardRedirect />} />

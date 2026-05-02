@@ -27,10 +27,14 @@ export const Footer = () => {
             <h3 className="font-semibold text-primary mb-6">Explore</h3>
             <ul className="space-y-3 text-sm">
               <li><FooterLink to="/home">Home</FooterLink></li>
-              <li><FooterLink to="/events">Events</FooterLink></li>
+              <li><FooterLink to="/work-with-me">Service</FooterLink></li>
               <li><FooterLink to="/the-brief">The Brief</FooterLink></li>
+              <li><FooterLink to="/free-audit">Free Brand Diagnosis</FooterLink></li>
+              <li><FooterLink to="/brand-strategy-session">Book Strategy Session</FooterLink></li>
+              <li><FooterLink to="/answers">Answers</FooterLink></li>
+              <li><FooterLink to="/locations">Cities</FooterLink></li>
+              <li><FooterLink to="/events">Events</FooterLink></li>
               {/* TODO: First update these pages*/}
-              {/* <li><FooterLink to="/work-with-me">Services</FooterLink></li> */}
               {/* <li><FooterLink to="/about">About Us</FooterLink></li> */}
               {/* <li><FooterLink to="/shop">Shop</FooterLink></li> */}
             </ul>

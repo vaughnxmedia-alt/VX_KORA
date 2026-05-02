@@ -14,6 +14,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "./AuthProvider";
 import { Logo } from "@/components/Logo";
 import { AccountNavigation } from "./AccountNavigation";
+import { trackCtaClick, trackEvent } from "@/lib/kora-analytics";
 
 const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -28,9 +29,12 @@ const Navigation = () => {
     if (path === '/' || path === '/home') return 'landing';
     if (path.startsWith('/dashboard')) return 'app';
     if (
+      path.startsWith('/answers') ||
+      path.startsWith('/locations') ||
       [
         '/about',
         '/work-with-me',
+        '/answers',
         '/the-brief',
         '/auth',
         '/brand-strategy-session',
@@ -74,6 +78,14 @@ const Navigation = () => {
   }, [navigationContext]);
 
   const handleNavClick = (item: { name: string; route?: string; id?: string; type: 'route' | 'scroll' }) => {
+    trackEvent("nav_click", {
+      cta_label: item.name,
+      cta_id: item.route || item.id || item.name.toLowerCase().replace(/\s+/g, "_"),
+      button_text: item.name,
+      page_path: location.pathname,
+      metadata: { navigation_context: navigationContext, item_type: item.type },
+    });
+
     if (item.type === 'route' && item.route) {
       navigate(item.route);
     } else if (item.type === 'scroll' && item.id) {
@@ -153,7 +165,17 @@ const Navigation = () => {
                   <Button
                     variant="hero"
                     size="default"
-                    onClick={() => navigate("/brand-strategy-session")}
+                    onClick={() => {
+                      trackCtaClick({
+                        cta_id: "nav_book_strategy_session",
+                        cta_label: "Book Strategy Session",
+                        button_text: "Book Strategy Session",
+                        funnel_id: "strategy_session",
+                        funnel_step: "nav_primary_cta",
+                        page_path: location.pathname,
+                      });
+                      navigate("/brand-strategy-session");
+                    }}
                     className="shadow-lg hover:shadow-xl transition-shadow whitespace-nowrap"
                   >
                     <CalendarDays className="h-4 w-4" />

@@ -15,6 +15,7 @@ import {
   getDefaultOgImageAbsoluteUrl,
   isBlogRouteParamUuid,
 } from "@/lib/blog-share";
+import { trackBlogView } from "@/lib/kora-analytics";
 
 type BlogPostType = {
   id: string;
@@ -237,6 +238,15 @@ const BlogPost = () => {
       const row = data as BlogPostType;
       setPost(row);
       incrementViewCount(row.id);
+      trackBlogView({
+        page_path: buildBlogPathSegment(row),
+        content_id: row.id,
+        content_type: "blog",
+        content_category: row.category,
+        blog_slug: row.slug || null,
+        funnel_id: "content_engagement",
+        funnel_step: "blog_view",
+      });
     }
     setLoading(false);
   }, [id, navigate, toast, incrementViewCount]);
@@ -654,6 +664,17 @@ const BlogPost = () => {
                 </Button>
               </div>
             </div>
+          </div>
+
+          <div className="mt-10 rounded-3xl border border-primary/15 bg-primary/5 p-6 text-center">
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">Need the short answer?</p>
+            <h3 className="mt-3 text-2xl font-bold tracking-tight text-foreground">Explore JahKnowsPR Answers.</h3>
+            <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">
+              Clear explanations about PR vs. marketing, brand strategy, media coverage, content conversion, and local authority.
+            </p>
+            <Button className="mt-5" variant="outline" onClick={() => navigate("/answers")}>
+              Go to Answers
+            </Button>
           </div>
 
         </div>
