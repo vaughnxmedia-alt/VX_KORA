@@ -38,6 +38,13 @@ type BlogPostType = {
   video_type?: "embed" | "upload" | null;
 };
 
+const AUTHOR_PROFILE_IMAGES: Record<string, string> = {
+  "jah jah": "/authors/jah-jah-profile.png",
+};
+
+const getAuthorProfileImage = (authorName: string) =>
+  AUTHOR_PROFILE_IMAGES[authorName.trim().toLowerCase()] ?? null;
+
 // Comprehensive SEO function for individual blog post
 const updateBlogPostSEO = (post: BlogPostType) => {
   // Title tag
@@ -439,6 +446,8 @@ const BlogPost = () => {
     );
   }
 
+  const authorProfileImage = getAuthorProfileImage(post.author_name);
+
   return (
     <div className="min-h-screen bg-background blog-editorial">
       {/* Header Navigation */}
@@ -521,9 +530,17 @@ const BlogPost = () => {
 
           <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground border-y border-border/50 py-6">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                {post.author_name.charAt(0)}
-              </div>
+              {authorProfileImage ? (
+                <img
+                  src={authorProfileImage}
+                  alt={post.author_name}
+                  className="w-10 h-10 rounded-full object-cover border border-border"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                  {post.author_name.charAt(0)}
+                </div>
+              )}
               <div className="text-left">
                 <div className="font-semibold text-foreground">{post.author_name}</div>
                 <div className="text-xs">Brand Strategist</div>

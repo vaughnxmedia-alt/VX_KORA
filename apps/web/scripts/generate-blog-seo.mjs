@@ -7,6 +7,9 @@ const SITE_ORIGIN = (process.env.VITE_PUBLIC_SITE_URL || "https://www.jahknowspr
 const ROOT = process.cwd();
 const PUBLIC_DIR = path.join(ROOT, "public");
 const STATIC_BRIEF_DIR = path.join(PUBLIC_DIR, "the-brief");
+const AUTHOR_PROFILE_IMAGES = {
+  "jah jah": "/authors/jah-jah-profile.png",
+};
 
 function loadDotEnv() {
   const envPath = path.join(ROOT, ".env");
@@ -45,6 +48,11 @@ function formatDisplayDate(value = "") {
 
 function getAuthorInitial(name = "") {
   return String(name || "JahKnowsPR").trim().charAt(0).toUpperCase() || "J";
+}
+
+function getAuthorProfileImage(name = "") {
+  const path = AUTHOR_PROFILE_IMAGES[String(name).trim().toLowerCase()];
+  return path ? `${SITE_ORIGIN}${path}` : null;
 }
 
 function renderInlineMarkdown(value = "") {
@@ -154,6 +162,7 @@ function renderPostHtml(post, relatedPosts) {
   const image = post.cover_image_url || `${SITE_ORIGIN}/og-share-jk-pr.png`;
   const displayDate = formatDisplayDate(post.published_date);
   const authorName = post.author_name || "JahKnowsPR Firm";
+  const authorProfileImage = getAuthorProfileImage(authorName);
   const relatedLinks = relatedPosts
     .filter((item) => item.id !== post.id)
     .slice(0, 3)
@@ -244,7 +253,8 @@ function renderPostHtml(post, relatedPosts) {
     .description{font-size:clamp(18px,4.6vw,24px);line-height:1.55;color:var(--muted);max-width:620px;margin:24px auto 0}
     .byline{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:18px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:20px 0;margin-top:28px;color:var(--muted);font-size:14px}
     .author{display:flex;align-items:center;gap:10px}
-    .avatar{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:rgba(0,31,79,.1);color:var(--navy);font-weight:800}
+    .avatar{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:rgba(0,31,79,.1);color:var(--navy);font-weight:800;overflow:hidden;border:1px solid var(--line);flex:0 0 auto}
+    .avatar img{width:100%;height:100%;object-fit:cover;display:block}
     .author strong{display:block;color:var(--ink);line-height:1.1}
     .author span{display:block;font-size:12px;line-height:1.2}
     main{max-width:680px;margin:0 auto;padding:48px 20px 0}
@@ -303,7 +313,11 @@ function renderPostHtml(post, relatedPosts) {
       <p class="description">${escapeHtml(tagline)}</p>
       <div class="byline">
         <div class="author">
-          <span class="avatar">${escapeHtml(getAuthorInitial(authorName))}</span>
+          <span class="avatar">${
+            authorProfileImage
+              ? `<img src="${escapeHtml(authorProfileImage)}" alt="${escapeHtml(authorName)}" />`
+              : escapeHtml(getAuthorInitial(authorName))
+          }</span>
           <span><strong>${escapeHtml(authorName)}</strong><span>Brand Strategist</span></span>
         </div>
         ${displayDate ? `<span>${escapeHtml(displayDate)}</span>` : ""}
