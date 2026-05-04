@@ -6,72 +6,100 @@ import { Toaster } from '@/components/ui/toaster';
 import { Toaster as Sonner } from '@/components/ui/sonner';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App.tsx';
-import Index from './pages/Index';
-import Shop from './pages/Shop';
-import WorkWithMe from './pages/WorkWithMe';
-import About from './pages/About';
-import PrivacyPolicy from './pages/PrivacyPolicy';
-import TermsOfService from './pages/TermsOfService';
-import DataDeletionPolicy from './pages/DataDeletionPolicy';
-import BlogPost from './pages/blog/BlogPost';
-import BrandBlueprint from './pages/BrandBlueprint';
-import Payment from './pages/Payment';
-import Auth from './pages/Auth';
-import EmailConfirmation from './pages/EmailConfirmation';
-import SignupConfirmation from './pages/SignupConfirmation';
-import NotFound from './pages/NotFound';
 import ProtectedRoute from './components/ProtectedRoute';
-import TheBriefRoute from './components/TheBriefRoute';
-import TheBriefPostRoute from './components/TheBriefPostRoute';
-import DashboardLayout from './components/dashboard/DashboardLayout';
-
-// Dashboard Pages
-import Overview from './pages/dashboard/Overview';
-import BlogManagement from './pages/dashboard/BlogManagement';
-import BrandBlueprints from './pages/dashboard/BrandBlueprints';
-import IntakePipelinePage from './pages/dashboard/IntakePipelinePage';
-import AudienceIntelligenceIndex from './pages/dashboard/audience/AudienceIntelligenceIndex';
-import AudienceIntelligenceDetail from './pages/dashboard/audience/AudienceIntelligenceDetail';
-import AudienceIntelligenceCreate from './pages/dashboard/audience/AudienceIntelligenceCreate';
-import ContentCalendar from './pages/dashboard/ContentCalendar';
-import FilmingSchedule from './pages/dashboard/FilmingSchedule';
-import Meetings from './pages/dashboard/Meetings';
-import Analytics from './pages/dashboard/Analytics';
-import Leads from './pages/dashboard/Leads';
-import Audits from './pages/dashboard/Audits';
-import AuditTemplates from './pages/dashboard/AuditTemplates';
-import Clients from './pages/dashboard/Clients';
-import EventsManagement from './pages/dashboard/EventsManagement';
-import Subscribers from './pages/dashboard/Subscribers';
-import StrategySessionCalendarSettings from './pages/dashboard/StrategySessionCalendarSettings';
-import AssetLibrary from './pages/dashboard/AssetLibrary';
-import Reports from './pages/dashboard/Reports';
-import Settings from './pages/dashboard/Settings';
-import { CreativeHubPage } from '@/features/creative-hub/CreativeHubPage';
-import LogisticsPage from './pages/dashboard/LogisticsPage';
-import IntelligenceFilters from './pages/dashboard/IntelligenceFilters';
-import Sources from './pages/dashboard/Sources';
-import { GetInspiredPage } from '@/features/inspired/GetInspiredPage';
-import { InspiredProjectListPage } from '@/features/inspired/InspiredProjectListPage';
-import { CampaignsLayout } from '@/features/campaigns/CampaignsLayout';
-import { CampaignsIndexPage } from '@/features/campaigns/pages/CampaignsIndexPage';
-import { CampaignDetailPage } from '@/features/campaigns/pages/CampaignDetailPage';
-import Events from './pages/Events';
-import BrandStrategySessionLanding from './pages/BrandStrategySessionLanding';
-import FreeAudit from './pages/FreeAudit';
-import FreeAuditThankYou from './pages/FreeAuditThankYou';
-import StrategySessionBooking from './pages/StrategySessionBooking';
-import StrategySessionPayment from './pages/StrategySessionPayment';
-import StrategySessionThankYou from './pages/StrategySessionThankYou';
-import CreativeProductionConsultation from './pages/consultations/CreativeProductionConsultation';
-import CampaignRetainerConsultation from './pages/consultations/CampaignRetainerConsultation';
-import { CityLandingPage, LocationsIndexPage } from './pages/Locations';
-import { AnswerPageDetail, AnswersHub } from './pages/Answers';
 
 import './index.css';
 
 const queryClient = new QueryClient();
 const KORA_PUBLIC_URL = String(import.meta.env.VITE_KORA_PUBLIC_URL || "/").replace(/\/$/, "") || "/";
+
+const Index = React.lazy(() => import('./pages/Index'));
+const Shop = React.lazy(() => import('./pages/Shop'));
+const WorkWithMe = React.lazy(() => import('./pages/WorkWithMe'));
+const About = React.lazy(() => import('./pages/About'));
+const PrivacyPolicy = React.lazy(() => import('./pages/PrivacyPolicy'));
+const TermsOfService = React.lazy(() => import('./pages/TermsOfService'));
+const DataDeletionPolicy = React.lazy(() => import('./pages/DataDeletionPolicy'));
+const BrandBlueprint = React.lazy(() => import('./pages/BrandBlueprint'));
+const Payment = React.lazy(() => import('./pages/Payment'));
+const Auth = React.lazy(() => import('./pages/Auth'));
+const EmailConfirmation = React.lazy(() => import('./pages/EmailConfirmation'));
+const SignupConfirmation = React.lazy(() => import('./pages/SignupConfirmation'));
+const NotFound = React.lazy(() => import('./pages/NotFound'));
+const TheBriefRoute = React.lazy(() => import('./components/TheBriefRoute'));
+const TheBriefPostRoute = React.lazy(() => import('./components/TheBriefPostRoute'));
+const DashboardLayout = React.lazy(() => import('./components/dashboard/DashboardLayout'));
+const Events = React.lazy(() => import('./pages/Events'));
+const BrandStrategySessionLanding = React.lazy(() => import('./pages/BrandStrategySessionLanding'));
+const FreeAudit = React.lazy(() => import('./pages/FreeAudit'));
+const FreeAuditThankYou = React.lazy(() => import('./pages/FreeAuditThankYou'));
+const StrategySessionBooking = React.lazy(() => import('./pages/StrategySessionBooking'));
+const StrategySessionPayment = React.lazy(() => import('./pages/StrategySessionPayment'));
+const StrategySessionThankYou = React.lazy(() => import('./pages/StrategySessionThankYou'));
+const CreativeProductionConsultation = React.lazy(() => import('./pages/consultations/CreativeProductionConsultation'));
+const CampaignRetainerConsultation = React.lazy(() => import('./pages/consultations/CampaignRetainerConsultation'));
+const LocationsIndexPage = React.lazy(() =>
+  import('./pages/Locations').then((module) => ({ default: module.LocationsIndexPage })),
+);
+const CityLandingPage = React.lazy(() =>
+  import('./pages/Locations').then((module) => ({ default: module.CityLandingPage })),
+);
+const AnswersHub = React.lazy(() =>
+  import('./pages/Answers').then((module) => ({ default: module.AnswersHub })),
+);
+const AnswerPageDetail = React.lazy(() =>
+  import('./pages/Answers').then((module) => ({ default: module.AnswerPageDetail })),
+);
+
+// Dashboard pages are intentionally split away from the public site bundle.
+const Overview = React.lazy(() => import('./pages/dashboard/Overview'));
+const BlogManagement = React.lazy(() => import('./pages/dashboard/BlogManagement'));
+const BrandBlueprints = React.lazy(() => import('./pages/dashboard/BrandBlueprints'));
+const IntakePipelinePage = React.lazy(() => import('./pages/dashboard/IntakePipelinePage'));
+const AudienceIntelligenceIndex = React.lazy(() => import('./pages/dashboard/audience/AudienceIntelligenceIndex'));
+const AudienceIntelligenceDetail = React.lazy(() => import('./pages/dashboard/audience/AudienceIntelligenceDetail'));
+const AudienceIntelligenceCreate = React.lazy(() => import('./pages/dashboard/audience/AudienceIntelligenceCreate'));
+const ContentCalendar = React.lazy(() => import('./pages/dashboard/ContentCalendar'));
+const FilmingSchedule = React.lazy(() => import('./pages/dashboard/FilmingSchedule'));
+const Meetings = React.lazy(() => import('./pages/dashboard/Meetings'));
+const Analytics = React.lazy(() => import('./pages/dashboard/Analytics'));
+const Leads = React.lazy(() => import('./pages/dashboard/Leads'));
+const Audits = React.lazy(() => import('./pages/dashboard/Audits'));
+const AuditTemplates = React.lazy(() => import('./pages/dashboard/AuditTemplates'));
+const Clients = React.lazy(() => import('./pages/dashboard/Clients'));
+const EventsManagement = React.lazy(() => import('./pages/dashboard/EventsManagement'));
+const Subscribers = React.lazy(() => import('./pages/dashboard/Subscribers'));
+const StrategySessionCalendarSettings = React.lazy(() => import('./pages/dashboard/StrategySessionCalendarSettings'));
+const AssetLibrary = React.lazy(() => import('./pages/dashboard/AssetLibrary'));
+const Reports = React.lazy(() => import('./pages/dashboard/Reports'));
+const Settings = React.lazy(() => import('./pages/dashboard/Settings'));
+const CreativeHubPage = React.lazy(() =>
+  import('@/features/creative-hub/CreativeHubPage').then((module) => ({ default: module.CreativeHubPage })),
+);
+const LogisticsPage = React.lazy(() => import('./pages/dashboard/LogisticsPage'));
+const IntelligenceFilters = React.lazy(() => import('./pages/dashboard/IntelligenceFilters'));
+const Sources = React.lazy(() => import('./pages/dashboard/Sources'));
+const GetInspiredPage = React.lazy(() =>
+  import('@/features/inspired/GetInspiredPage').then((module) => ({ default: module.GetInspiredPage })),
+);
+const InspiredProjectListPage = React.lazy(() =>
+  import('@/features/inspired/InspiredProjectListPage').then((module) => ({ default: module.InspiredProjectListPage })),
+);
+const CampaignsLayout = React.lazy(() =>
+  import('@/features/campaigns/CampaignsLayout').then((module) => ({ default: module.CampaignsLayout })),
+);
+const CampaignsIndexPage = React.lazy(() =>
+  import('@/features/campaigns/pages/CampaignsIndexPage').then((module) => ({ default: module.CampaignsIndexPage })),
+);
+const CampaignDetailPage = React.lazy(() =>
+  import('@/features/campaigns/pages/CampaignDetailPage').then((module) => ({ default: module.CampaignDetailPage })),
+);
+
+const PageFallback = () => (
+  <main className="min-h-screen grid place-items-center px-4 text-center text-sm text-muted-foreground">
+    Loading...
+  </main>
+);
 
 const LegacyBlogPostRedirect = () => {
   const { id } = useParams<{ id: string }>();
@@ -105,135 +133,137 @@ createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<App />}>
-              <Route index element={<Index />} />
-              <Route path="/home" element={<Index />} />
-              <Route path="/shop" element={<Shop />} />
-              <Route path="/work-with-me" element={<WorkWithMe />} />
-              <Route path="/brand-strategy-session" element={<BrandStrategySessionLanding />} />
-              <Route path="/free-audit" element={<FreeAudit />} />
-              <Route path="/free-audit/thank-you" element={<FreeAuditThankYou />} />
-              <Route path="/strategy-session" element={<StrategySessionBooking />} />
-              <Route path="/strategy-session/payment" element={<StrategySessionPayment />} />
-              <Route path="/strategy-session/thank-you" element={<StrategySessionThankYou />} />
-              <Route path="/consultation/creative-production" element={<CreativeProductionConsultation />} />
-              <Route path="/consultation/campaign-retainer" element={<CampaignRetainerConsultation />} />
-              <Route path="/consultation/kora-platform" element={<KoraExternalRedirect path="/platform-consultation" />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/privacy" element={<PrivacyPolicy />} />
-              <Route path="/terms" element={<TermsOfService />} />
-              <Route path="/data-deletion" element={<DataDeletionPolicy />} />
-              <Route path="/blog" element={<Navigate to="/the-brief" replace />} />
-              <Route path="/blog/:id" element={<LegacyBlogPostRedirect />} />
-              <Route path="/the-brief" element={<TheBriefRoute />} />
-              <Route path="/the-brief/:id" element={<TheBriefPostRoute />} />
-              <Route path="/locations" element={<LocationsIndexPage />} />
-              <Route path="/locations/:citySlug" element={<CityLandingPage />} />
-              <Route path="/answers" element={<AnswersHub />} />
-              <Route path="/answers/:answerSlug" element={<AnswerPageDetail />} />
-              <Route path="/events" element={<Events />} />
-              <Route path="/kora" element={<KoraExternalRedirect />} />
-              <Route path="/kora/*" element={<KoraWildcardRedirect />} />
-              <Route path="/brand-blueprint" element={<BrandBlueprint />} />
-              <Route path="/payment" element={<Payment />} />
-              
-              {/* === DASHBOARD ROUTES === */}
-              <Route path="/dashboard" element={
-                <ProtectedRoute>
-                  <DashboardLayout />
-                </ProtectedRoute>
-              }>
-                  <Route index element={<Overview />} />
-                  <Route path="overview" element={<Overview />} />
-                  <Route path="blog" element={
-                      <ProtectedRoute allowedRoles={['admin', 'author', 'intern', '3pv']}>
-                        <BlogManagement />
-                      </ProtectedRoute>
-                  } />
-                  <Route path="intake" element={
-                      <ProtectedRoute allowedRoles={['admin', 'author', 'intern', '3pv']}>
-                        <IntakePipelinePage />
-                      </ProtectedRoute>
-                  } />
-                  <Route path="identities" element={<BrandBlueprints />} />
-                  <Route path="blueprints" element={<Navigate to="/dashboard/identities" replace />} />
-                  <Route path="strategy" element={<Navigate to="/dashboard/identities" replace />} />
-                  <Route path="audience" element={<AudienceIntelligenceIndex />} />
-                  <Route path="audience/new" element={<AudienceIntelligenceCreate />} />
-                  <Route path="audience/:audienceId" element={<AudienceIntelligenceDetail />} />
-                  <Route path="calendar" element={<ContentCalendar />} />
-                  <Route path="campaigns" element={<CampaignsLayout />}>
-                    <Route index element={<CampaignsIndexPage />} />
-                    <Route path="new" element={<CampaignsIndexPage />} />
-                    <Route path=":campaignId" element={<CampaignDetailPage />} />
-                  </Route>
-                  <Route path="get-inspired" element={<InspiredProjectListPage />} />
-                  <Route path="get-inspired/board/:boardId" element={<GetInspiredPage />} />
-                  <Route path="inspired" element={<InspiredProjectListPage />} />
-                  <Route path="filming" element={<FilmingSchedule />} />
-                  <Route path="meetings" element={<Meetings />} />
-                  <Route path="strategy-session-calendar" element={
-                      <ProtectedRoute allowedRoles={['admin']} requireBlueprint={false}>
-                        <StrategySessionCalendarSettings />
-                      </ProtectedRoute>
-                  } />
-                  <Route path="analytics" element={<Analytics />} />
-                  <Route path="leads" element={
-                      <ProtectedRoute allowedRoles={['admin', 'author', 'intern', '3pv']}>
-                        <Leads />
-                      </ProtectedRoute>
-                  } />
-                  <Route path="audits" element={
-                      <ProtectedRoute allowedRoles={['admin', 'author', 'intern', '3pv']}>
-                        <Audits />
-                      </ProtectedRoute>
-                  } />
-                  <Route path="audits/templates" element={
-                      <ProtectedRoute allowedRoles={['admin', 'author', 'intern', '3pv']}>
-                        <AuditTemplates />
-                      </ProtectedRoute>
-                  } />
-                  <Route path="clients" element={
-                      <ProtectedRoute allowedRoles={['admin', 'author', 'intern', '3pv']}>
-                        <Clients />
-                      </ProtectedRoute>
-                  } />
-                  <Route path="events" element={
-                      <ProtectedRoute allowedRoles={['admin', 'author', 'intern', '3pv']}>
-                        <EventsManagement />
-                      </ProtectedRoute>
-                  } />
-                  <Route path="subscribers" element={
-                      <ProtectedRoute allowedRoles={['admin', 'author', 'intern', '3pv']}>
-                        <Subscribers />
-                      </ProtectedRoute>
-                  } />
-                  <Route path="assets" element={
-                      <ProtectedRoute allowedRoles={['admin', 'author', 'intern', '3pv']}>
-                        <AssetLibrary />
-                      </ProtectedRoute>
-                  } />
-                  <Route path="reports" element={<Reports />} />
-                  <Route path="settings" element={<Settings />} />
-                  <Route path="intelligence-filters" element={<IntelligenceFilters />} />
-                  <Route path="content-strategy" element={<Navigate to="/dashboard/creative-hub" replace />} />
-                  <Route path="creative-hub" element={<CreativeHubPage />} />
-                  <Route path="logistics" element={<LogisticsPage />} />
-                  <Route path="campaign-generator" element={<Navigate to="/dashboard/creative-hub" replace />} />
-                  <Route path="sources" element={
-                      <ProtectedRoute allowedRoles={['admin']}>
-                        <Sources />
-                      </ProtectedRoute>
-                  } />
+          <React.Suspense fallback={<PageFallback />}>
+            <Routes>
+              <Route path="/" element={<App />}>
+                <Route index element={<Index />} />
+                <Route path="/home" element={<Index />} />
+                <Route path="/shop" element={<Shop />} />
+                <Route path="/work-with-me" element={<WorkWithMe />} />
+                <Route path="/brand-strategy-session" element={<BrandStrategySessionLanding />} />
+                <Route path="/free-audit" element={<FreeAudit />} />
+                <Route path="/free-audit/thank-you" element={<FreeAuditThankYou />} />
+                <Route path="/strategy-session" element={<StrategySessionBooking />} />
+                <Route path="/strategy-session/payment" element={<StrategySessionPayment />} />
+                <Route path="/strategy-session/thank-you" element={<StrategySessionThankYou />} />
+                <Route path="/consultation/creative-production" element={<CreativeProductionConsultation />} />
+                <Route path="/consultation/campaign-retainer" element={<CampaignRetainerConsultation />} />
+                <Route path="/consultation/kora-platform" element={<KoraExternalRedirect path="/platform-consultation" />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/privacy" element={<PrivacyPolicy />} />
+                <Route path="/terms" element={<TermsOfService />} />
+                <Route path="/data-deletion" element={<DataDeletionPolicy />} />
+                <Route path="/blog" element={<Navigate to="/the-brief" replace />} />
+                <Route path="/blog/:id" element={<LegacyBlogPostRedirect />} />
+                <Route path="/the-brief" element={<TheBriefRoute />} />
+                <Route path="/the-brief/:id" element={<TheBriefPostRoute />} />
+                <Route path="/locations" element={<LocationsIndexPage />} />
+                <Route path="/locations/:citySlug" element={<CityLandingPage />} />
+                <Route path="/answers" element={<AnswersHub />} />
+                <Route path="/answers/:answerSlug" element={<AnswerPageDetail />} />
+                <Route path="/events" element={<Events />} />
+                <Route path="/kora" element={<KoraExternalRedirect />} />
+                <Route path="/kora/*" element={<KoraWildcardRedirect />} />
+                <Route path="/brand-blueprint" element={<BrandBlueprint />} />
+                <Route path="/payment" element={<Payment />} />
+                
+                {/* === DASHBOARD ROUTES === */}
+                <Route path="/dashboard" element={
+                  <ProtectedRoute>
+                    <DashboardLayout />
+                  </ProtectedRoute>
+                }>
+                    <Route index element={<Overview />} />
+                    <Route path="overview" element={<Overview />} />
+                    <Route path="blog" element={
+                        <ProtectedRoute allowedRoles={['admin', 'author', 'intern', '3pv']}>
+                          <BlogManagement />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="intake" element={
+                        <ProtectedRoute allowedRoles={['admin', 'author', 'intern', '3pv']}>
+                          <IntakePipelinePage />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="identities" element={<BrandBlueprints />} />
+                    <Route path="blueprints" element={<Navigate to="/dashboard/identities" replace />} />
+                    <Route path="strategy" element={<Navigate to="/dashboard/identities" replace />} />
+                    <Route path="audience" element={<AudienceIntelligenceIndex />} />
+                    <Route path="audience/new" element={<AudienceIntelligenceCreate />} />
+                    <Route path="audience/:audienceId" element={<AudienceIntelligenceDetail />} />
+                    <Route path="calendar" element={<ContentCalendar />} />
+                    <Route path="campaigns" element={<CampaignsLayout />}>
+                      <Route index element={<CampaignsIndexPage />} />
+                      <Route path="new" element={<CampaignsIndexPage />} />
+                      <Route path=":campaignId" element={<CampaignDetailPage />} />
+                    </Route>
+                    <Route path="get-inspired" element={<InspiredProjectListPage />} />
+                    <Route path="get-inspired/board/:boardId" element={<GetInspiredPage />} />
+                    <Route path="inspired" element={<InspiredProjectListPage />} />
+                    <Route path="filming" element={<FilmingSchedule />} />
+                    <Route path="meetings" element={<Meetings />} />
+                    <Route path="strategy-session-calendar" element={
+                        <ProtectedRoute allowedRoles={['admin']} requireBlueprint={false}>
+                          <StrategySessionCalendarSettings />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="analytics" element={<Analytics />} />
+                    <Route path="leads" element={
+                        <ProtectedRoute allowedRoles={['admin', 'author', 'intern', '3pv']}>
+                          <Leads />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="audits" element={
+                        <ProtectedRoute allowedRoles={['admin', 'author', 'intern', '3pv']}>
+                          <Audits />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="audits/templates" element={
+                        <ProtectedRoute allowedRoles={['admin', 'author', 'intern', '3pv']}>
+                          <AuditTemplates />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="clients" element={
+                        <ProtectedRoute allowedRoles={['admin', 'author', 'intern', '3pv']}>
+                          <Clients />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="events" element={
+                        <ProtectedRoute allowedRoles={['admin', 'author', 'intern', '3pv']}>
+                          <EventsManagement />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="subscribers" element={
+                        <ProtectedRoute allowedRoles={['admin', 'author', 'intern', '3pv']}>
+                          <Subscribers />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="assets" element={
+                        <ProtectedRoute allowedRoles={['admin', 'author', 'intern', '3pv']}>
+                          <AssetLibrary />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="reports" element={<Reports />} />
+                    <Route path="settings" element={<Settings />} />
+                    <Route path="intelligence-filters" element={<IntelligenceFilters />} />
+                    <Route path="content-strategy" element={<Navigate to="/dashboard/creative-hub" replace />} />
+                    <Route path="creative-hub" element={<CreativeHubPage />} />
+                    <Route path="logistics" element={<LogisticsPage />} />
+                    <Route path="campaign-generator" element={<Navigate to="/dashboard/creative-hub" replace />} />
+                    <Route path="sources" element={
+                        <ProtectedRoute allowedRoles={['admin']}>
+                          <Sources />
+                        </ProtectedRoute>
+                    } />
+                </Route>
+                
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/email-confirmation" element={<EmailConfirmation />} />
+                <Route path="/signup-confirmation" element={<SignupConfirmation />} />
+                <Route path="*" element={<NotFound />} />
               </Route>
-              
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/email-confirmation" element={<EmailConfirmation />} />
-              <Route path="/signup-confirmation" element={<SignupConfirmation />} />
-              <Route path="*" element={<NotFound />} />
-            </Route>
-          </Routes>
+            </Routes>
+          </React.Suspense>
         </BrowserRouter>
         <Toaster />
         <Sonner />

@@ -32,6 +32,21 @@ function escapeHtml(value = "") {
     .replace(/'/g, "&#039;");
 }
 
+function formatDisplayDate(value = "") {
+  if (!value) return "";
+  const date = new Date(`${String(value).slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
+}
+
+function getAuthorInitial(name = "") {
+  return String(name || "JahKnowsPR").trim().charAt(0).toUpperCase() || "J";
+}
+
 function renderInlineMarkdown(value = "") {
   const input = String(value);
   let output = "";
@@ -134,13 +149,19 @@ function renderPostHtml(post, relatedPosts) {
   const canonical = `${SITE_ORIGIN}/the-brief/${encodeURIComponent(segment)}`;
   const title = post.title || "The Brief";
   const description = post.description || post.excerpt || `Read ${title} on The Brief.`;
+  const tagline = post.tagline || description;
   const image = post.cover_image_url || `${SITE_ORIGIN}/og-share-jk-pr.png`;
+  const displayDate = formatDisplayDate(post.published_date);
+  const authorName = post.author_name || "JahKnowsPR Firm";
   const relatedLinks = relatedPosts
     .filter((item) => item.id !== post.id)
     .slice(0, 3)
     .map((item) => {
       const url = `${SITE_ORIGIN}/the-brief/${encodeURIComponent(cleanSegment(item))}`;
-      return `<li><a href="${url}">${escapeHtml(item.title)}</a></li>`;
+      return `<article class="related-card">
+        <a href="${url}">${escapeHtml(item.title)}</a>
+        <p>${escapeHtml(item.description || item.excerpt || "")}</p>
+      </article>`;
     })
     .join("\n");
   const schema = {
@@ -150,7 +171,7 @@ function renderPostHtml(post, relatedPosts) {
     description,
     author: {
       "@type": "Organization",
-      name: "JahKnowsPR Firm",
+      name: authorName,
     },
     publisher: {
       "@type": "Organization",
@@ -185,48 +206,117 @@ function renderPostHtml(post, relatedPosts) {
   <meta property="og:url" content="${canonical}" />
   <meta property="og:site_name" content="JahKnowsPR" />
   <meta property="og:image" content="${escapeHtml(image)}" />
-  <meta property="article:author" content="JahKnowsPR Firm" />
+  <meta property="og:image:width" content="940" />
+  <meta property="og:image:height" content="788" />
+  <meta property="og:image:alt" content="${escapeHtml(title)}" />
+  <meta property="article:author" content="${escapeHtml(authorName)}" />
   <meta property="article:published_time" content="${escapeHtml(post.published_date || "")}" />
   <meta property="article:section" content="${escapeHtml(post.category || "Brand Strategy")}" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="${escapeHtml(title)}" />
   <meta name="twitter:description" content="${escapeHtml(description)}" />
   <meta name="twitter:image" content="${escapeHtml(image)}" />
+  <meta name="twitter:image:alt" content="${escapeHtml(title)}" />
   <script type="application/ld+json">${JSON.stringify(schema)}</script>
   <style>
-    body{margin:0;background:#f7f3ea;color:#0a1a35;font-family:Inter,Arial,sans-serif;line-height:1.65}
-    header,main,footer{max-width:760px;margin:0 auto;padding:32px 20px}
-    nav{display:flex;gap:18px;flex-wrap:wrap;font-size:14px}
-    a{color:#0a1a35;font-weight:700;text-underline-offset:3px}
-    h1{font-family:Georgia,serif;font-size:clamp(42px,8vw,76px);line-height:.95;margin:48px 0 18px}
-    h2{font-family:Georgia,serif;font-size:32px;margin-top:44px}
-    h3{font-family:Georgia,serif;font-size:24px;margin-top:32px}
-    .meta,.description{color:rgba(10,26,53,.72)}
-    .cta{border-top:1px solid rgba(10,26,53,.16);border-bottom:1px solid rgba(10,26,53,.16);padding:24px 0;margin:44px 0;display:flex;gap:14px;flex-wrap:wrap}
-    .button{display:inline-block;border:1px solid #0a1a35;border-radius:999px;padding:10px 16px;text-decoration:none}
-    .button.primary{background:#0a1a35;color:#fff}
+    :root{--navy:#001f4f;--ink:#0a1a35;--muted:rgba(10,26,53,.68);--line:rgba(10,26,53,.12);--paper:#fbfaf7;--soft:#f7f3ea;--gold:#c8a24a}
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,Arial,sans-serif;line-height:1.72;-webkit-font-smoothing:antialiased}
+    a{color:var(--navy);font-weight:700;text-underline-offset:3px}
+    .topbar{position:sticky;top:0;z-index:10;background:rgba(251,250,247,.9);backdrop-filter:blur(16px);border-bottom:1px solid var(--line)}
+    .topbar-inner{max-width:760px;margin:0 auto;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+    .brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--navy);font-weight:800;letter-spacing:.02em}
+    .brand-mark{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--navy);color:white;font-family:Georgia,serif;font-weight:700}
+    nav{display:flex;gap:16px;flex-wrap:wrap;font-size:14px}
+    nav a{font-weight:700}
+    .hero-image{position:relative;height:360px;overflow:hidden;background:var(--soft)}
+    .hero-image img{width:100%;height:100%;object-fit:cover;display:block}
+    .hero-image::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,var(--paper),rgba(251,250,247,.42),rgba(10,26,53,.08))}
+    .article{max-width:760px;margin:0 auto;padding:0 20px 56px}
+    .article.has-image{margin-top:-86px;position:relative;z-index:2}
+    .headline-card{background:rgba(251,250,247,.92);border:1px solid rgba(10,26,53,.08);box-shadow:0 24px 70px rgba(10,26,53,.10);padding:28px 20px 26px;text-align:center}
+    .chips{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin-bottom:22px}
+    .chip{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;background:#fff;padding:7px 12px;font-size:13px;font-weight:800;color:var(--navy)}
+    .featured{color:var(--navy);font-size:12px;text-transform:uppercase;letter-spacing:.12em;font-weight:800}
+    h1{font-family:Georgia,'Times New Roman',serif;font-size:clamp(42px,11vw,72px);line-height:.98;letter-spacing:-.045em;margin:0;color:var(--navy)}
+    .description{font-size:clamp(18px,4.6vw,24px);line-height:1.55;color:var(--muted);max-width:620px;margin:24px auto 0}
+    .byline{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:18px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:20px 0;margin-top:28px;color:var(--muted);font-size:14px}
+    .author{display:flex;align-items:center;gap:10px}
+    .avatar{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:rgba(0,31,79,.1);color:var(--navy);font-weight:800}
+    .author strong{display:block;color:var(--ink);line-height:1.1}
+    .author span{display:block;font-size:12px;line-height:1.2}
+    main{max-width:680px;margin:0 auto;padding:48px 20px 0}
+    main p{font-size:18px;margin:0 0 28px;color:rgba(10,26,53,.88)}
+    main h2{font-family:Georgia,'Times New Roman',serif;color:var(--navy);font-size:clamp(30px,7vw,42px);line-height:1.08;letter-spacing:-.03em;margin:56px 0 22px}
+    main h3{font-family:Georgia,'Times New Roman',serif;color:var(--navy);font-size:26px;line-height:1.2;margin:40px 0 18px}
+    main ul,main ol{padding-left:1.4rem;margin:0 0 30px;color:rgba(10,26,53,.88);font-size:18px}
+    main li{margin-bottom:12px;padding-left:4px}
+    blockquote{font-family:Georgia,'Times New Roman',serif;color:var(--navy);font-size:24px;line-height:1.45;text-align:center;margin:46px 0;padding:24px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+    .cta{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:26px 0;margin:52px 0;display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
+    .button{display:inline-block;border:1px solid var(--navy);border-radius:999px;padding:11px 18px;text-decoration:none}
+    .button.primary{background:var(--navy);color:#fff}
+    .related{max-width:1040px;margin:0 auto;padding:56px 20px;background:rgba(10,26,53,.025);border-top:1px solid var(--line)}
+    .related h2{font-family:Georgia,'Times New Roman',serif;color:var(--navy);font-size:34px;margin:0 0 24px;text-align:center}
+    .related-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+    .related-card{background:#fff;border:1px solid var(--line);border-radius:22px;padding:20px;box-shadow:0 16px 40px rgba(10,26,53,.06)}
+    .related-card a{display:block;font-size:17px;line-height:1.25;text-decoration:none}
+    .related-card p{margin:10px 0 0;color:var(--muted);font-size:14px;line-height:1.45}
+    footer{max-width:760px;margin:0 auto;padding:34px 20px 48px;color:var(--muted);text-align:center}
+    @media (max-width:640px){
+      .topbar-inner{align-items:flex-start;flex-direction:column;padding:14px 20px}
+      nav{gap:12px;font-size:13px}
+      .hero-image{height:320px}
+      .article.has-image{margin-top:-68px}
+      .headline-card{padding:24px 16px}
+      .byline{align-items:flex-start;justify-content:flex-start}
+      main{padding-top:38px}
+      .related-grid{grid-template-columns:1fr}
+    }
   </style>
 </head>
 <body>
-  <header>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="${SITE_ORIGIN}/" aria-label="JahKnowsPR home">
+        <span class="brand-mark">JK</span>
+        <span>JahKnowsPR</span>
+      </a>
     <nav>
       <a href="${SITE_ORIGIN}/">JahKnowsPR</a>
       <a href="${SITE_ORIGIN}/the-brief">The Brief</a>
       <a href="${SITE_ORIGIN}/free-audit">Free Audit</a>
       <a href="${SITE_ORIGIN}/brand-strategy-session">Strategy Session</a>
     </nav>
-    <p class="meta">${escapeHtml(post.category || "The Brief")} · ${escapeHtml(post.published_date || "")} · ${escapeHtml(post.read_time || "")}</p>
-    <h1>${escapeHtml(title)}</h1>
-    <p class="description">${escapeHtml(description)}</p>
-  </header>
+    </div>
+  </div>
+  ${post.cover_image_url ? `<div class="hero-image"><img src="${escapeHtml(image)}" alt="${escapeHtml(title)}" /></div>` : ""}
+  <article class="article${post.cover_image_url ? " has-image" : ""}">
+    <header class="headline-card">
+      <div class="chips">
+        <span class="chip">${escapeHtml(post.category || "The Brief")}</span>
+        ${post.is_featured ? `<span class="featured">Featured</span>` : ""}
+      </div>
+      <h1>${escapeHtml(title)}</h1>
+      <p class="description">${escapeHtml(tagline)}</p>
+      <div class="byline">
+        <div class="author">
+          <span class="avatar">${escapeHtml(getAuthorInitial(authorName))}</span>
+          <span><strong>${escapeHtml(authorName)}</strong><span>Brand Strategist</span></span>
+        </div>
+        ${displayDate ? `<span>${escapeHtml(displayDate)}</span>` : ""}
+        ${post.read_time ? `<span>${escapeHtml(post.read_time)}</span>` : ""}
+      </div>
+    </header>
+  </article>
   <main>
     ${basicMarkdownToHtml(post.content || post.description || "")}
     <section class="cta">
       <a class="button primary" href="${SITE_ORIGIN}/free-audit">Start Free Audit</a>
       <a class="button" href="${SITE_ORIGIN}/brand-strategy-session">Book Strategy Session</a>
     </section>
-    ${relatedLinks ? `<section><h2>Continue Reading</h2><ul>${relatedLinks}</ul></section>` : ""}
   </main>
+  ${relatedLinks ? `<section class="related"><h2>Continue Reading</h2><div class="related-grid">${relatedLinks}</div></section>` : ""}
   <footer>
     <p>JahKnowsPR Firm / Brand Diagnosis</p>
   </footer>
