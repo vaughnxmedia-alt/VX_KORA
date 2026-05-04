@@ -83,64 +83,65 @@ function basicMarkdownToHtml(markdown = "") {
   const html = [];
   let listOpen = false;
   let listTag = "ul";
+  let listItemOpen = false;
+
+  const closeListItem = () => {
+    if (listItemOpen) {
+      html.push("</li>");
+      listItemOpen = false;
+    }
+  };
+
+  const closeList = () => {
+    if (listOpen) {
+      closeListItem();
+      html.push(`</${listTag}>`);
+      listOpen = false;
+    }
+  };
+
+  const openList = (tag) => {
+    if (listOpen && listTag !== tag) closeList();
+    if (!listOpen) {
+      html.push(`<${tag}>`);
+      listOpen = true;
+      listTag = tag;
+    }
+  };
+
   for (const raw of lines) {
     const line = raw.trim();
     if (!line) {
-      if (listOpen) {
-        html.push(`</${listTag}>`);
-        listOpen = false;
-      }
       continue;
     }
     if (line.startsWith("### ")) {
-      if (listOpen) {
-        html.push(`</${listTag}>`);
-        listOpen = false;
-      }
+      closeList();
       html.push(`<h3>${renderInlineMarkdown(line.slice(4))}</h3>`);
     } else if (line.startsWith("## ")) {
-      if (listOpen) {
-        html.push(`</${listTag}>`);
-        listOpen = false;
-      }
+      closeList();
       html.push(`<h2>${renderInlineMarkdown(line.slice(3))}</h2>`);
     } else if (line.startsWith("# ")) {
-      if (listOpen) {
-        html.push(`</${listTag}>`);
-        listOpen = false;
-      }
+      closeList();
       html.push(`<h2>${renderInlineMarkdown(line.slice(2))}</h2>`);
     } else if (/^[-*]\s+/.test(line)) {
-      if (listOpen && listTag !== "ul") {
-        html.push(`</${listTag}>`);
-        listOpen = false;
-      }
-      if (!listOpen) {
-        html.push("<ul>");
-        listOpen = true;
-        listTag = "ul";
-      }
-      html.push(`<li>${renderInlineMarkdown(line.replace(/^[-*]\s+/, ""))}</li>`);
+      openList("ul");
+      closeListItem();
+      html.push(`<li>${renderInlineMarkdown(line.replace(/^[-*]\s+/, ""))}`);
+      listItemOpen = true;
     } else if (/^\d+\.\s+/.test(line)) {
-      if (listOpen && listTag !== "ol") {
-        html.push(`</${listTag}>`);
-        listOpen = false;
-      }
-      if (!listOpen) {
-        html.push("<ol>");
-        listOpen = true;
-        listTag = "ol";
-      }
-      html.push(`<li>${renderInlineMarkdown(line.replace(/^\d+\.\s+/, ""))}</li>`);
+      openList("ol");
+      closeListItem();
+      html.push(`<li>${renderInlineMarkdown(line.replace(/^\d+\.\s+/, ""))}`);
+      listItemOpen = true;
     } else {
       if (listOpen) {
-        html.push(`</${listTag}>`);
-        listOpen = false;
+        html.push(`<p>${renderInlineMarkdown(line)}</p>`);
+      } else {
+        html.push(`<p>${renderInlineMarkdown(line)}</p>`);
       }
-      html.push(`<p>${renderInlineMarkdown(line)}</p>`);
     }
   }
-  if (listOpen) html.push(`</${listTag}>`);
+  closeList();
   return html.join("\n");
 }
 
@@ -252,6 +253,7 @@ function renderPostHtml(post, relatedPosts) {
     main h3{font-family:Georgia,'Times New Roman',serif;color:var(--navy);font-size:26px;line-height:1.2;margin:40px 0 18px}
     main ul,main ol{padding-left:1.4rem;margin:0 0 30px;color:rgba(10,26,53,.88);font-size:18px}
     main li{margin-bottom:12px;padding-left:4px}
+    main li p{font-size:inherit;line-height:inherit;margin:.35rem 0 0}
     blockquote{font-family:Georgia,'Times New Roman',serif;color:var(--navy);font-size:24px;line-height:1.45;text-align:center;margin:46px 0;padding:24px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
     .cta{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:26px 0;margin:52px 0;display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
     .button{display:inline-block;border:1px solid var(--navy);border-radius:999px;padding:11px 18px;text-decoration:none}
