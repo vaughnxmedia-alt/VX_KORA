@@ -181,6 +181,14 @@ All colors MUST be HSL.
     @apply pl-1;
   }
 
+  .blog-editorial-body a {
+    position: relative;
+    z-index: 1;
+    pointer-events: auto;
+    touch-action: manipulation;
+    overflow-wrap: anywhere;
+  }
+
   /* Pull-quote styling */
   .blog-editorial .prose blockquote {
     @apply border-l-0 bg-transparent px-0 py-8 my-12 text-center italic;

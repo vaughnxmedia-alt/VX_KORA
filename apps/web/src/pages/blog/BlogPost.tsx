@@ -258,6 +258,27 @@ const BlogPost = () => {
     setLoading(false);
   }, [id, navigate, toast, incrementViewCount]);
 
+  const handleMarkdownLinkClick = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      const anchor = (event.target as HTMLElement).closest<HTMLAnchorElement>("a[href]");
+      if (!anchor) return;
+
+      const href = anchor.getAttribute("href");
+      if (!href || href.startsWith("#")) return;
+
+      event.preventDefault();
+
+      const url = new URL(href, window.location.origin);
+      if (url.origin === window.location.origin) {
+        navigate(`${url.pathname}${url.search}${url.hash}`);
+        return;
+      }
+
+      window.location.assign(url.href);
+    },
+    [navigate],
+  );
+
   useEffect(() => {
     if (id) {
       fetchBlogPost();
@@ -606,7 +627,8 @@ const BlogPost = () => {
             prose-img:rounded-xl prose-img:shadow-md prose-img:my-12 prose-img:w-full
             prose-hr:hidden
             " 
-            data-color-mode="light">
+            data-color-mode="light"
+            onClick={handleMarkdownLinkClick}>
             <MDEditor.Markdown 
               source={post.content} 
               rehypePlugins={[[rehypeSanitize], [rehypeSlug], [rehypeAutolinkHeadings, { behavior: 'prepend' }]]}
