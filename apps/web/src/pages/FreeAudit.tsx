@@ -55,9 +55,24 @@ type Question = {
   title: string;
   description?: string;
   required?: boolean;
-  input: "text" | "email" | "tel" | "url" | "textarea" | "intent" | "business_entity";
+  input: "text" | "email" | "tel" | "url" | "textarea" | "intent" | "business_entity" | "other_socials";
   placeholder?: string;
 };
+
+const OTHER_SOCIAL_OPTIONS = [
+  { id: "linkedin", label: "LinkedIn", placeholder: "LinkedIn profile or company page link" },
+  { id: "youtube", label: "YouTube", placeholder: "YouTube channel link or @handle" },
+  { id: "google_business", label: "Google Business Profile", placeholder: "Google Business Profile link or business listing name" },
+  { id: "x", label: "X / Twitter", placeholder: "X profile link or @handle" },
+  { id: "threads", label: "Threads", placeholder: "Threads profile link or @handle" },
+  { id: "pinterest", label: "Pinterest", placeholder: "Pinterest profile link" },
+  { id: "yelp", label: "Yelp", placeholder: "Yelp listing link" },
+  { id: "podcast", label: "Podcast", placeholder: "Podcast link, show page, or Spotify/Apple link" },
+  { id: "newsletter", label: "Newsletter", placeholder: "Newsletter signup or publication link" },
+  { id: "portfolio", label: "Portfolio / Booking Page", placeholder: "Portfolio, booking, Linktree, Beacons, or Stan Store link" },
+  { id: "other", label: "Other", placeholder: "Paste any other public profile or page" },
+  { id: "none", label: "No other pages", placeholder: "" },
+] as const;
 
 const QUESTIONS: Question[] = [
   {
@@ -136,10 +151,9 @@ const QUESTIONS: Question[] = [
   {
     key: "otherSocials",
     eyebrow: "Presence",
-    title: "Add any other public pages or social accounts you use.",
-    description: "List anything not already covered, even if you are not sure it matters. More links help us understand your full public brand footprint.",
-    input: "textarea",
-    placeholder: "LinkedIn: https://...\nYouTube: @yourchannel\nPodcast: https://...\nNewsletter, Pinterest, X, Threads, Yelp, Google Business Profile, portfolio links...",
+    title: "Do you use any other public pages?",
+    description: "Tap a platform, then add the username or paste the profile link. More links help us understand your full public brand footprint.",
+    input: "other_socials",
   },
   {
     key: "growthGoal",
@@ -208,6 +222,28 @@ function normalizeAuditAngle(value: string | null | undefined): string {
   return normalized.replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "brand_diagnosis";
 }
 
+async function freeAuditFunctionErrorMessage(error: Error): Promise<string> {
+  const context = (error as { context?: unknown }).context;
+  if (context && typeof context === "object" && "json" in (context as Record<string, unknown>)) {
+    try {
+      const payload = await (context as { json: () => Promise<unknown> }).json();
+      const record = payload && typeof payload === "object" ? payload as Record<string, unknown> : {};
+      if (typeof record.error === "string" && record.error !== "Invalid free audit payload") return record.error;
+      const details = record.details && typeof record.details === "object"
+        ? record.details as { fieldErrors?: Record<string, string[]> }
+        : null;
+      const fieldErrors = details?.fieldErrors ?? {};
+      const firstError = Object.entries(fieldErrors).find(([, messages]) => messages?.length);
+      if (firstError) {
+        return `Please check ${firstError[0].replace(/([A-Z])/g, " $1").toLowerCase()}: ${firstError[1][0]}`;
+      }
+    } catch {
+      // keep fallback
+    }
+  }
+  return error.message || "Could not submit audit.";
+}
+
 function inferIndustry(form: FormState): string {
   const blob = [
     form.businessName,
@@ -273,6 +309,8 @@ export default function FreeAudit() {
   const [currentStep, setCurrentStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [filingAcknowledged, setFilingAcknowledged] = useState(false);
+  const [selectedOtherSocial, setSelectedOtherSocial] = useState<(typeof OTHER_SOCIAL_OPTIONS)[number]["id"] | null>(null);
+  const [otherSocialValues, setOtherSocialValues] = useState<Record<string, string>>({});
   const readiness = useMemo(() => readinessFromIntent(form.intent), [form.intent]);
   const currentQuestion = QUESTIONS[currentStep];
   const requiresFilingAcknowledgement = form.businessEntityType === "personal_brand_without_documentation";
@@ -345,6 +383,38 @@ export default function FreeAudit() {
     });
   }
 
+  function syncOtherSocials(nextValues: Record<string, string>, selectedId = selectedOtherSocial) {
+    const lines = OTHER_SOCIAL_OPTIONS
+      .filter((option) => option.id !== "none")
+      .map((option) => {
+        const value = nextValues[option.id]?.trim();
+        return value ? `${option.label}: ${value}` : "";
+      })
+      .filter(Boolean);
+    if (selectedId === "none") {
+      update("otherSocials", "No other public pages submitted.");
+      return;
+    }
+    update("otherSocials", lines.join("\n"));
+  }
+
+  function selectOtherSocial(optionId: (typeof OTHER_SOCIAL_OPTIONS)[number]["id"]) {
+    setSelectedOtherSocial(optionId);
+    if (optionId === "none") {
+      const cleared: Record<string, string> = {};
+      setOtherSocialValues(cleared);
+      update("otherSocials", "No other public pages submitted.");
+      return;
+    }
+    syncOtherSocials(otherSocialValues, optionId);
+  }
+
+  function updateOtherSocialValue(optionId: string, value: string) {
+    const nextValues = { ...otherSocialValues, [optionId]: value };
+    setOtherSocialValues(nextValues);
+    syncOtherSocials(nextValues, optionId as (typeof OTHER_SOCIAL_OPTIONS)[number]["id"]);
+  }
+
   function goNext() {
     if (currentRequiredMissing) return;
     trackFormStart({
@@ -400,7 +470,8 @@ export default function FreeAudit() {
         },
       });
       if (submit.error || !submit.data?.auditId) {
-        throw new Error(submit.error?.message ?? "Could not submit audit.");
+        if (submit.error) throw new Error(await freeAuditFunctionErrorMessage(submit.error));
+        throw new Error("Could not submit audit.");
       }
 
       await supabase.functions.invoke("free-audit-complete", {
@@ -536,7 +607,50 @@ export default function FreeAudit() {
               ) : null}
 
               <div className="mt-8">
-                {resolvedQuestion.input === "textarea" ? (
+                {resolvedQuestion.input === "other_socials" ? (
+                  <div className="space-y-4">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {OTHER_SOCIAL_OPTIONS.map((option) => (
+                        <button
+                          key={option.id}
+                          type="button"
+                          className={`rounded-2xl border p-4 text-left transition ${
+                            selectedOtherSocial === option.id
+                              ? "border-gold bg-gold/10 shadow-lg shadow-gold/10"
+                              : "border-border bg-background hover:border-gold/50"
+                          }`}
+                          onClick={() => selectOtherSocial(option.id)}
+                        >
+                          <span className="block font-semibold">{option.label}</span>
+                          <span className="mt-1 block text-sm text-muted-foreground">
+                            {option.id === "none" ? "Skip this step if there are no other pages." : "Add username or profile link."}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {selectedOtherSocial && selectedOtherSocial !== "none" ? (
+                      <div className="rounded-2xl border border-gold/30 bg-gold/5 p-4">
+                        <p className="mb-2 text-sm font-semibold">
+                          Add {OTHER_SOCIAL_OPTIONS.find((option) => option.id === selectedOtherSocial)?.label}
+                        </p>
+                        <Input
+                          autoFocus
+                          className="h-12 text-base"
+                          placeholder={OTHER_SOCIAL_OPTIONS.find((option) => option.id === selectedOtherSocial)?.placeholder}
+                          value={otherSocialValues[selectedOtherSocial] ?? ""}
+                          onChange={(event) => updateOtherSocialValue(selectedOtherSocial, event.target.value)}
+                        />
+                        {form.otherSocials.trim() ? (
+                          <div className="mt-4 rounded-xl bg-background/70 p-3 text-sm text-muted-foreground">
+                            <p className="font-medium text-foreground">Added so far</p>
+                            <p className="mt-1 whitespace-pre-wrap">{form.otherSocials}</p>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : resolvedQuestion.input === "textarea" ? (
                   <Textarea
                     autoFocus
                     className="min-h-40 text-lg"

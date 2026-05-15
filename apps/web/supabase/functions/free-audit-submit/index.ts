@@ -19,7 +19,7 @@ const submitSchema = z.object({
   instagram: z.string().max(200).nullable().optional(),
   facebook: z.string().max(200).nullable().optional(),
   tiktok: z.string().max(200).nullable().optional(),
-  otherSocials: z.string().max(500).nullable().optional(),
+  otherSocials: z.string().max(4000).nullable().optional(),
   growthGoal: z.string().max(1200).nullable().optional(),
   currentBlocker: z.string().max(1200).nullable().optional(),
   targetAudienceBelief: z.string().max(1200).nullable().optional(),
