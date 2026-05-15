@@ -163,6 +163,7 @@ const Blog = () => {
     articles,
     selectedCategory
   );
+  const isAllCategory = selectedCategory === "All";
 
   const totalPages = Math.ceil(gridArticles.length / articlesPerPage);
   const paginatedArticles = gridArticles.slice(
@@ -192,6 +193,41 @@ const Blog = () => {
       element?.scrollIntoView({ behavior: 'smooth' });
     }
   };
+
+  const renderAnswersSection = () => (
+    <section className="rounded-3xl border bg-muted/20 p-6 sm:p-8">
+      <div className="mx-auto max-w-3xl text-center">
+        <h2 className="text-2xl font-bold tracking-tight text-primary sm:text-4xl">
+          Answers<span className="text-gold">.</span>
+        </h2>
+        <p className="mt-3 text-muted-foreground">
+          Start with these direct answer guides while new Brief articles are being added.
+        </p>
+      </div>
+
+      <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {answerPages.slice(0, 8).map((answer) => (
+          <button
+            key={answer.slug}
+            type="button"
+            onClick={() => navigate(`/answers/${answer.slug}`)}
+            className="group rounded-2xl border bg-white p-5 text-left shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg"
+          >
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Answer</p>
+            <h4 className="mt-3 text-lg font-bold leading-tight text-foreground group-hover:text-primary">
+              {answer.title}
+            </h4>
+            <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-muted-foreground">
+              {answer.directAnswer}
+            </p>
+            <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-primary">
+              Read answer <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -236,6 +272,14 @@ const Blog = () => {
                     {cat}
                   </Button>
                 ))}
+                <Button
+                  variant="outline"
+                  onClick={() => navigate("/the-brief/the-perfect-startup")}
+                  className="rounded-full"
+                  size="sm"
+                >
+                  Startup
+                </Button>
               </div>
             </div>
           </div>
@@ -448,38 +492,26 @@ const Blog = () => {
               </Pagination>
             )}
           </>
-        ) : (
-          <div className="rounded-3xl border bg-muted/20 p-6 sm:p-8">
-            <div className="mx-auto max-w-3xl text-center">
-              <h2 className="text-2xl font-bold tracking-tight text-primary sm:text-4xl">
-                Answers<span className="text-gold">.</span>
-              </h2>
-              <p className="mt-3 text-muted-foreground">
-                Start with these direct answer guides while new Brief articles are being added.
-              </p>
-            </div>
+        ) : renderAnswersSection()}
 
-            <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              {answerPages.slice(0, 8).map((answer) => (
-                <button
-                  key={answer.slug}
-                  type="button"
-                  onClick={() => navigate(`/answers/${answer.slug}`)}
-                  className="group rounded-2xl border bg-white p-5 text-left shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg"
-                >
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Answer</p>
-                  <h4 className="mt-3 text-lg font-bold leading-tight text-foreground group-hover:text-primary">
-                    {answer.title}
-                  </h4>
-                  <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-muted-foreground">
-                    {answer.directAnswer}
+        {isAllCategory && (
+          <div className="mt-12 space-y-8 sm:mt-16">
+            <section className="rounded-3xl border bg-[#F7F3EA] p-6 shadow-sm md:p-8">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <Badge variant="outline" className="border-gold/40 text-gold-dark">The Perfect Startup</Badge>
+                  <h2 className="mt-3 text-2xl font-bold tracking-tight text-primary">Before the logo, before the launch, get the foundation right.</h2>
+                  <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                    Browse JahKnowsPR's state-by-state startup education series for founders building with structure, clarity, and confidence.
                   </p>
-                  <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-primary">
-                    Read answer <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                  </span>
-                </button>
-              ))}
-            </div>
+                </div>
+                <Button onClick={() => navigate("/the-brief/the-perfect-startup")} className="shrink-0">
+                  Browse State Guides
+                </Button>
+              </div>
+            </section>
+
+            {renderAnswersSection()}
           </div>
         )}
       </div>

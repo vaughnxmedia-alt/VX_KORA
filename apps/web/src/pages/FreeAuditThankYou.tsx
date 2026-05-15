@@ -26,7 +26,7 @@ export default function FreeAuditThankYou() {
           <p className="text-sm font-semibold uppercase tracking-[0.3em] text-gold">Audit Submitted</p>
           <h1 className="text-4xl font-bold leading-tight md:text-6xl">Your diagnosis is in review.</h1>
           <p className="text-lg text-muted-foreground md:text-xl">
-            You will receive your Free Audit by email within <strong className="text-foreground">2 business days</strong>.
+            You will receive your Free Audit by email.
           </p>
         </div>
 

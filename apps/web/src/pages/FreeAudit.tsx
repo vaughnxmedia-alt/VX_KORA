@@ -11,12 +11,15 @@ import { breadcrumbListSchema, serviceSchema } from "@/lib/structured-data";
 
 type Intent = "ready_now" | "open_if_it_makes_sense" | "just_looking";
 type Readiness = "HOT" | "WARM" | "COLD";
+type BusinessEntityType = "corporation" | "sole_proprietor" | "personal_brand_without_documentation";
 
 type FormState = {
   email: string;
   phone: string;
   name: string;
+  businessEntityType: BusinessEntityType | "";
   businessName: string;
+  publicBusinessName: string;
   websiteLink: string;
   instagram: string;
   facebook: string;
@@ -25,14 +28,16 @@ type FormState = {
   growthGoal: string;
   currentBlocker: string;
   targetAudienceBelief: string;
-  intent: Intent;
+  intent: Intent | "";
 };
 
 const INITIAL_FORM: FormState = {
   email: "",
   phone: "",
   name: "",
+  businessEntityType: "",
   businessName: "",
+  publicBusinessName: "",
   websiteLink: "",
   instagram: "",
   facebook: "",
@@ -41,7 +46,7 @@ const INITIAL_FORM: FormState = {
   growthGoal: "",
   currentBlocker: "",
   targetAudienceBelief: "",
-  intent: "open_if_it_makes_sense",
+  intent: "",
 };
 
 type Question = {
@@ -50,7 +55,7 @@ type Question = {
   title: string;
   description?: string;
   required?: boolean;
-  input: "text" | "email" | "tel" | "url" | "textarea" | "intent";
+  input: "text" | "email" | "tel" | "url" | "textarea" | "intent" | "business_entity";
   placeholder?: string;
 };
 
@@ -78,11 +83,27 @@ const QUESTIONS: Question[] = [
     placeholder: "(555) 555-5555",
   },
   {
+    key: "businessEntityType",
+    eyebrow: "Brand",
+    title: "How is this brand set up right now?",
+    description: "Choose the option that best matches how this brand is currently operating.",
+    required: true,
+    input: "business_entity",
+  },
+  {
     key: "businessName",
     eyebrow: "Brand",
     title: "What is your business or brand name?",
     input: "text",
     placeholder: "Business name",
+  },
+  {
+    key: "publicBusinessName",
+    eyebrow: "Brand",
+    title: "What name does your business use publicly?",
+    description: "Enter the customer-facing name people see on your website, social media, signage, content, or public profiles.",
+    input: "text",
+    placeholder: "Public-facing business or brand name",
   },
   {
     key: "websiteLink",
@@ -115,9 +136,10 @@ const QUESTIONS: Question[] = [
   {
     key: "otherSocials",
     eyebrow: "Presence",
-    title: "Any other socials we should review?",
+    title: "Add any other public pages or social accounts you use.",
+    description: "List anything not already covered, even if you are not sure it matters. More links help us understand your full public brand footprint.",
     input: "textarea",
-    placeholder: "LinkedIn, YouTube, podcast, newsletter, etc.",
+    placeholder: "LinkedIn: https://...\nYouTube: @yourchannel\nPodcast: https://...\nNewsletter, Pinterest, X, Threads, Yelp, Google Business Profile, portfolio links...",
   },
   {
     key: "growthGoal",
@@ -150,17 +172,97 @@ const QUESTIONS: Question[] = [
     required: true,
     input: "intent",
   },
-];
+].map((question) => ({ ...question, required: true }));
 
 function setMeta(selector: string, attr: "content" | "href", value: string) {
   const node = document.querySelector(selector);
   if (node) node.setAttribute(attr, value);
 }
 
-function readinessFromIntent(intent: Intent): Readiness {
+function readinessFromIntent(intent: Intent | ""): Readiness {
   if (intent === "ready_now") return "HOT";
   if (intent === "open_if_it_makes_sense") return "WARM";
   return "COLD";
+}
+
+function isQuestionAnswered(form: FormState, question: Question): boolean {
+  const value = form[question.key];
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function clampScore(value: number): number {
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function contextDepth(value: string): number {
+  const length = value.trim().length;
+  if (length > 180) return 8;
+  if (length > 90) return 5;
+  if (length > 35) return 2;
+  return -4;
+}
+
+function normalizeAuditAngle(value: string | null | undefined): string {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (!normalized || normalized === "free_audit" || normalized === "free_brand_audit") return "brand_diagnosis";
+  return normalized.replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "brand_diagnosis";
+}
+
+function inferIndustry(form: FormState): string {
+  const blob = [
+    form.businessName,
+    form.publicBusinessName,
+    form.websiteLink,
+    form.instagram,
+    form.facebook,
+    form.tiktok,
+    form.otherSocials,
+    form.growthGoal,
+    form.currentBlocker,
+    form.targetAudienceBelief,
+  ].join(" ").toLowerCase();
+  if (/(beauty|skin|spa|salon|wellness|fitness|health|therapy)/.test(blob)) return "beauty_wellness";
+  if (/(law|legal|attorney|finance|accounting|consulting firm)/.test(blob)) return "law_professional";
+  if (/(real estate|realtor|property|broker|mortgage)/.test(blob)) return "real_estate";
+  if (/(music|artist|film|media|podcast|entertainment)/.test(blob)) return "music_entertainment";
+  if (/(coach|consultant|course|speaker|mentor|advisor)/.test(blob)) return "coaching_consulting";
+  if (/(restaurant|food|chef|cafe|bar|hospitality)/.test(blob)) return "restaurant_hospitality";
+  if (/(nonprofit|community|foundation|ministry|donation)/.test(blob)) return "nonprofit_community";
+  return "professional_services";
+}
+
+function buildAuditScoreSummary(form: FormState, readiness: Readiness, auditAngle: string) {
+  const baseline = readiness === "HOT" ? 62 : readiness === "WARM" ? 54 : 44;
+  const presenceCount = [form.websiteLink, form.instagram, form.facebook, form.tiktok, form.otherSocials]
+    .filter((value) => value.trim().length > 0).length;
+  const goalDepth = contextDepth(form.growthGoal);
+  const blockerDepth = contextDepth(form.currentBlocker);
+  const audienceDepth = contextDepth(form.targetAudienceBelief);
+  const presenceBoost = Math.min(8, presenceCount * 2);
+
+  return {
+    positioning_score: clampScore(baseline - 8 + goalDepth - Math.max(0, blockerDepth / 2)),
+    audience_score: clampScore(baseline - 5 + audienceDepth),
+    authority_score: clampScore(baseline + presenceBoost - (presenceCount ? 0 : 8)),
+    messaging_score: clampScore(baseline - 2 + Math.min(5, goalDepth + audienceDepth)),
+    conversion_score: clampScore(baseline - 10 + (form.intent === "ready_now" ? 5 : 0) + Math.min(4, presenceCount)),
+    primary_gap: form.currentBlocker.trim(),
+    audience_pain: form.targetAudienceBelief.trim(),
+    growth_goal: form.growthGoal.trim(),
+    messaging_angle: auditAngle,
+    brand_tone: "premium editorial strategic",
+    industry: inferIndustry(form),
+    evidence: {
+      submitted_presence_count: presenceCount,
+      has_website: Boolean(form.websiteLink.trim()),
+      has_social_context: presenceCount > 1,
+      answer_depth: {
+        growth_goal: form.growthGoal.trim().length,
+        current_blocker: form.currentBlocker.trim().length,
+        target_audience_belief: form.targetAudienceBelief.trim().length,
+      },
+    },
+  };
 }
 
 export default function FreeAudit() {
@@ -170,13 +272,52 @@ export default function FreeAudit() {
   const [started, setStarted] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [filingAcknowledged, setFilingAcknowledged] = useState(false);
   const readiness = useMemo(() => readinessFromIntent(form.intent), [form.intent]);
   const currentQuestion = QUESTIONS[currentStep];
+  const requiresFilingAcknowledgement = form.businessEntityType === "personal_brand_without_documentation";
+  const isBusinessNameStep = currentQuestion?.key === "businessName";
+  const filingAckRequiredNow = requiresFilingAcknowledgement && isBusinessNameStep;
+  const filingAckMissing = requiresFilingAcknowledgement && !filingAcknowledged;
+  const resolvedQuestion = useMemo(() => {
+    if (!currentQuestion || currentQuestion.key !== "businessName") return currentQuestion;
+    if (form.businessEntityType === "corporation") {
+      return {
+        ...currentQuestion,
+        title: "What is your registered business name?",
+        description: "Use the business name exactly as registered for your corporation or LLC.",
+        placeholder: "Registered business name",
+      };
+    }
+    if (form.businessEntityType === "sole_proprietor") {
+      return {
+        ...currentQuestion,
+        title: "What is your DBA name?",
+        description: "Use the Doing Business As (DBA) name you are using publicly.",
+        placeholder: "DBA name",
+      };
+    }
+    if (form.businessEntityType === "personal_brand_without_documentation") {
+      return {
+        ...currentQuestion,
+        title: "What is your brand name? (without documentation)",
+        description: "We can still run your full audit. Before scaling marketing, filing a DBA or LLC/Corporation should be your immediate next step.",
+        placeholder: "Brand name used publicly",
+      };
+    }
+    return {
+      ...currentQuestion,
+      title: "What is your business or brand name?",
+      description: "Choose your business structure first, then add the matching name here.",
+      placeholder: "Business or brand name",
+    };
+  }, [currentQuestion, form.businessEntityType]);
   const progress = Math.round(((currentStep + 1) / QUESTIONS.length) * 100);
-  const currentValue = currentQuestion ? form[currentQuestion.key] : "";
   const currentRequiredMissing = Boolean(
-    currentQuestion?.required && typeof currentValue === "string" && currentValue.trim().length === 0,
+    (currentQuestion?.required && !isQuestionAnswered(form, currentQuestion)) ||
+    filingAckRequiredNow && !filingAcknowledged,
   );
+  const allQuestionsAnswered = QUESTIONS.every((question) => isQuestionAnswered(form, question));
 
   useEffect(() => {
     document.title = "Free Brand Audit | JahKnowsPR";
@@ -195,7 +336,13 @@ export default function FreeAudit() {
   }, []);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
-    setForm((current) => ({ ...current, [key]: value }));
+    setForm((current) => {
+      const next = { ...current, [key]: value };
+      if (key === "businessEntityType" && value !== "personal_brand_without_documentation") {
+        setFilingAcknowledged(false);
+      }
+      return next;
+    });
   }
 
   function goNext() {
@@ -216,26 +363,39 @@ export default function FreeAudit() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (currentRequiredMissing) return;
+    if (currentRequiredMissing || !allQuestionsAnswered || !form.intent || filingAckMissing) return;
     setSubmitting(true);
     const nextAttribution = collectFreeAuditAttribution({
       messaging_angle: attribution?.messaging_angle ?? "positioning_gap",
       hook: attribution?.hook ?? "free_brand_audit",
     });
+    const auditAngle = normalizeAuditAngle(nextAttribution.messaging_angle);
+    const scoreSummary = buildAuditScoreSummary(form, readiness, auditAngle);
     try {
       const submit = await supabase.functions.invoke("free-audit-submit", {
         body: {
           ...form,
+          intent: form.intent,
           readinessLevel: readiness,
-          auditAngle: nextAttribution.messaging_angle,
+          auditAngle,
           intendedCta: "book_strategy_session",
           predictedConversionProbability: readiness === "HOT" ? 0.42 : readiness === "WARM" ? 0.22 : 0.08,
           expectedBaseline: 0.12,
-          attribution: nextAttribution,
-          leadSource: nextAttribution,
+          attribution: { ...nextAttribution, messaging_angle: auditAngle },
+          leadSource: { ...nextAttribution, messaging_angle: auditAngle },
           metadata: {
             readiness_level: readiness,
             source_page: "free_audit",
+            report_inputs: {
+              business_entity_type: form.businessEntityType,
+              public_business_name: form.publicBusinessName.trim(),
+              requires_filing_notice: form.businessEntityType === "personal_brand_without_documentation",
+              growth_goal: form.growthGoal.trim(),
+              current_blocker: form.currentBlocker.trim(),
+              target_audience_belief: form.targetAudienceBelief.trim(),
+              inferred_industry: scoreSummary.industry,
+              audit_angle: auditAngle,
+            },
           },
         },
       });
@@ -250,15 +410,27 @@ export default function FreeAudit() {
           scoreSummary: {
             readiness_level: readiness,
             intent: form.intent,
+            ...scoreSummary,
           },
           actualOutcome: {
             lead_segmented: true,
             readiness_level: readiness,
+            audit_angle: auditAngle,
           },
           ctaClicked: false,
           metadata: {
-            attribution: nextAttribution,
+            attribution: { ...nextAttribution, messaging_angle: auditAngle },
             readiness_level: readiness,
+            report_inputs: {
+              business_entity_type: form.businessEntityType,
+              public_business_name: form.publicBusinessName.trim(),
+              requires_filing_notice: form.businessEntityType === "personal_brand_without_documentation",
+              growth_goal: form.growthGoal.trim(),
+              current_blocker: form.currentBlocker.trim(),
+              target_audience_belief: form.targetAudienceBelief.trim(),
+              inferred_industry: scoreSummary.industry,
+              audit_angle: auditAngle,
+            },
           },
         },
       });
@@ -356,24 +528,24 @@ export default function FreeAudit() {
           <form id="free-audit-form" onSubmit={handleSubmit} className="flex flex-1 flex-col justify-center">
             <div className="rounded-3xl border border-gold/20 bg-card p-6 shadow-xl shadow-primary/5 md:p-10">
               <p className="mb-3 text-sm font-semibold uppercase tracking-[0.25em] text-gold">
-                {currentQuestion.eyebrow}
+                {resolvedQuestion.eyebrow}
               </p>
-              <h2 className="text-3xl font-serif font-bold leading-tight md:text-5xl">{currentQuestion.title}</h2>
-              {currentQuestion.description ? (
-                <p className="mt-3 text-muted-foreground">{currentQuestion.description}</p>
+              <h2 className="text-3xl font-serif font-bold leading-tight md:text-5xl">{resolvedQuestion.title}</h2>
+              {resolvedQuestion.description ? (
+                <p className="mt-3 text-muted-foreground">{resolvedQuestion.description}</p>
               ) : null}
 
               <div className="mt-8">
-                {currentQuestion.input === "textarea" ? (
+                {resolvedQuestion.input === "textarea" ? (
                   <Textarea
                     autoFocus
                     className="min-h-40 text-lg"
-                    required={currentQuestion.required}
-                    placeholder={currentQuestion.placeholder}
-                    value={String(form[currentQuestion.key])}
-                    onChange={(event) => update(currentQuestion.key, event.target.value as never)}
+                    required={resolvedQuestion.required}
+                    placeholder={resolvedQuestion.placeholder}
+                    value={String(form[resolvedQuestion.key])}
+                    onChange={(event) => update(resolvedQuestion.key, event.target.value as never)}
                   />
-                ) : currentQuestion.input === "intent" ? (
+                ) : resolvedQuestion.input === "intent" ? (
                   <div className="grid gap-3">
                     {[
                       ["ready_now", "Yes, I'm ready now", "I know this needs to be fixed and I want the next step."],
@@ -395,17 +567,57 @@ export default function FreeAudit() {
                       </button>
                     ))}
                   </div>
+                ) : resolvedQuestion.input === "business_entity" ? (
+                  <div className="grid gap-3">
+                    {[
+                      ["corporation", "Corporation / LLC", "Registered entity with a legal business name."],
+                      ["sole_proprietor", "Sole Proprietor", "Operating under DBA."],
+                      ["personal_brand_without_documentation", "Personal Brand (without documentation)", "No DBA/LLC/Corporate filing yet."],
+                    ].map(([value, label, description]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        className={`rounded-2xl border p-4 text-left transition ${
+                          form.businessEntityType === value
+                            ? "border-gold bg-gold/10 shadow-lg shadow-gold/10"
+                            : "border-border bg-background hover:border-gold/50"
+                        }`}
+                        onClick={() => update("businessEntityType", value as BusinessEntityType)}
+                      >
+                        <span className="block font-semibold">{label}</span>
+                        <span className="mt-1 block text-sm text-muted-foreground">{description}</span>
+                      </button>
+                    ))}
+                  </div>
                 ) : (
                   <Input
                     autoFocus
                     className="h-14 text-lg"
-                    required={currentQuestion.required}
-                    type={currentQuestion.input}
-                    placeholder={currentQuestion.placeholder}
-                    value={String(form[currentQuestion.key])}
-                    onChange={(event) => update(currentQuestion.key, event.target.value as never)}
+                    required={resolvedQuestion.required}
+                    type={resolvedQuestion.input}
+                    placeholder={resolvedQuestion.placeholder}
+                    value={String(form[resolvedQuestion.key])}
+                    onChange={(event) => update(resolvedQuestion.key, event.target.value as never)}
                   />
                 )}
+                {filingAckRequiredNow ? (
+                  <div className="mt-4 rounded-2xl border border-destructive/30 bg-destructive/10 p-4">
+                    <p className="text-sm font-semibold text-destructive">Immediate next step before continuing</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Since this is a personal brand without documentation, file a DBA or LLC/Corporation before scaling your marketing.
+                      We will still complete your full audit and include this compliance warning in the email, audio brief, and PDF.
+                    </p>
+                    <label className="mt-3 flex cursor-pointer items-start gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        className="mt-1"
+                        checked={filingAcknowledged}
+                        onChange={(event) => setFilingAcknowledged(event.target.checked)}
+                      />
+                      <span>I understand filing a DBA or LLC/Corporation is my immediate next step.</span>
+                    </label>
+                  </div>
+                ) : null}
               </div>
 
               <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -413,7 +625,7 @@ export default function FreeAudit() {
                   Back
                 </Button>
                 {currentStep === QUESTIONS.length - 1 ? (
-                  <Button type="submit" size="lg" className="rounded-full px-10" disabled={submitting || currentRequiredMissing}>
+                  <Button type="submit" size="lg" className="rounded-full px-10" disabled={submitting || currentRequiredMissing || !allQuestionsAnswered || filingAckMissing}>
                     {submitting ? "Submitting..." : "Submit Audit"}
                   </Button>
                 ) : (

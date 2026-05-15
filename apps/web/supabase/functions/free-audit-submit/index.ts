@@ -7,12 +7,14 @@ import {
   safeRecordOutcome,
   safeUpsertFunnelAttribution,
 } from "../_shared/lls.ts";
+import { normalizeAuditSources } from "../_shared/sourceNormalizer.ts";
 
 const submitSchema = z.object({
   email: z.string().email(),
   phone: z.string().max(40).nullable().optional(),
   name: z.string().max(120).nullable().optional(),
   businessName: z.string().max(160).nullable().optional(),
+  publicBusinessName: z.string().max(160).nullable().optional(),
   websiteLink: z.string().max(300).nullable().optional(),
   instagram: z.string().max(200).nullable().optional(),
   facebook: z.string().max(200).nullable().optional(),
@@ -22,6 +24,7 @@ const submitSchema = z.object({
   currentBlocker: z.string().max(1200).nullable().optional(),
   targetAudienceBelief: z.string().max(1200).nullable().optional(),
   intent: z.enum(["ready_now", "open_if_it_makes_sense", "just_looking"]),
+  businessEntityType: z.enum(["corporation", "sole_proprietor", "personal_brand_without_documentation"]).optional(),
   readinessLevel: z.enum(["HOT", "WARM", "COLD"]),
   leadKey: z.string().min(3).optional(),
   customerId: z.string().uuid().nullable().optional(),
@@ -62,6 +65,28 @@ async function safeRequestAestheticScan(auditId: string) {
   }
 }
 
+async function safeRequestSocialResearch(auditId: string) {
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return;
+
+  try {
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/free-audit-social-research`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ auditId }),
+    });
+    if (!response.ok) {
+      console.warn("free-audit-social-research skipped", await response.text());
+    }
+  } catch (error) {
+    console.warn("free-audit-social-research failed", error);
+  }
+}
+
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -86,6 +111,13 @@ serve(async (req) => {
     const supabase = createServiceClient();
     const leadKey = normalizeLeadKey(p);
     const leadEmailLower = p.email?.trim().toLowerCase() ?? null;
+    const normalizedSocialSources = normalizeAuditSources({
+      website_link: p.websiteLink,
+      instagram: p.instagram,
+      facebook: p.facebook,
+      tiktok: p.tiktok,
+      other_socials: p.otherSocials,
+    });
 
     const { data: audit, error } = await supabase
       .from("free_audits")
@@ -95,7 +127,7 @@ serve(async (req) => {
         customer_id: p.customerId ?? null,
         contact_name: p.name ?? null,
         phone: p.phone ?? null,
-        business_name: p.businessName ?? null,
+        business_name: p.publicBusinessName?.trim() || p.businessName || null,
         website_link: p.websiteLink ?? null,
         instagram: p.instagram ?? null,
         facebook: p.facebook ?? null,
@@ -116,7 +148,20 @@ serve(async (req) => {
         predicted_conversion_probability: p.predictedConversionProbability ?? 0.12,
         expected_baseline: p.expectedBaseline ?? 0,
         completion_status: "started",
-        metadata: { ...(p.metadata ?? {}), attribution: readAttributionFromPayload(body) },
+        metadata: {
+          ...(p.metadata ?? {}),
+          attribution: readAttributionFromPayload(body),
+          business_entity_type: p.businessEntityType ?? null,
+          legal_or_registered_business_name: p.businessName ?? null,
+          public_business_name: p.publicBusinessName ?? null,
+          requires_filing_notice: p.businessEntityType === "personal_brand_without_documentation",
+          normalized_social_sources: normalizedSocialSources,
+          social_research: {
+            status: "queued",
+            queued_at: new Date().toISOString(),
+            normalized_sources: normalizedSocialSources,
+          },
+        },
       })
       .select("id, started_at")
       .single();
@@ -206,6 +251,7 @@ serve(async (req) => {
         metadata: { ...(p.metadata ?? {}), attribution, readiness_level: p.readinessLevel },
       }),
       safeRequestAestheticScan(audit.id),
+      safeRequestSocialResearch(audit.id),
     ]);
 
     return new Response(JSON.stringify({ auditId: audit.id, leadKey, startedAt: audit.started_at }), {

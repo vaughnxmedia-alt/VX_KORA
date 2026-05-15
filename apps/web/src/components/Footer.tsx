@@ -29,6 +29,7 @@ export const Footer = () => {
               <li><FooterLink to="/home">Home</FooterLink></li>
               <li><FooterLink to="/work-with-me">Service</FooterLink></li>
               <li><FooterLink to="/the-brief">The Brief</FooterLink></li>
+              <li><FooterLink to="/the-brief/the-perfect-startup">The Perfect Startup</FooterLink></li>
               <li><FooterLink to="/free-audit">Free Brand Diagnosis</FooterLink></li>
               <li><FooterLink to="/brand-strategy-session">Book Strategy Session</FooterLink></li>
               <li><FooterLink to="/answers">Answers</FooterLink></li>
