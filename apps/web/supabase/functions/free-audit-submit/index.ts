@@ -111,6 +111,24 @@ serve(async (req) => {
     const supabase = createServiceClient();
     const leadKey = normalizeLeadKey(p);
     const leadEmailLower = p.email?.trim().toLowerCase() ?? null;
+    if (leadEmailLower) {
+      const { data: existingAudit, error: existingAuditError } = await supabase
+        .from("free_audits")
+        .select("id")
+        .eq("lead_email_lower", leadEmailLower)
+        .limit(1)
+        .maybeSingle();
+      if (existingAuditError) throw existingAuditError;
+      if (existingAudit) {
+        return new Response(
+          JSON.stringify({
+            error: "An audit already exists for this email. Ask JahKnowsPR to delete the existing audit before submitting again.",
+            code: "duplicate_email",
+          }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
     const normalizedSocialSources = normalizeAuditSources({
       website_link: p.websiteLink,
       instagram: p.instagram,
@@ -165,7 +183,18 @@ serve(async (req) => {
       })
       .select("id, started_at")
       .single();
-    if (error) throw error;
+    if (error) {
+      if ((error as { code?: string }).code === "23505") {
+        return new Response(
+          JSON.stringify({
+            error: "An audit already exists for this email. Ask JahKnowsPR to delete the existing audit before submitting again.",
+            code: "duplicate_email",
+          }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      throw error;
+    }
 
     const attribution = readAttributionFromPayload(body);
     const correlationId = attribution.correlation_id ?? leadKey;

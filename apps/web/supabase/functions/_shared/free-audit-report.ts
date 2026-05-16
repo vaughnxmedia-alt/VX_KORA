@@ -263,6 +263,7 @@ function inferPrimaryCta(audit: FreeAuditRecord, businessName: string, industry 
     return "Enroll Now";
   }
   if (/nonprofit|donor|fundraising|foundation|church|ministry|community program|501c/.test(blob)) {
+    if (/join|community|member|membership|volunteer|get involved|people/.test(blob)) return "Join the Community";
     return /donor|fundraising|donate/.test(blob) ? "Donate" : "Join the Community";
   }
   if (/shop|product|store|ecommerce|e-commerce|merch/.test(blob)) {
@@ -289,18 +290,32 @@ function normalizePrimaryCta(value: unknown, audit: FreeAuditRecord, businessNam
 }
 
 function actionResultLabel(primaryCta: string): string {
+  if (/join|community|member|get involved|volunteer/i.test(primaryCta)) return "community join path";
+  if (/donate|donor|fundraising/i.test(primaryCta)) return "donation path";
+  if (/partner|sponsor/i.test(primaryCta)) return "partner action";
   if (/photo|shoot|portrait|headshot|wedding/i.test(primaryCta)) return "booked shoot";
   if (/coverage/i.test(primaryCta)) return "coverage request";
   if (/shop|buy/i.test(primaryCta)) return "purchase path";
   if (/proposal|quote|details/i.test(primaryCta)) return "qualified inquiry";
   if (/appointment|consultation|call|session/i.test(primaryCta)) return "booked conversation";
-  return "booked action";
+  return "clear next action";
+}
+
+function nextStepInstruction(primaryCta: string): string {
+  if (/join|community|member/i.test(primaryCta)) return "what joining means, who the community is for, and what happens after they join";
+  if (/volunteer|get involved/i.test(primaryCta)) return "how to get involved, who it is for, and what happens after they raise their hand";
+  if (/donate|donor|fundraising/i.test(primaryCta)) return "what the donation supports, who it helps, and what happens after they give";
+  if (/partner|sponsor/i.test(primaryCta)) return "what partnership supports, who it is for, and what happens after they inquire";
+  if (/shop|buy/i.test(primaryCta)) return "what they are buying, who it is for, and what happens after purchase";
+  if (/proposal|quote|details|coverage/i.test(primaryCta)) return "what they can request, who it is for, and what happens after they click";
+  return "what the next step helps them do, who it is for, and what happens after they click";
 }
 
 function clientFacingCopy(value: unknown, fallback: string, primaryCta: string): string {
   return originalText(value, fallback)
     .replace(/Book a Strategy Session/gi, primaryCta)
-    .replace(/\bstrategy session\b/gi, "next step");
+    .replace(/\bstrategy session\b/gi, "next step")
+    .replace(/\bbooked action\b/gi, actionResultLabel(primaryCta));
 }
 
 function socialHighlightsFromFindings(findings: AuditFindingRecord[], metadata: JsonRecord): string[] {
@@ -557,7 +572,7 @@ export function buildFreeAuditReport(
       evidence: readyFindings.length
         ? [originalText(positioningFinding?.finding_title, "Approved positioning finding"), namingNotes || socialHighlights[1] || socialEvidenceLine]
         : [`Growth goal: ${growthGoal}`, `Current blocker: ${primaryGap}`],
-      whyItMatters: "A broad or unclear position forces the audience to work too hard. When the promise is not specific, content may get attention without creating trust, urgency, or a reason to book.",
+      whyItMatters: "A broad or unclear position forces the audience to work too hard. When the promise is not specific, content may get attention without creating trust, urgency, or a reason to act.",
       nextMove: clientFacingCopy(positioningFinding?.recommended_action, "Rewrite the primary brand promise into one sentence that names the audience, the pain, and the outcome. Use that promise as the anchor for the website hero, social bio, pinned content, and next campaign.", recommendedPrimaryCta),
       cta: `Use this section to tighten messaging before driving traffic to "${recommendedPrimaryCta}".`,
     },
@@ -621,7 +636,7 @@ export function buildFreeAuditReport(
         ? [originalText(conversionFinding?.finding_title, "Approved conversion finding"), socialHighlights[0] ?? socialEvidenceLine]
         : [`Lead intent: ${intentLabel(audit.intent)}`, `Recommended next action: ${recommendedPrimaryCta}`],
       whyItMatters: `Interest fades when the next step is unclear. A clean path turns attention into a ${actionResult} while the need is still active in the prospect's mind.`,
-      nextMove: clientFacingCopy(conversionFinding?.recommended_action, "Place one direct call to action near the clearest proof point. The CTA should explain what the next step helps them book or request, who it is for, and what happens after they click.", recommendedPrimaryCta),
+      nextMove: clientFacingCopy(conversionFinding?.recommended_action, `Place one direct call to action near the clearest proof point. The CTA should explain ${nextStepInstruction(recommendedPrimaryCta)}.`, recommendedPrimaryCta),
       cta: secondaryCtas.length
         ? `Primary CTA: ${recommendedPrimaryCta}. Secondary CTAs: ${secondaryCtas.join(", ")}.`
         : `Primary CTA: ${recommendedPrimaryCta}.`,

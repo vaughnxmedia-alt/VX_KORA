@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { type MouseEvent, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Eye, FileAudio, FileText, Headphones, Loader2, Palette, SearchCheck, Send, Upload } from "lucide-react";
+import { Download, Eye, FileAudio, FileText, Headphones, Loader2, Palette, SearchCheck, Send, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
@@ -739,6 +739,29 @@ export default function Audits() {
     onError: (error: Error) => toast.error(error.message || "Could not update audit status"),
   });
 
+  const deleteAudit = useMutation({
+    mutationFn: async (audit: AuditRow) => {
+      const { error } = await supabase
+        .from("free_audits")
+        .delete()
+        .eq("id", audit.id);
+      if (error) throw error;
+      return audit;
+    },
+    onSuccess: (audit) => {
+      setSelectedAuditId((current) => current === audit.id ? null : current);
+      if (previewPayload?.report?.auditId === audit.id) {
+        setPreviewPayload(null);
+        setPreviewOpen(false);
+        setAudioBrief(null);
+      }
+      queryClient.invalidateQueries({ queryKey: ["free-audit-submissions"] });
+      queryClient.invalidateQueries({ queryKey: ["audit-aesthetic-signals"] });
+      toast.success("Audit deleted. That email can submit again.");
+    },
+    onError: (error: Error) => toast.error(error.message || "Could not delete audit"),
+  });
+
   const previewReport = useMutation({
     mutationFn: async (auditId: string) => {
       const { data, error } = await supabase.functions.invoke("send-free-audit-report", {
@@ -1062,6 +1085,16 @@ export default function Audits() {
     downloadUrl(audioBrief.audioUrl, audioBrief.filename || `${previewPayload?.report?.businessName ?? "audit"}-audio-brief.mp3`);
   }
 
+  function handleDeleteAudit(audit: AuditRow, event: MouseEvent<HTMLButtonElement>) {
+    event.stopPropagation();
+    const label = audit.business_name || audit.contact_name || audit.lead_email_lower || audit.lead_key;
+    const confirmed = window.confirm(
+      `Delete the audit for ${label}? This removes it from the system and allows this email to submit a new audit.`,
+    );
+    if (!confirmed) return;
+    deleteAudit.mutate(audit);
+  }
+
   function openLocalPreview(audit: AuditRow) {
     const localAudio = audioBriefFromAudit(audit);
     const localReport = buildLocalAuditReport(audit, selectedAestheticSignal);
@@ -1140,16 +1173,19 @@ export default function Audits() {
                 <TableHead>Status</TableHead>
                 <TableHead>Source</TableHead>
                 <TableHead>Submitted</TableHead>
+                <TableHead className="w-12 text-right">
+                  <span className="sr-only">Delete</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Loading audits...</TableCell>
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Loading audits...</TableCell>
                 </TableRow>
               ) : filteredAudits.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">No audit submissions found.</TableCell>
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">No audit submissions found.</TableCell>
                 </TableRow>
               ) : (
                 filteredAudits.map((audit) => (
@@ -1170,6 +1206,19 @@ export default function Audits() {
                     <TableCell>{statusLabel(audit.follow_up_status)}</TableCell>
                     <TableCell>{audit.lead_source ?? "direct"}</TableCell>
                     <TableCell>{formatDate(audit.created_at)}</TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        disabled={deleteAudit.isPending}
+                        aria-label={`Delete audit for ${audit.business_name || audit.lead_email_lower || audit.lead_key}`}
+                        onClick={(event) => handleDeleteAudit(audit, event)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))
               )}

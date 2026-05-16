@@ -58,6 +58,9 @@ verify_jwt = false
 [functions.free-audit-complete]
 verify_jwt = false
 
+[functions.audit-audio-page]
+verify_jwt = false
+
 [functions.app-owner-user-credentials]
 verify_jwt = true
 

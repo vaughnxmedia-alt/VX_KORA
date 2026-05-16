@@ -14,7 +14,7 @@ const bodySchema = z.object({
 });
 
 const AUDIO_BUCKET = "free-audit-audio";
-const AUDIO_SCRIPT_VERSION = "personalized-audit-audio-v14-variable-openings";
+const AUDIO_SCRIPT_VERSION = "personalized-audit-audio-v15-community-join-language";
 const DEFAULT_ELEVENLABS_VOICE_WOMAN = "VlUmeC1Uzj3NnwiVR9K9";
 const DEFAULT_ELEVENLABS_VOICE_MAN = "AIFDUhRnM6s61433WMNu";
 const DEFAULT_ELEVENLABS_VOICE_FEMININE_IDS = [
@@ -67,6 +67,18 @@ function publicAuditSlug(value: string): string {
     .replace(/^-|-$/g, "")
     .toLowerCase()
     .slice(0, 90) || "brand-audit";
+}
+
+function jwtRole(token: string): string {
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return "";
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(payload.length / 4) * 4, "=");
+    const parsed = JSON.parse(atob(normalized));
+    return typeof parsed.role === "string" ? parsed.role : "";
+  } catch {
+    return "";
+  }
 }
 
 function asObject(value: unknown): Record<string, unknown> {
@@ -324,18 +336,24 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const jwt = authHeader.replace(/^Bearer\s+/i, "").trim();
-    const { data: userData, error: userErr } = await supabase.auth.getUser(jwt);
-    if (userErr || !userData.user) {
-      return jsonResponse({ error: "Invalid session" }, 401, corsHeaders);
-    }
+    const isServiceRoleRequest = jwt === SUPABASE_SERVICE_ROLE_KEY || jwtRole(jwt) === "service_role";
+    let allowed = isServiceRoleRequest;
+    let generatedBy: string | null = null;
+    if (!isServiceRoleRequest) {
+      const { data: userData, error: userErr } = await supabase.auth.getUser(jwt);
+      if (userErr || !userData.user) {
+        return jsonResponse({ error: "Invalid session" }, 401, corsHeaders);
+      }
+      generatedBy = userData.user.id;
 
-    const { data: roleRows } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userData.user.id);
-    const allowed = (roleRows ?? []).some((row: { role: string }) =>
-      ["admin", "author", "intern", "3pv"].includes(row.role),
-    );
+      const { data: roleRows } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userData.user.id);
+      allowed = (roleRows ?? []).some((row: { role: string }) =>
+        ["admin", "author", "intern", "3pv"].includes(row.role),
+      );
+    }
     if (!allowed) {
       return jsonResponse({ error: "Forbidden" }, 403, corsHeaders);
     }
@@ -492,7 +510,7 @@ serve(async (req) => {
       tone: audioScript.plain_language_audio_brief.tone,
       reading_level: audioScript.plain_language_audio_brief.reading_level,
       generated_at: generatedAt,
-      generated_by: userData.user.id,
+      generated_by: generatedBy,
       provider: providerUsed,
       model: providerUsed === "elevenlabs"
         ? (Deno.env.get("ELEVENLABS_MODEL_ID")?.trim() || "eleven_flash_v2_5")

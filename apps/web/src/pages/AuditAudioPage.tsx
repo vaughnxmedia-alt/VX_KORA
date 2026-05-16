@@ -92,6 +92,10 @@ export default function AuditAudioPage() {
                 <a href={data.audioUrl}>Play Audio Strategy Brief</a>
               </audio>
 
+              <Button className="w-full rounded-full bg-[#0A1A35] text-white hover:bg-[#0A1A35]/90" size="lg" asChild>
+                <Link to="/brand-strategy-session">Book a Strategy Session</Link>
+              </Button>
+
               <div className="rounded-2xl bg-[#F7F3EA] p-5 text-sm text-[#0A1A35]/75">
                 <p>
                   This audio is AI-generated and personalized from your audit data and JahKnowsPR's report structure.

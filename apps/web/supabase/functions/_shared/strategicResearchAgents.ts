@@ -310,10 +310,10 @@ const INDUSTRY_PROFILES: Array<Omit<IndustryProfile, "confidence" | "reasoning">
   {
     industry_key: "nonprofit_church",
     industry_label: "Nonprofit, ministry, and community organizations",
-    patterns: [/nonprofit|donor|fundraising|foundation|church|ministry|pastor|worship|community program|501c/i],
+    patterns: [/nonprofit|donor|fundraising|foundation|church|ministry|pastor|worship|community program|501c|join the community|become a member|membership|volunteer|get involved/i],
     primary_revenue_model: "Donations, programs, and community support",
     default_audiences: ["Donors", "Members", "Volunteers", "Community partners"],
-    default_ctas: ["Donate", "Join the Community", "Partner With Us", "Request Program Info"],
+    default_ctas: ["Join the Community", "Become a Member", "Get Involved", "Donate", "Partner With Us", "Request Program Info"],
     offer_examples: ["Donation campaign", "Community program", "Volunteer pathway", "Partner initiative"],
     proof_examples: ["Impact stories", "Community photos", "Outcome metrics", "Partner logos"],
   },
@@ -661,6 +661,9 @@ function detectCurrentCta(corpus: string): string {
     [/book a production consultation|production consultation/i, "Book a Production Consultation"],
     [/request event coverage|event coverage/i, "Request Event Coverage"],
     [/submit a story|submit story/i, "Submit a Story"],
+    [/join the community|become a member|membership|member sign up|community/i, "Join the Community"],
+    [/volunteer|get involved/i, "Get Involved"],
+    [/donate|donor|fundraising/i, "Donate"],
     [/sponsor a series|sponsorship/i, "Sponsor a Series"],
     [/partner with/i, "Partner With Us"],
     [/get featured/i, "Get Featured"],
@@ -670,6 +673,14 @@ function detectCurrentCta(corpus: string): string {
 }
 
 function selectPrimaryCta(ctas: string[], industryProfile: IndustryProfile, corpus: string): string {
+  if (/donor|fundraising|donate/i.test(corpus) && !/join|community|member|membership|volunteer|get involved/i.test(corpus)) {
+    const donate = ctas.find((cta) => /donate|donor/i.test(cta));
+    if (donate) return donate;
+  }
+  if (/nonprofit|community|join|member|membership|volunteer|get involved/i.test(corpus)) {
+    const join = ctas.find((cta) => /join|member|get involved|volunteer/i.test(cta));
+    if (join) return join;
+  }
   if (/catering|event planner|corporate event/i.test(corpus)) {
     const catering = ctas.find((cta) => /catering|event/i.test(cta));
     if (catering) return catering;

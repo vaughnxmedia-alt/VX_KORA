@@ -32,6 +32,44 @@ function publicAuditSlug(value: string): string {
     .slice(0, 90) || "brand-audit";
 }
 
+function compactSlug(value: string): string {
+  return publicAuditSlug(value).replace(/-/g, "");
+}
+
+function editDistanceWithin(a: string, b: string, maxDistance: number): boolean {
+  if (!a || !b) return false;
+  if (Math.abs(a.length - b.length) > maxDistance) return false;
+  const previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+  for (let i = 1; i <= a.length; i += 1) {
+    const current = [i];
+    let rowMin = current[0];
+    for (let j = 1; j <= b.length; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      current[j] = Math.min(
+        current[j - 1] + 1,
+        previous[j] + 1,
+        previous[j - 1] + cost,
+      );
+      rowMin = Math.min(rowMin, current[j]);
+    }
+    if (rowMin > maxDistance) return false;
+    previous.splice(0, previous.length, ...current);
+  }
+  return previous[b.length] <= maxDistance;
+}
+
+function slugMatches(requestedSlug: string, candidates: string[]): boolean {
+  const requestedCompact = compactSlug(requestedSlug);
+  return candidates.some((candidate) => {
+    const candidateSlug = publicAuditSlug(candidate);
+    if (!candidateSlug) return false;
+    if (candidateSlug === requestedSlug) return true;
+    const candidateCompact = compactSlug(candidateSlug);
+    if (candidateCompact === requestedCompact) return true;
+    return requestedCompact.length >= 8 && editDistanceWithin(requestedCompact, candidateCompact, 2);
+  });
+}
+
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -55,7 +93,7 @@ serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const { data, error } = await supabase
       .from("free_audits")
-      .select("id,business_name,contact_name,metadata,created_at")
+      .select("id,lead_key,lead_email_lower,business_name,contact_name,metadata,created_at")
       .order("created_at", { ascending: false })
       .limit(500);
     if (error) throw error;
@@ -63,9 +101,12 @@ serve(async (req) => {
     const match = (data ?? []).find((audit) => {
       const metadata = asObject(audit.metadata);
       const audio = asObject(metadata.report_audio);
-      const storedSlug = typeof audio.public_slug === "string" ? publicAuditSlug(audio.public_slug) : "";
-      const businessSlug = publicAuditSlug(String(audit.business_name ?? ""));
-      return storedSlug === requestedSlug || businessSlug === requestedSlug;
+      const emailLocalPart = String(audit.lead_email_lower ?? audit.lead_key ?? "").split("@")[0] || "";
+      return slugMatches(requestedSlug, [
+        typeof audio.public_slug === "string" ? audio.public_slug : "",
+        String(audit.business_name ?? ""),
+        emailLocalPart,
+      ]);
     });
 
     if (!match) {

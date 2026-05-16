@@ -219,7 +219,7 @@ function detectBusinessType(report: FreeAuditReport): BusinessType {
     .toLowerCase();
 
   if (lowerIncludes(haystack, /church|ministry|pastor|worship|sermon/)) return "church";
-  if (lowerIncludes(haystack, /nonprofit|donor|fundraising|foundation|community program|501c/)) return "nonprofit";
+  if (lowerIncludes(haystack, /nonprofit|donor|fundraising|foundation|community program|501c|join the community|become a member|membership|volunteer|get involved/)) return "nonprofit";
   if (lowerIncludes(haystack, /network|media group|production|event coverage|livestream|documentary|series|sponsor/)) {
     return "media_production_platform";
   }
@@ -257,11 +257,14 @@ function preferredNextStepsFor(businessType: BusinessType, report: FreeAuditRepo
   }
   if (businessType === "nonprofit") {
     return [
-      "Request a Campaign Consultation",
+      "Join the Community",
+      "Become a Member",
+      "Get Involved",
+      "Volunteer",
+      "Donate",
       "Submit a Story",
       "Sponsor a Program",
       "Partner With the Organization",
-      "Request a Donor Communications Plan",
     ];
   }
   const conversionSection = report.sections.find((section) => section.id === "conversion");
@@ -309,6 +312,17 @@ function audiencePhrase(report: FreeAuditReport): string {
   return shortText(report.evidence.targetAudience, "the right audience", 10);
 }
 
+function nextStepPlainPhrase(primaryNextStep: string): string {
+  if (/join|community/i.test(primaryNextStep)) return "joining the community";
+  if (/member/i.test(primaryNextStep)) return "becoming a member";
+  if (/volunteer|get involved/i.test(primaryNextStep)) return "getting involved";
+  if (/donate|donor|fundraising/i.test(primaryNextStep)) return "giving";
+  if (/partner|sponsor/i.test(primaryNextStep)) return "partnering";
+  if (/shop|buy/i.test(primaryNextStep)) return "buying";
+  if (/request|proposal|quote|coverage/i.test(primaryNextStep)) return "making an inquiry";
+  return primaryNextStep.toLowerCase();
+}
+
 function openingLineFor(
   report: FreeAuditReport,
   seed: string,
@@ -320,8 +334,8 @@ function openingLineFor(
   const firstIssue = topIssues[0]?.category.toLowerCase() ?? "clarity";
   const variants = [
     `${greeting} I went through the diagnosis for ${report.businessName}, and I want to start with the part that affects ${goalPhrase(report)} the fastest.`,
-    `${greeting} this brief is built around ${report.businessName}, not a generic checklist. The first thing I noticed is the gap between attention and ${primaryNextStep.toLowerCase()}.`,
-    `${greeting} for ${report.businessName}, the opportunity is not just more content. It is making ${primaryNextStep.toLowerCase()} feel easier and more obvious.`,
+    `${greeting} this brief is built around ${report.businessName}, not a generic checklist. The first thing I noticed is the gap between attention and ${nextStepPlainPhrase(primaryNextStep)}.`,
+    `${greeting} for ${report.businessName}, the opportunity is not just more content. It is making ${nextStepPlainPhrase(primaryNextStep)} feel easier and more obvious.`,
     `${greeting} I am looking at this through the lens of ${audiencePhrase(report)}. The strongest starting point is ${firstIssue}.`,
     `${greeting} before we talk tactics, here is the honest read on ${report.businessName}: the brand has something to build from, but the next step needs to feel clearer.`,
     `${greeting} this is your personalized audio diagnosis for ${report.businessName}. I am going to focus on what would help someone trust you faster and take the next step.`,
@@ -334,17 +348,17 @@ function setupLineFor(report: FreeAuditReport, seed: string, primaryNextStep: st
     "I am not going to read the PDF word for word. I am going to translate the important parts into plain next moves.",
     `Think of this as the quick voice note behind the report: what is clear, what is costing momentum, and what should point people toward ${primaryNextStep}.`,
     "I am going to keep this direct: what the brand is saying now, what people may be missing, and what needs to change first.",
-    `The goal here is simple: make the path from interest to ${primaryNextStep.toLowerCase()} easier to understand.`,
-    "I am going to pull out the strongest pattern, then give you the first move to clean up the buying path.",
+    `The goal here is simple: make the path from interest to ${nextStepPlainPhrase(primaryNextStep)} easier to understand.`,
+    "I am going to pull out the strongest pattern, then give you the first move to clean up the action path.",
   ];
   return audioClean(pickVariant(seed, variants, "setup-line"));
 }
 
 function bigPictureFor(report: FreeAuditReport, seed: string, primaryNextStep: string): string {
   const variants = [
-    `${report.businessName} already has something real to build on. The opportunity is to make the value easier to understand, the proof easier to see, and ${primaryNextStep.toLowerCase()} easier to take.`,
+    `${report.businessName} already has something real to build on. The opportunity is to make the value easier to understand, the proof easier to see, and ${nextStepOutcomePhrase(primaryNextStep)}.`,
     `${report.businessName} does not need to sound bigger first. It needs to make the promise sharper, especially for ${audiencePhrase(report)}.`,
-    `The pattern is clear: ${report.businessName} can turn more attention into action when the message, proof, and ${primaryNextStep.toLowerCase()} all point in the same direction.`,
+    `The pattern is clear: ${report.businessName} can turn more attention into action when the message, proof, and ${nextStepPlainPhrase(primaryNextStep)} all point in the same direction.`,
     `Right now, the brand has useful signs, but the public path needs more focus. People should quickly know why it matters and what to do next.`,
   ];
   return audioClean(pickVariant(seed, variants, "big-picture"));
@@ -360,12 +374,22 @@ function firstMoveFor(report: FreeAuditReport, primaryNextStep: string): string 
   );
 }
 
+function nextStepOutcomePhrase(primaryNextStep: string): string {
+  if (/join|community|member/i.test(primaryNextStep)) return "easier to join";
+  if (/volunteer|get involved/i.test(primaryNextStep)) return "easier to get involved";
+  if (/donate|donor|fundraising/i.test(primaryNextStep)) return "easier to give";
+  if (/partner|sponsor/i.test(primaryNextStep)) return "easier to partner";
+  if (/shop|buy/i.test(primaryNextStep)) return "easier to buy";
+  if (/request|proposal|quote|coverage/i.test(primaryNextStep)) return "easier to inquire";
+  return "easier to act";
+}
+
 function closingFor(report: FreeAuditReport, seed: string, primaryNextStep: string): string {
   const variants = [
     `${report.businessName} does not need to be louder first. It needs to be clearer, so the right people have a better reason to trust it and take the next step.`,
-    `The next win is clarity. When the promise and proof line up, ${primaryNextStep.toLowerCase()} becomes a natural move instead of a forced ask.`,
-    `If ${report.businessName} cleans up the message and proof around this next step, the brand can feel easier to trust and easier to book.`,
-    `The main takeaway: make the value plain, make the proof visible, and make ${primaryNextStep.toLowerCase()} the obvious action.`,
+    `The next win is clarity. When the promise and proof line up, ${nextStepPlainPhrase(primaryNextStep)} becomes a natural move instead of a forced ask.`,
+    `If ${report.businessName} cleans up the message and proof around this next step, the brand can feel easier to trust and ${nextStepOutcomePhrase(primaryNextStep)}.`,
+    `The main takeaway: make the value plain, make the proof visible, and make ${nextStepPlainPhrase(primaryNextStep)} the obvious action.`,
   ];
   return audioClean(pickVariant(seed, variants, "closing-line"));
 }
@@ -651,6 +675,11 @@ function extractLikelyCtas(script: string): string[] {
     "Submit a Communications Request",
     "Book a Live Stream Review",
     "Request a Campaign Consultation",
+    "Join the Community",
+    "Become a Member",
+    "Get Involved",
+    "Volunteer",
+    "Donate",
     "Sponsor a Program",
     "Partner With the Organization",
     "Request a Donor Communications Plan",

@@ -124,6 +124,10 @@ function fallbackPrimaryCta(context: AuditContext): string {
     context.targetAudience,
     context.websiteLink,
   ].map((value) => String(value ?? "").toLowerCase()).join(" ");
+  if (/nonprofit|foundation|501c|community program|community|member|membership|volunteer|get involved|join/.test(blob)) {
+    if (/donor|fundraising|donate/.test(blob) && !/join|community|member|volunteer|get involved/.test(blob)) return "Donate";
+    return "Join the Community";
+  }
   if (/photograph|photographer|photo shoot|photoshoot|portrait|headshot|wedding|pixieset|gallery/.test(blob)) {
     return "Book a Photo Shoot";
   }
@@ -232,7 +236,7 @@ export function analyzeEvidence(context: AuditContext, evidence: AuditSocialEvid
     : "";
 
   const primaryRevenue = String(businessModel.primary_revenue_model ?? "").trim() || "the core service model";
-  const primaryCta = String(conversionPath.recommended_primary_cta ?? "").trim() || primaryCtaFromProfile(context);
+  const primaryCta = primaryCtaFromProfile(context);
   const audiencePriority = String(audienceProfile.audience_priority_recommendation ?? "").trim();
   const recommendedOfferLadder = asStringArray(offerLadder.recommended_offer_ladder).join(" -> ");
   const namingNotes = String(brandArchitecture.brand_architecture_notes ?? "").trim();
@@ -268,7 +272,7 @@ export function analyzeEvidence(context: AuditContext, evidence: AuditSocialEvid
       evidenceSummary: proofSummary || "Trust-signals and visual proof are not consistently connected to key offers.",
       businessImplication: "Weak proof sequencing reduces trust before the CTA and increases objection handling load.",
       revenueImplication: "Without visible proof, premium and sponsor offers underperform even when interest exists.",
-      audienceImplication: "Skeptical segments need fast trust markers before they submit or book.",
+      audienceImplication: "Skeptical segments need fast trust markers before they submit, join, or get involved.",
       nextMove: "Place top proof assets, partner markers, and outcome-focused case examples directly above each primary CTA.",
       producedByAgent: "Proof Inventory Agent",
       severity: "medium",
@@ -300,7 +304,7 @@ export function analyzeEvidence(context: AuditContext, evidence: AuditSocialEvid
       diagnosis: firstObservation(allEvidence, `${context.businessName} has sufficient public signal, but content categories are not consistently mapped to revenue outcomes.`),
       evidenceSummary: asStringArray(asObject(strategicProfile.content_to_revenue).best_content_to_monetize).slice(0, 2).join(" "),
       businessImplication: "Content performance can remain superficial without a monetization map.",
-      revenueImplication: "Awareness content is not fully converting into booked projects, sponsorship, or partner value.",
+      revenueImplication: "Awareness content is not fully converting into the right next actions, sponsorship, or partner value.",
       audienceImplication: "Audiences can engage without moving into deeper trust or transaction behavior.",
       nextMove: "Build a content-to-revenue sequence: awareness -> proof -> offer -> CTA -> follow-up proof.",
       producedByAgent: "Content-to-Revenue Agent",
