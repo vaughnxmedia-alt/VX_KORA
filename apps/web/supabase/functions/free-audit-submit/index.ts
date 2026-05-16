@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { z } from "https://deno.land/x/zod/mod.ts";
+import { Resend } from "npm:resend@2.0.0";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import {
   createServiceClient,
@@ -36,6 +37,9 @@ const submitSchema = z.object({
   attribution: z.record(z.unknown()).optional(),
   leadSource: z.record(z.unknown()).optional(),
 });
+
+const FROM_NAME = "Jah Jah";
+const DEFAULT_FROM_EMAIL = "welcome@jahknowspr.com";
 
 function normalizeLeadKey(data: z.infer<typeof submitSchema>) {
   if (data.leadKey?.trim()) return data.leadKey.trim().toLowerCase();
@@ -84,6 +88,80 @@ async function safeRequestSocialResearch(auditId: string) {
     }
   } catch (error) {
     console.warn("free-audit-social-research failed", error);
+  }
+}
+
+function normalizeEmail(value: string): string | null {
+  const trimmed = value.trim().toLowerCase();
+  if (!trimmed) return null;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ? trimmed : null;
+}
+
+async function safeNotifyNewAuditEmail(input: { contactName?: string | null; businessName?: string | null }) {
+  const resendApiKey = Deno.env.get("RESEND_API_KEY")?.trim();
+  if (!resendApiKey) return;
+
+  const recipientRaw = Deno.env.get("AUDIT_NOTIFICATION_EMAILS")?.trim() ||
+    Deno.env.get("STRATEGY_SESSION_OPS_EMAIL")?.trim() ||
+    "";
+  if (!recipientRaw) return;
+
+  const recipients = Array.from(
+    new Set(
+      recipientRaw
+        .split(",")
+        .map((item) => normalizeEmail(item))
+        .filter((item): item is string => Boolean(item)),
+    ),
+  );
+  if (!recipients.length) return;
+
+  const fromEmail = (Deno.env.get("FREE_AUDIT_FROM_EMAIL")?.trim() ||
+    Deno.env.get("STRATEGY_SESSION_FROM_EMAIL")?.trim() ||
+    DEFAULT_FROM_EMAIL);
+  const publicSiteUrl = (Deno.env.get("PUBLIC_SITE_URL")?.trim() || "https://www.jahknowspr.com").replace(/\/$/, "");
+  const dashboardUrl = `${publicSiteUrl}/dashboard/audits`;
+  const contactName = input.contactName?.trim() || "Unknown";
+  const businessName = input.businessName?.trim() || "Unknown business";
+  const subject = `NEW Audit Submittion: ${contactName} | ${businessName}`;
+  const text = [
+    "NEW Audit Submittion",
+    "",
+    "A new free audit was submitted and is ready for review.",
+    `Name: ${contactName}`,
+    `Business: ${businessName}`,
+    "",
+    `Open dashboard: ${dashboardUrl}`,
+  ].join("\n");
+  const html = `
+  <body style="margin:0;background:#F7F3EA;padding:28px 12px;font-family:Arial,sans-serif;color:#0A1A35;line-height:1.6;">
+    <div style="max-width:680px;margin:0 auto;background:#fff;border:1px solid #E8DFC8;border-radius:24px;overflow:hidden;">
+      <div style="height:8px;background:#0A1A35;"></div>
+      <div style="padding:34px 32px 28px;">
+        <p style="margin:0 0 14px;font-size:11px;letter-spacing:0.28em;text-transform:uppercase;color:#8C6C27;font-weight:700;">JahKnowsPR Firm / Admin Alert</p>
+        <h1 style="font-family:Georgia,serif;margin:0 0 18px;font-size:38px;line-height:1.05;color:#0A1A35;">NEW Audit Submittion</h1>
+        <p style="margin:0 0 14px;">A new free audit was submitted and is ready for review.</p>
+        <div style="margin:20px 0;padding:18px;border-left:4px solid #C59B3C;background:#F7F3EA;border-radius:0 16px 16px 0;">
+          <p style="margin:0;color:#0A1A35;"><strong>Name:</strong> ${contactName}<br /><strong>Business:</strong> ${businessName}</p>
+        </div>
+        <p style="margin:0 0 16px;">Open the dashboard to review this submission and all new audits.</p>
+        <p style="margin:0 0 18px;"><a href="${dashboardUrl}" style="display:inline-block;background:#0A1A35;color:#fff;padding:13px 20px;border-radius:999px;text-decoration:none;font-weight:700;">Open Audits Dashboard</a></p>
+        <p style="margin:24px 0 0;font-size:12px;color:#666;">JahKnowsPR Firm</p>
+      </div>
+    </div>
+  </body>`;
+
+  try {
+    const resend = new Resend(resendApiKey);
+    await resend.emails.send({
+      from: `${FROM_NAME} <${fromEmail}>`,
+      to: recipients,
+      subject,
+      text,
+      html,
+    });
+  } catch (error) {
+    console.warn("free-audit-submit email notification failed", error);
   }
 }
 
@@ -181,7 +259,7 @@ serve(async (req) => {
           },
         },
       })
-      .select("id, started_at")
+      .select("id, started_at, contact_name, business_name")
       .single();
     if (error) {
       if ((error as { code?: string }).code === "23505") {
@@ -281,6 +359,10 @@ serve(async (req) => {
       }),
       safeRequestAestheticScan(audit.id),
       safeRequestSocialResearch(audit.id),
+      safeNotifyNewAuditEmail({
+        contactName: audit.contact_name,
+        businessName: audit.business_name,
+      }),
     ]);
 
     return new Response(JSON.stringify({ auditId: audit.id, leadKey, startedAt: audit.started_at }), {
