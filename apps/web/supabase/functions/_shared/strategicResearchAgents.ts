@@ -270,7 +270,7 @@ const INDUSTRY_PROFILES: Array<Omit<IndustryProfile, "confidence" | "reasoning">
   {
     industry_key: "food_hospitality",
     industry_label: "Food, hospitality, and local experiences",
-    patterns: [/restaurant|catering|chef|food truck|bakery|bar|coffee|venue|hotel|hospitality|menu/i],
+    patterns: [/\brestaurant\b|\bcatering\b|\bchef\b|\bfood truck\b|\bbakery\b|\bbar\b|\bcoffee\b|\bvenue\b|\bhotel\b|\bhospitality\b|\bmenu\b/i],
     primary_revenue_model: "Orders, reservations, and event bookings",
     default_audiences: ["Local diners", "Event hosts", "Corporate buyers", "Returning guests"],
     default_ctas: ["Make a Reservation", "Order Now", "Request Catering", "View Menu"],
@@ -310,7 +310,7 @@ const INDUSTRY_PROFILES: Array<Omit<IndustryProfile, "confidence" | "reasoning">
   {
     industry_key: "nonprofit_church",
     industry_label: "Nonprofit, ministry, and community organizations",
-    patterns: [/nonprofit|donor|fundraising|foundation|church|ministry|pastor|worship|community program|501c|join the community|become a member|membership|volunteer|get involved/i],
+    patterns: [/non[ -]?profit|donat(e|ion|ions)|donor|fundraising|foundation|church|ministry|pastor|worship|community organization|community program|online community|501c|join (the )?community|become a member|membership|volunteer|get involved/i],
     primary_revenue_model: "Donations, programs, and community support",
     default_audiences: ["Donors", "Members", "Volunteers", "Community partners"],
     default_ctas: ["Join the Community", "Become a Member", "Get Involved", "Donate", "Partner With Us", "Request Program Info"],
@@ -349,6 +349,17 @@ function inferIndustryProfile(audit: AgentAuditRecord, evidence: AuditSocialEvid
     architecture?.platform_brand ?? "",
     architecture?.sub_brands?.join(" ") ?? "",
   ]);
+  const nonprofitProfile = INDUSTRY_PROFILES.find((profile) => profile.industry_key === "nonprofit_church");
+  if (
+    nonprofitProfile &&
+    /non[ -]?profit|501c|donat(e|ion|ions)|fundraising|foundation|volunteer|get involved|join (the )?community|online community|membership/i.test(corpus)
+  ) {
+    return {
+      ...nonprofitProfile,
+      confidence: 0.9,
+      reasoning: "Detected nonprofit/community intent from donation, membership, volunteer, or community-join language in the intake/public evidence.",
+    };
+  }
   const scored = INDUSTRY_PROFILES
     .map((profile) => {
       const score = profile.patterns.reduce((sum, pattern) => {

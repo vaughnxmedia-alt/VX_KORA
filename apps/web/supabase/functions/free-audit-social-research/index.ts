@@ -88,6 +88,27 @@ function jsonResponse(body: Record<string, unknown>, status: number, corsHeaders
   });
 }
 
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object") {
+    const record = error as Record<string, unknown>;
+    const message = record.message ?? record.error ?? record.details ?? record.hint;
+    if (typeof message === "string" && message.trim()) return message;
+    try {
+      const serialized = JSON.stringify(record);
+      if (serialized && serialized !== "{}") return serialized;
+    } catch {
+      // keep fallback
+    }
+  }
+  return "Unknown error";
+}
+
+function isMissingColumnError(error: { message?: string } | null | undefined): boolean {
+  const message = error?.message ?? "";
+  return /column .* does not exist|could not find .* column|schema cache/i.test(message);
+}
+
 function asObject(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
@@ -1133,7 +1154,7 @@ async function insertFindingsWithFallback(
 
   const firstTry = await supabase.from("audit_findings").insert(enrichedPayload).select("*");
   if (!firstTry.error) return firstTry;
-  if (!/column .* does not exist/i.test(firstTry.error.message)) return firstTry;
+  if (!isMissingColumnError(firstTry.error)) return firstTry;
 
   const legacyPayload = generatedFindings.map((finding) => ({
     audit_id: finding.audit_id,
@@ -1156,7 +1177,7 @@ async function insertEvidenceWithFallback(
 ) {
   const firstTry = await supabase.from("audit_social_evidence").insert(rows).select("*");
   if (!firstTry.error) return firstTry;
-  if (!/column .* does not exist/i.test(firstTry.error.message)) return firstTry;
+  if (!isMissingColumnError(firstTry.error)) return firstTry;
 
   const legacyRows = rows.map((row) => ({
     audit_id: row.audit_id,
@@ -1282,7 +1303,7 @@ async function approveFindings(supabase: ReturnType<typeof createClient>, auditI
     .update({ report_ready: true, admin_review_status: "approved" })
     .eq("audit_id", auditId)
     .select("evidence_ids");
-  if (findingsResponse.error && /column .* does not exist/i.test(findingsResponse.error.message)) {
+  if (isMissingColumnError(findingsResponse.error)) {
     findingsResponse = await supabase
       .from("audit_findings")
       .update({ report_ready: true })
@@ -1448,6 +1469,6 @@ serve(async (req) => {
     }, 200, corsHeaders);
   } catch (error) {
     console.error("free-audit-social-research error", error);
-    return jsonResponse({ error: error instanceof Error ? error.message : "Unknown error" }, 500, corsHeaders);
+    return jsonResponse({ error: errorMessage(error) }, 500, corsHeaders);
   }
 });

@@ -293,8 +293,7 @@ const AUDIO_MODES: Array<{
   { id: "podcast_deep_dive", label: "Podcast Deep Dive", detail: "Solo podcaster style. Jah walks through the audit with natural questions and answers." },
 ];
 const AUDIO_WORDS_PER_MINUTE = 145;
-const MAX_AUDIO_SECONDS = 210;
-const MAX_AUDIO_WORDS = Math.floor((MAX_AUDIO_SECONDS / 60) * AUDIO_WORDS_PER_MINUTE);
+const MAX_AUDIO_WORDS = 750;
 
 function formatDate(value: string | null): string {
   if (!value) return "Not completed";
@@ -1963,7 +1962,7 @@ export default function Audits() {
                         placeholder="Edit the final audio script here before regenerating audio."
                       />
                       <p className={`mt-2 text-xs ${audioDraftTooLong ? "text-destructive" : "text-muted-foreground"}`}>
-                        Audio max: 3 minutes 30 seconds. Current estimate: {Math.floor(audioDraftEstimatedSeconds / 60)}:{String(audioDraftEstimatedSeconds % 60).padStart(2, "0")} ({audioDraftWordCount}/{MAX_AUDIO_WORDS} words).
+                        Audio max: {MAX_AUDIO_WORDS} words. Current estimate: {Math.floor(audioDraftEstimatedSeconds / 60)}:{String(audioDraftEstimatedSeconds % 60).padStart(2, "0")} ({audioDraftWordCount}/{MAX_AUDIO_WORDS} words).
                       </p>
                       <div className="mt-3 flex flex-wrap gap-2">
                         <Button
@@ -2003,7 +2002,7 @@ export default function Audits() {
                       ) : null}
                       {audioDraftTooLong ? (
                         <p className="mt-2 text-xs text-destructive">
-                          Shorten the script before saving or regenerating. The audio must stay under 3 minutes and 30 seconds.
+                          Shorten the script before saving or regenerating. The audio script must stay at or under {MAX_AUDIO_WORDS} words.
                         </p>
                       ) : null}
                     </details>

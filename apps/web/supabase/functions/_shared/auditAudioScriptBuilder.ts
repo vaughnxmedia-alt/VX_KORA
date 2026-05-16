@@ -329,16 +329,16 @@ function openingLineFor(
   primaryNextStep: string,
   topIssues: PlainLanguageCategoryBreakdown[],
 ): string {
-  const name = clientName(report);
-  const greeting = name ? `${name},` : "Quick note,";
   const firstIssue = topIssues[0]?.category.toLowerCase() ?? "clarity";
+  const audience = audiencePhrase(report);
+  const nextStep = nextStepPlainPhrase(primaryNextStep);
   const variants = [
-    `${greeting} I went through the diagnosis for ${report.businessName}, and I want to start with the part that affects ${goalPhrase(report)} the fastest.`,
-    `${greeting} this brief is built around ${report.businessName}, not a generic checklist. The first thing I noticed is the gap between attention and ${nextStepPlainPhrase(primaryNextStep)}.`,
-    `${greeting} for ${report.businessName}, the opportunity is not just more content. It is making ${nextStepPlainPhrase(primaryNextStep)} feel easier and more obvious.`,
-    `${greeting} I am looking at this through the lens of ${audiencePhrase(report)}. The strongest starting point is ${firstIssue}.`,
-    `${greeting} before we talk tactics, here is the honest read on ${report.businessName}: the brand has something to build from, but the next step needs to feel clearer.`,
-    `${greeting} this is your personalized audio diagnosis for ${report.businessName}. I am going to focus on what would help someone trust you faster and take the next step.`,
+    `Let's be real. Some brands have a logo, a page, a few posts, and still no real reason for people to stop. But ${report.businessName} feels different. There is something underneath it. Something needed. The question is simple: when people find the brand, do they instantly understand what it is inviting them into?`,
+    `Before we talk scores, start here. ${report.businessName} does not feel like a brand with no purpose. It feels like a brand with purpose that needs a sharper path. The opportunity is to make ${nextStep} feel clear, personal, and easy to act on.`,
+    `Here is the real conversation. ${report.businessName} has something to build from, but attention is not the same as action. People may see the brand, respect the mission, and still pause if they do not understand what they are being invited into.`,
+    `This is not a generic audit read. This is about ${report.businessName}, the people it is trying to reach, and the moment where interest should turn into ${nextStep}. The strongest starting point is ${firstIssue}.`,
+    `Some brands need more noise. ${report.businessName} needs a clearer path. The work already has meaning, especially for ${audience}, but the public message has to make the next step feel obvious.`,
+    `The question is not whether ${report.businessName} matters. The question is whether someone new can understand the promise, trust the proof, and know exactly how to move toward ${nextStep}.`,
   ];
   return audioClean(pickVariant(seed, variants, "opening-line"));
 }
@@ -574,7 +574,7 @@ function buildPodcastDeepDiveSegments(
       line: `${buildIssueSegment(issue, index)} ${index === 0
         ? "That sounds like a trust issue, not just a design issue."
         : index === 1
-          ? "So a business owner needs to know what to do next."
+          ? "So the audience needs to know what to do next."
           : "Let me say that another way. The brand needs the audience to understand the value faster."}`,
     })),
     ...(filingWarning

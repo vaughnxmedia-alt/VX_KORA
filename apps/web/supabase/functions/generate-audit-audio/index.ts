@@ -14,7 +14,7 @@ const bodySchema = z.object({
 });
 
 const AUDIO_BUCKET = "free-audit-audio";
-const AUDIO_SCRIPT_VERSION = "personalized-audit-audio-v15-community-join-language";
+const AUDIO_SCRIPT_VERSION = "personalized-audit-audio-v16-podcast-openings";
 const DEFAULT_ELEVENLABS_VOICE_WOMAN = "VlUmeC1Uzj3NnwiVR9K9";
 const DEFAULT_ELEVENLABS_VOICE_MAN = "AIFDUhRnM6s61433WMNu";
 const DEFAULT_ELEVENLABS_VOICE_FEMININE_IDS = [
@@ -34,8 +34,8 @@ const DEFAULT_ELEVENLABS_VOICE_IDS = [
   "vzb1D7zjti0h5u8StSra",
 ];
 const AUDIO_WORDS_PER_MINUTE = 145;
-const MAX_AUDIO_SECONDS = 210;
-const MAX_AUDIO_WORDS = Math.floor((MAX_AUDIO_SECONDS / 60) * AUDIO_WORDS_PER_MINUTE);
+const MAX_AUDIO_WORDS = 750;
+const MAX_AUDIO_SECONDS = Math.round((MAX_AUDIO_WORDS / AUDIO_WORDS_PER_MINUTE) * 60);
 type VoicePreset = "signature" | "storyteller" | "grounded";
 type VoiceProfile = "feminine" | "masculine" | "neutral";
 
@@ -421,7 +421,7 @@ serve(async (req) => {
       const stats = scriptStats(scriptOverride);
       if (stats.wordCount > MAX_AUDIO_WORDS) {
         return jsonResponse({
-          error: "Edited audio script is too long. Keep it at or under 3 minutes and 30 seconds before regenerating.",
+          error: `Edited audio script is too long. Keep it at or under ${MAX_AUDIO_WORDS} words before regenerating.`,
           wordCount: stats.wordCount,
           maxWordCount: MAX_AUDIO_WORDS,
           estimatedMinutes: stats.estimatedMinutes,
