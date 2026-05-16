@@ -1,6 +1,6 @@
 import type { FreeAuditReport } from "./free-audit-report.ts";
 
-type BusinessType =
+export type BusinessType =
   | "jahknowspr"
   | "media_production_platform"
   | "church"
@@ -16,7 +16,7 @@ type PlainLanguageCategoryBreakdown = {
   recommended_move: string;
 };
 
-type PlainLanguageAudioBrief = {
+export type PlainLanguageAudioBrief = {
   client_name: string;
   brand_name: string;
   business_type: BusinessType;
@@ -32,7 +32,7 @@ type PlainLanguageAudioBrief = {
   closing_summary: string;
 };
 
-type AudioBriefChecks = {
+export type AudioBriefChecks = {
   jargon_translation_check: { passed: boolean; found_terms: string[] };
   business_specific_cta_check: { passed: boolean; required_cta_family: string; detected_ctas: string[] };
   strategy_session_mismatch_check: { passed: boolean; detail: string };
@@ -786,6 +786,15 @@ function buildChecks(
   };
 }
 
+export function evaluateAudioBriefChecks(input: {
+  script: string;
+  report: FreeAuditReport;
+  businessType: BusinessType;
+  recommendedNextSteps: string[];
+}): AudioBriefChecks {
+  return buildChecks(input.script, input.report, input.businessType, input.recommendedNextSteps);
+}
+
 export function buildAuditAudioScript(report: FreeAuditReport, mode: AudioMode = "private_strategy_brief"): AuditAudioScript {
   const businessType = detectBusinessType(report);
   const isMontCity =
@@ -878,7 +887,12 @@ export function buildAuditAudioScript(report: FreeAuditReport, mode: AudioMode =
   const cappedSegments = capSegmentsForMaxLength(conversationalSegments);
   const rawScript = scriptFromSegments(cappedSegments);
   const words = wordCount(rawScript);
-  const checks = buildChecks(rawScript, report, businessType, recommendedNextSteps);
+  const checks = evaluateAudioBriefChecks({
+    script: rawScript,
+    report,
+    businessType,
+    recommendedNextSteps,
+  });
 
   return {
     title: `${report.businessName} Audio Strategy Brief`,

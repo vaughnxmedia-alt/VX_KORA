@@ -1,9 +1,16 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "https://deno.land/x/zod/mod.ts";
-import { buildAuditAudioScript, type AudioMode } from "../_shared/auditAudioScriptBuilder.ts";
+import {
+  buildAuditAudioScript,
+  evaluateAudioBriefChecks,
+  type AudioMode,
+  type BusinessType,
+} from "../_shared/auditAudioScriptBuilder.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { buildFreeAuditReport } from "../_shared/free-audit-report.ts";
+import { resolveAuditScriptStylePreset } from "../_shared/auditScriptStylePresets.ts";
+import { refineAuditScriptWithOpenAi } from "../_shared/openAiAuditScriptRefiner.ts";
 
 const bodySchema = z.object({
   auditId: z.string().uuid(),
@@ -14,7 +21,7 @@ const bodySchema = z.object({
 });
 
 const AUDIO_BUCKET = "free-audit-audio";
-const AUDIO_SCRIPT_VERSION = "personalized-audit-audio-v16-podcast-openings";
+const AUDIO_SCRIPT_VERSION = "personalized-audit-audio-v17-openai-script-agent";
 const DEFAULT_ELEVENLABS_VOICE_WOMAN = "VlUmeC1Uzj3NnwiVR9K9";
 const DEFAULT_ELEVENLABS_VOICE_MAN = "AIFDUhRnM6s61433WMNu";
 const DEFAULT_ELEVENLABS_VOICE_FEMININE_IDS = [
@@ -83,6 +90,36 @@ function jwtRole(token: string): string {
 
 function asObject(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function clean(value: unknown): string {
+  return String(value ?? "").trim();
+}
+
+function firstName(value: unknown): string {
+  return clean(value).split(/\s+/).filter(Boolean)[0] ?? "";
+}
+
+function scriptLlmEnabled(): boolean {
+  const envValue = Deno.env.get("AUDIT_SCRIPT_LLM_ENABLED")?.trim().toLowerCase();
+  if (envValue === "false" || envValue === "0" || envValue === "off" || envValue === "no") return false;
+  if (envValue === "true" || envValue === "1" || envValue === "on" || envValue === "yes") return true;
+  return Boolean(Deno.env.get("OPENAI_API_KEY")?.trim());
+}
+
+function industryKeyFromMetadata(metadata: Record<string, unknown>): string {
+  const socialResearch = asObject(metadata.social_research);
+  const strategicProfile = asObject(socialResearch.strategic_profile);
+  const industryProfile = asObject(strategicProfile.industry_profile);
+  return clean(industryProfile.industry_key);
+}
+
+function primarySentence(value: string): string {
+  return value.split(/[.!?]/)[0]?.trim().toLowerCase() ?? "";
+}
+
+function allowedCtasFromBrief(steps: string[]): string[] {
+  return steps.filter((item) => item && !/^file your dba or llc\/corporation/i.test(item));
 }
 
 function resolveElevenLabsPreset(voicePreset: VoicePreset): {
@@ -416,6 +453,17 @@ serve(async (req) => {
       .limit(40);
     const report = buildFreeAuditReport(audit, aestheticSignal ?? null, approvedFindings ?? []);
     let audioScript = buildAuditAudioScript(report, selectedAudioMode);
+    let scriptWriter: "template" | "openai" | "manual_override" = "template";
+    let scriptModel: string | null = null;
+    let scriptUsedRetry = false;
+    const industryKey = industryKeyFromMetadata(existingMetadata);
+    const stylePreset = resolveAuditScriptStylePreset({
+      industryKey,
+      businessType: audioScript.plain_language_audio_brief.business_type,
+    });
+    const businessType = audioScript.plain_language_audio_brief.business_type as BusinessType;
+    const recommendedNextSteps = audioScript.plain_language_audio_brief.recommended_next_steps;
+    const allowedCtas = allowedCtasFromBrief(recommendedNextSteps);
     const scriptOverride = parsed.data.scriptOverride ? stripSpeakerLabels(parsed.data.scriptOverride) : undefined;
     if (scriptOverride) {
       const stats = scriptStats(scriptOverride);
@@ -434,7 +482,74 @@ serve(async (req) => {
         segments: segmentsFromScript(scriptOverride, selectedAudioMode),
         wordCount: stats.wordCount,
         estimatedMinutes: stats.estimatedMinutes,
+        checks: evaluateAudioBriefChecks({
+          script: scriptOverride,
+          report,
+          businessType,
+          recommendedNextSteps,
+        }),
       };
+      scriptWriter = "manual_override";
+    } else if (scriptLlmEnabled()) {
+      const refined = await refineAuditScriptWithOpenAi({
+        templateScript: audioScript.script,
+        report,
+        plainLanguageBrief: audioScript.plain_language_audio_brief,
+        recommendedNextSteps: allowedCtas.length ? allowedCtas : recommendedNextSteps,
+        stylePreset,
+        maxWords: MAX_AUDIO_WORDS,
+        contactFirstName: firstName(audit.contact_name),
+        validator: (candidate) => {
+          const checks = evaluateAudioBriefChecks({
+            script: candidate,
+            report,
+            businessType,
+            recommendedNextSteps,
+          });
+          if (!checks.approved_for_audio) {
+            return {
+              ok: false,
+              feedback:
+                "Script checks failed. Remove jargon, keep business-appropriate CTA language, avoid strategy-session mismatch, and avoid sounding like a PDF read.",
+            };
+          }
+          const detectedCtas = checks.business_specific_cta_check.detected_ctas;
+          if (allowedCtas.length && detectedCtas.length !== 1) {
+            return {
+              ok: false,
+              feedback: `Use exactly one CTA from this list and state it verbatim: ${allowedCtas.join(" | ")}`,
+            };
+          }
+          const contactGiven = firstName(audit.contact_name).toLowerCase();
+          if (contactGiven && primarySentence(candidate).startsWith(contactGiven)) {
+            return {
+              ok: false,
+              feedback: `Do not open by greeting ${contactGiven}. Start with a hook or tension line first.`,
+            };
+          }
+          return { ok: true };
+        },
+      });
+      scriptModel = refined.model;
+      scriptUsedRetry = refined.usedRetry;
+      if (refined.provider === "openai") {
+        const nextScript = stripSpeakerLabels(refined.script);
+        const stats = scriptStats(nextScript);
+        audioScript = {
+          ...audioScript,
+          script: nextScript,
+          segments: segmentsFromScript(nextScript, selectedAudioMode),
+          wordCount: stats.wordCount,
+          estimatedMinutes: stats.estimatedMinutes,
+          checks: evaluateAudioBriefChecks({
+            script: nextScript,
+            report,
+            businessType,
+            recommendedNextSteps,
+          }),
+        };
+        scriptWriter = "openai";
+      }
     }
     const ttsProvider = Deno.env.get("AUDIO_TTS_PROVIDER")?.trim().toLowerCase() ||
       (Deno.env.get("ELEVENLABS_API_KEY")?.trim() ? "elevenlabs" : "openai");
@@ -524,6 +639,13 @@ serve(async (req) => {
       voice_preset_label: preset.label,
       disclosure: "AI-generated and personalized from audit data.",
       script_version: AUDIO_SCRIPT_VERSION,
+      script_writer: scriptWriter,
+      script_style_preset: stylePreset.id,
+      script_style_label: stylePreset.label,
+      script_style_source: stylePreset.source,
+      script_model: scriptModel,
+      script_retry_used: scriptUsedRetry,
+      script_style_industry_key: industryKey || null,
     };
 
     const { error: updateError } = await supabase
