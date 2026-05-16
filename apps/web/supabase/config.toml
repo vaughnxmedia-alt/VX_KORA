@@ -52,6 +52,12 @@ verify_jwt = false
 [functions.check-brief-access]
 verify_jwt = false
 
+[functions.free-audit-submit]
+verify_jwt = false
+
+[functions.free-audit-complete]
+verify_jwt = false
+
 [functions.app-owner-user-credentials]
 verify_jwt = true
 
