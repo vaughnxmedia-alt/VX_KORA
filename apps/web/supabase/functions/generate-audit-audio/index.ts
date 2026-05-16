@@ -14,7 +14,7 @@ const bodySchema = z.object({
 });
 
 const AUDIO_BUCKET = "free-audit-audio";
-const AUDIO_SCRIPT_VERSION = "notebooklm-style-solo-audio-modes-v13-faster-pace";
+const AUDIO_SCRIPT_VERSION = "personalized-audit-audio-v14-variable-openings";
 const DEFAULT_ELEVENLABS_VOICE_WOMAN = "VlUmeC1Uzj3NnwiVR9K9";
 const DEFAULT_ELEVENLABS_VOICE_MAN = "AIFDUhRnM6s61433WMNu";
 const DEFAULT_ELEVENLABS_VOICE_FEMININE_IDS = [

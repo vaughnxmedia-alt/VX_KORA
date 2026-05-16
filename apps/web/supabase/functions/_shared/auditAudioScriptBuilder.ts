@@ -266,9 +266,108 @@ function preferredNextStepsFor(businessType: BusinessType, report: FreeAuditRepo
   }
   const conversionSection = report.sections.find((section) => section.id === "conversion");
   const fallback = cleanForSpeech(conversionSection?.cta || "");
+  const primary = primaryNextStepFromReport(report, "");
   return [
-    fallback || "Request a Consultation",
+    primary || fallback || "Request a Consultation",
   ];
+}
+
+function stableHash(value: string): number {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = ((hash << 5) - hash + value.charCodeAt(index)) | 0;
+  }
+  return Math.abs(hash);
+}
+
+function pickVariant(seed: string, variants: string[], salt: string): string {
+  if (!variants.length) return "";
+  return variants[stableHash(`${seed}:${salt}`) % variants.length];
+}
+
+function clientName(report: FreeAuditReport): string {
+  return report.contactName === "there" ? "" : report.contactName;
+}
+
+function shortText(value: string, fallback: string, maxWords = 8): string {
+  const cleaned = cleanForSpeech(value);
+  if (!cleaned || /not provided/i.test(cleaned)) return fallback;
+  return truncateWords(cleaned, maxWords).replace(/[.!?]+$/, "");
+}
+
+function primaryNextStepFromReport(report: FreeAuditReport, fallback: string): string {
+  const conversionSection = report.sections.find((section) => section.id === "conversion");
+  const match = conversionSection?.cta.match(/Primary CTA:\s*([^.;]+)/i);
+  return cleanForSpeech(match?.[1] ?? fallback);
+}
+
+function goalPhrase(report: FreeAuditReport): string {
+  return shortText(report.evidence.growthGoal, "the growth goal", 10);
+}
+
+function audiencePhrase(report: FreeAuditReport): string {
+  return shortText(report.evidence.targetAudience, "the right audience", 10);
+}
+
+function openingLineFor(
+  report: FreeAuditReport,
+  seed: string,
+  primaryNextStep: string,
+  topIssues: PlainLanguageCategoryBreakdown[],
+): string {
+  const name = clientName(report);
+  const greeting = name ? `${name},` : "Quick note,";
+  const firstIssue = topIssues[0]?.category.toLowerCase() ?? "clarity";
+  const variants = [
+    `${greeting} I went through the diagnosis for ${report.businessName}, and I want to start with the part that affects ${goalPhrase(report)} the fastest.`,
+    `${greeting} this brief is built around ${report.businessName}, not a generic checklist. The first thing I noticed is the gap between attention and ${primaryNextStep.toLowerCase()}.`,
+    `${greeting} for ${report.businessName}, the opportunity is not just more content. It is making ${primaryNextStep.toLowerCase()} feel easier and more obvious.`,
+    `${greeting} I am looking at this through the lens of ${audiencePhrase(report)}. The strongest starting point is ${firstIssue}.`,
+    `${greeting} before we talk tactics, here is the honest read on ${report.businessName}: the brand has something to build from, but the next step needs to feel clearer.`,
+    `${greeting} this is your personalized audio diagnosis for ${report.businessName}. I am going to focus on what would help someone trust you faster and take the next step.`,
+  ];
+  return audioClean(pickVariant(seed, variants, "opening-line"));
+}
+
+function setupLineFor(report: FreeAuditReport, seed: string, primaryNextStep: string): string {
+  const variants = [
+    "I am not going to read the PDF word for word. I am going to translate the important parts into plain next moves.",
+    `Think of this as the quick voice note behind the report: what is clear, what is costing momentum, and what should point people toward ${primaryNextStep}.`,
+    "I am going to keep this direct: what the brand is saying now, what people may be missing, and what needs to change first.",
+    `The goal here is simple: make the path from interest to ${primaryNextStep.toLowerCase()} easier to understand.`,
+    "I am going to pull out the strongest pattern, then give you the first move to clean up the buying path.",
+  ];
+  return audioClean(pickVariant(seed, variants, "setup-line"));
+}
+
+function bigPictureFor(report: FreeAuditReport, seed: string, primaryNextStep: string): string {
+  const variants = [
+    `${report.businessName} already has something real to build on. The opportunity is to make the value easier to understand, the proof easier to see, and ${primaryNextStep.toLowerCase()} easier to take.`,
+    `${report.businessName} does not need to sound bigger first. It needs to make the promise sharper, especially for ${audiencePhrase(report)}.`,
+    `The pattern is clear: ${report.businessName} can turn more attention into action when the message, proof, and ${primaryNextStep.toLowerCase()} all point in the same direction.`,
+    `Right now, the brand has useful signs, but the public path needs more focus. People should quickly know why it matters and what to do next.`,
+  ];
+  return audioClean(pickVariant(seed, variants, "big-picture"));
+}
+
+function firstMoveFor(report: FreeAuditReport, primaryNextStep: string): string {
+  const conversionMove = report.sections.find((section) => section.id === "conversion")?.nextMove;
+  const positioningMove = report.sections.find((section) => section.id === "positioning")?.nextMove;
+  return audioClean(
+    conversionMove ||
+      positioningMove ||
+      `Start with one clear sentence that explains the brand in plain language, then align your website, social bio, pinned content, and main buttons around ${primaryNextStep}.`,
+  );
+}
+
+function closingFor(report: FreeAuditReport, seed: string, primaryNextStep: string): string {
+  const variants = [
+    `${report.businessName} does not need to be louder first. It needs to be clearer, so the right people have a better reason to trust it and take the next step.`,
+    `The next win is clarity. When the promise and proof line up, ${primaryNextStep.toLowerCase()} becomes a natural move instead of a forced ask.`,
+    `If ${report.businessName} cleans up the message and proof around this next step, the brand can feel easier to trust and easier to book.`,
+    `The main takeaway: make the value plain, make the proof visible, and make ${primaryNextStep.toLowerCase()} the obvious action.`,
+  ];
+  return audioClean(pickVariant(seed, variants, "closing-line"));
 }
 
 function plainDefinitionFor(category: PlainLanguageCategoryBreakdown["category"]): string {
@@ -363,6 +462,7 @@ function buildPrivateStrategySegments(
   firstMove: string,
   recommendedNextSteps: string[],
   closingSummary: string,
+  setupLine: string,
 ): AuditAudioScript["segments"] {
   return [
     {
@@ -371,7 +471,7 @@ function buildPrivateStrategySegments(
     },
     {
       speaker: "host_woman",
-      line: "I am not going to read your PDF word for word. I am going to break down what it means in plain language, direct and simple.",
+      line: setupLine,
     },
     {
       speaker: "host_woman",
@@ -418,15 +518,16 @@ function buildPodcastDeepDiveSegments(
   firstMove: string,
   recommendedNextSteps: string[],
   closingSummary: string,
+  setupLine: string,
 ): AuditAudioScript["segments"] {
   return [
     {
       speaker: "host_woman",
-      line: `${plainLanguageBrief.intro} Let me walk through this like a solo podcast, but still keep it personal.`,
+      line: plainLanguageBrief.intro,
     },
     {
       speaker: "host_woman",
-      line: "The first question is simple. Is the brand off track, or is something just unclear?",
+      line: setupLine,
     },
     {
       speaker: "host_woman",
@@ -488,11 +589,16 @@ function buildExecutiveRecapSegments(
   firstMove: string,
   recommendedNextSteps: string[],
   closingSummary: string,
+  setupLine: string,
 ): AuditAudioScript["segments"] {
   return [
     {
       speaker: "host_woman",
-      line: `${plainLanguageBrief.intro} Here is what matters most.`,
+      line: plainLanguageBrief.intro,
+    },
+    {
+      speaker: "host_woman",
+      line: setupLine,
     },
     {
       speaker: "host_woman",
@@ -531,6 +637,9 @@ function extractLikelyCtas(script: string): string[] {
     "Request a Brand Audit",
     "Complete the Visionary Brand Blueprint",
     "Schedule a Consultation",
+    "Book a Photo Shoot",
+    "Request Pricing",
+    "Ask About Availability",
     "Book a Production Consultation",
     "Request Event Coverage",
     "Submit a Story",
@@ -654,6 +763,7 @@ export function buildAuditAudioScript(report: FreeAuditReport, mode: AudioMode =
     /mont city|montcity/i.test(report.businessName) ||
     report.evidence.presence.some((value) => /mont city|montcity/i.test(value));
   const recommendedNextSteps = preferredNextStepsFor(businessType, report);
+  const primaryNextStep = primaryNextStepFromReport(report, recommendedNextSteps[0] ?? "Request Details");
   const filingWarning = filingWarningFromReport(report);
   const recommendedNextStepsWithFiling = filingWarning
     ? [
@@ -663,6 +773,17 @@ export function buildAuditAudioScript(report: FreeAuditReport, mode: AudioMode =
     : recommendedNextSteps;
   const scoreRead = buildScoreRead(report);
   const categoryBreakdowns = buildCategoryBreakdowns(report);
+  const topIssues = categoryBreakdowns.slice(0, 2);
+  const seed = [
+    report.auditId,
+    report.generatedAt,
+    report.businessName,
+    report.contactName,
+    report.evidence.growthGoal,
+    report.evidence.targetAudience,
+    primaryNextStep,
+    mode,
+  ].join("|");
   const montCityNamingLine = isMontCity
     ? "Quick clarity point: Mont City Media Group is the parent company, and Mont City Network is the public media platform. Keep those roles clear everywhere."
     : "";
@@ -671,24 +792,20 @@ export function buildAuditAudioScript(report: FreeAuditReport, mode: AudioMode =
       `${report.businessName} has something to build from. The clearest opportunity is to make the promise easier to understand, easier to trust, and easier to act on.`,
   );
   const hiddenCost = "The hidden cost is confusion. Someone can respect the brand and still not take action if the next step is not clear.";
-  const firstMove = `Start with one clear sentence that explains the brand in plain language, then align your website, social bio, pinned content, and main buttons around that sentence.`;
-  const closingSummary = "The brand does not need to be louder first. It needs to be clearer. Once the message is clear, the right people have a better reason to trust it and take the next step.";
-  const topIssues = categoryBreakdowns.slice(0, 2);
-  const bigPictureSentences = [
-    `${report.businessName} already has something real to build on.`,
-    "Right now, the opportunity is clarity.",
-    "The brand needs to make the value easier to understand, the proof easier to see, and the next step easier to take.",
-    "This is not bad. It is a signal.",
-  ];
+  const firstMove = firstMoveFor(report, primaryNextStep);
+  const closingSummary = closingFor(report, seed, primaryNextStep);
+  const intro = openingLineFor(report, seed, primaryNextStep, topIssues);
+  const setupLine = setupLineFor(report, seed, primaryNextStep);
+  const bigPicture = bigPictureFor(report, seed, primaryNextStep);
 
   const plainLanguageBrief: PlainLanguageAudioBrief = {
-    client_name: report.contactName === "there" ? "" : report.contactName,
+    client_name: clientName(report),
     brand_name: report.businessName,
     business_type: businessType,
     tone: "plain-language strategist voice note",
     reading_level: "everyday business owner",
-    intro: `Hey ${report.contactName === "there" ? "there" : report.contactName}. This is your private Jah Knows PR strategy brief for ${report.businessName}.`,
-    big_picture: bigPictureSentences.join(" "),
+    intro,
+    big_picture: bigPicture,
     score_read: `${scoreRead}. These scores are signals, not insults. They show what is clear, what needs more trust, and where the next step needs to be easier.`,
     category_breakdowns: categoryBreakdowns,
     hidden_cost: hiddenCost,
@@ -706,6 +823,7 @@ export function buildAuditAudioScript(report: FreeAuditReport, mode: AudioMode =
       firstMove,
       recommendedNextStepsWithFiling,
       closingSummary,
+      setupLine,
     )
     : mode === "executive_recap"
       ? buildExecutiveRecapSegments(
@@ -715,6 +833,7 @@ export function buildAuditAudioScript(report: FreeAuditReport, mode: AudioMode =
         firstMove,
         recommendedNextStepsWithFiling,
         closingSummary,
+        setupLine,
       )
       : buildPrivateStrategySegments(
         plainLanguageBrief,
@@ -724,6 +843,7 @@ export function buildAuditAudioScript(report: FreeAuditReport, mode: AudioMode =
         firstMove,
         recommendedNextStepsWithFiling,
         closingSummary,
+        setupLine,
       );
 
   const cappedSegments = capSegmentsForMaxLength(conversationalSegments);

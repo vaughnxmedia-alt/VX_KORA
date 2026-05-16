@@ -171,9 +171,9 @@ function readableAngle(value: unknown): string {
 function intentLabel(value: unknown): string {
   const raw = String(value ?? "").trim();
   if (raw === "ready_now") return "Ready now";
-  if (raw === "open_if_it_makes_sense") return "Open if the strategy makes sense";
+  if (raw === "open_if_it_makes_sense") return "Open if the next step makes sense";
   if (raw === "just_looking") return "Just looking";
-  return humanize(raw, "Open if the strategy makes sense");
+  return humanize(raw, "Open if the next step makes sense");
 }
 
 function fileSafe(value: string): string {
@@ -227,6 +227,80 @@ function presenceList(audit: FreeAuditRecord): string[] {
   ]
     .map((value) => originalText(value))
     .filter(Boolean);
+}
+
+function auditContextBlob(audit: FreeAuditRecord, businessName: string, industry = ""): string {
+  return [
+    businessName,
+    audit.growth_goal,
+    audit.current_blocker,
+    audit.target_audience_belief,
+    audit.website_link,
+    audit.instagram,
+    audit.facebook,
+    audit.tiktok,
+    audit.other_socials,
+    industry,
+  ].map((value) => String(value ?? "").toLowerCase()).join(" ");
+}
+
+function isJahKnowsPrAudit(audit: FreeAuditRecord, businessName: string): boolean {
+  return /jah\s*knows\s*pr|jahknowspr/.test(auditContextBlob(audit, businessName));
+}
+
+function inferPrimaryCta(audit: FreeAuditRecord, businessName: string, industry = ""): string {
+  const blob = auditContextBlob(audit, businessName, industry);
+  if (/photograph|photographer|photo shoot|photoshoot|portrait|headshot|wedding|pixieset|gallery/.test(blob)) {
+    return "Book a Photo Shoot";
+  }
+  if (/event coverage|live stream|video production|videograph|production/.test(blob)) {
+    return "Request Event Coverage";
+  }
+  if (/restaurant|catering|chef|food truck|bakery|bar|coffee|menu/.test(blob)) {
+    return /catering|event/.test(blob) ? "Request Catering" : "View Menu";
+  }
+  if (/course|class|training|workshop|school|academy|lesson|cohort/.test(blob)) {
+    return "Enroll Now";
+  }
+  if (/nonprofit|donor|fundraising|foundation|church|ministry|community program|501c/.test(blob)) {
+    return /donor|fundraising|donate/.test(blob) ? "Donate" : "Join the Community";
+  }
+  if (/shop|product|store|ecommerce|e-commerce|merch/.test(blob)) {
+    return "Shop the Offer";
+  }
+  if (/beauty|salon|spa|skin|esthetic|makeup|hair|wellness|fitness|therapy|massage|book|appointment|availability|schedule/.test(blob)) {
+    return "Book an Appointment";
+  }
+  if (/consult|coach|advisor|strategy/.test(blob)) {
+    return "Book a Consultation";
+  }
+  if (/proposal|quote|project|service/.test(blob)) {
+    return "Request a Proposal";
+  }
+  return "Request Details";
+}
+
+function normalizePrimaryCta(value: unknown, audit: FreeAuditRecord, businessName: string, industry = ""): string {
+  const submitted = originalText(value);
+  const inferred = inferPrimaryCta(audit, businessName, industry);
+  if (!submitted) return inferred;
+  if (/book a strategy session/i.test(submitted) && !isJahKnowsPrAudit(audit, businessName)) return inferred;
+  return submitted;
+}
+
+function actionResultLabel(primaryCta: string): string {
+  if (/photo|shoot|portrait|headshot|wedding/i.test(primaryCta)) return "booked shoot";
+  if (/coverage/i.test(primaryCta)) return "coverage request";
+  if (/shop|buy/i.test(primaryCta)) return "purchase path";
+  if (/proposal|quote|details/i.test(primaryCta)) return "qualified inquiry";
+  if (/appointment|consultation|call|session/i.test(primaryCta)) return "booked conversation";
+  return "booked action";
+}
+
+function clientFacingCopy(value: unknown, fallback: string, primaryCta: string): string {
+  return originalText(value, fallback)
+    .replace(/Book a Strategy Session/gi, primaryCta)
+    .replace(/\bstrategy session\b/gi, "next step");
 }
 
 function socialHighlightsFromFindings(findings: AuditFindingRecord[], metadata: JsonRecord): string[] {
@@ -453,15 +527,22 @@ export function buildFreeAuditReport(
       .slice(0, 2)
     : [];
   const culturalSummary = originalText(culturalProfile.cultural_context_summary, "");
-  const recommendedPrimaryCta = originalText(conversionProfile.recommended_primary_cta, "Book a Strategy Session");
+  const recommendedPrimaryCta = normalizePrimaryCta(
+    conversionProfile.recommended_primary_cta,
+    audit,
+    businessName,
+    industry,
+  );
+  const actionResult = actionResultLabel(recommendedPrimaryCta);
   const secondaryCtas = Array.isArray(conversionProfile.recommended_secondary_ctas)
     ? (conversionProfile.recommended_secondary_ctas as unknown[])
-      .map((item) => clean(item, ""))
+      .map((item) => clientFacingCopy(clean(item, ""), "", recommendedPrimaryCta))
       .filter(Boolean)
+      .filter((item) => item.toLowerCase() !== recommendedPrimaryCta.toLowerCase())
       .slice(0, 4)
     : [];
 
-  const sections: FreeAuditReportSection[] = [
+  const rawSections: FreeAuditReportSection[] = [
     {
       id: "positioning",
       label: "01",
@@ -469,14 +550,15 @@ export function buildFreeAuditReport(
       subtitle: "Where the brand promise needs to become easier to understand.",
       scoreLabel: SCORE_LABELS.positioning_score,
       score: scoreByKey.positioning_score,
-      diagnosis: originalText(positioningFinding?.finding_summary, intakeOnlyReport
+      diagnosis: clientFacingCopy(positioningFinding?.finding_summary, intakeOnlyReport
         ? `${businessName} has useful signals to build from. The next opportunity is making the promise easier to understand, so the goal, blocker, audience, and outcome connect faster.`
-        : `${businessName} needs a sharper promise that says who it helps, what changes, and why that change matters now.${namingNotes ? ` ${namingNotes}` : ""}`),
+        : `${businessName} needs a sharper promise that says who it helps, what changes, and why that change matters now.${namingNotes ? ` ${namingNotes}` : ""}`,
+        recommendedPrimaryCta),
       evidence: readyFindings.length
         ? [originalText(positioningFinding?.finding_title, "Approved positioning finding"), namingNotes || socialHighlights[1] || socialEvidenceLine]
         : [`Growth goal: ${growthGoal}`, `Current blocker: ${primaryGap}`],
       whyItMatters: "A broad or unclear position forces the audience to work too hard. When the promise is not specific, content may get attention without creating trust, urgency, or a reason to book.",
-      nextMove: originalText(positioningFinding?.recommended_action, "Rewrite the primary brand promise into one sentence that names the audience, the pain, and the outcome. Use that promise as the anchor for the website hero, social bio, pinned content, and next campaign."),
+      nextMove: clientFacingCopy(positioningFinding?.recommended_action, "Rewrite the primary brand promise into one sentence that names the audience, the pain, and the outcome. Use that promise as the anchor for the website hero, social bio, pinned content, and next campaign.", recommendedPrimaryCta),
       cta: `Use this section to tighten messaging before driving traffic to "${recommendedPrimaryCta}".`,
     },
     {
@@ -486,14 +568,15 @@ export function buildFreeAuditReport(
       subtitle: "How clearly the brand understands who it is speaking to.",
       scoreLabel: SCORE_LABELS.audience_score,
       score: scoreByKey.audience_score,
-      diagnosis: originalText(audienceFinding?.finding_summary, intakeOnlyReport
+      diagnosis: clientFacingCopy(audienceFinding?.finding_summary, intakeOnlyReport
         ? "The audience description gives the brand a real starting point. The next opportunity is adding more buyer detail: what they believe, what they compare, and what would make them trust faster."
-        : `The audience read points toward ${audiencePain}, but the buying context still needs sharper detail.`),
+        : `The audience read points toward ${audiencePain}, but the buying context still needs sharper detail.`,
+        recommendedPrimaryCta),
       evidence: readyFindings.length
         ? [originalText(audienceFinding?.finding_title, "Approved audience finding"), socialHighlights[2] ?? `Detected industry context: ${industry}`]
         : [`Audience belief: ${targetAudience}`, audiencePriority || `Detected industry context: ${industry}`],
       whyItMatters: "Audience clarity is what turns general content into content that feels personally relevant. Without it, the brand may post consistently but still sound replaceable.",
-      nextMove: originalText(audienceFinding?.recommended_action, "Define the top audience segment as a real decision-maker with a current pain, a desired identity, and one objection. Then shape the next three pieces of content around those details."),
+      nextMove: clientFacingCopy(audienceFinding?.recommended_action, "Define the top audience segment as a real decision-maker with a current pain, a desired identity, and one objection. Then shape the next three pieces of content around those details.", recommendedPrimaryCta),
       cta: `Build audience-specific paths that feed into "${recommendedPrimaryCta}" and the right secondary CTAs.`,
     },
     {
@@ -503,12 +586,12 @@ export function buildFreeAuditReport(
       subtitle: "How much trust the brand builds before asking for action.",
       scoreLabel: SCORE_LABELS.authority_score,
       score: scoreByKey.authority_score,
-      diagnosis: originalText(authorityFinding?.finding_summary, `${presenceEvidence} The brand needs visible proof, stronger hierarchy, and clearer credibility cues so people can quickly understand why ${businessName} is worth listening to before they compare alternatives.`),
+      diagnosis: clientFacingCopy(authorityFinding?.finding_summary, `${presenceEvidence} The brand needs visible proof, stronger hierarchy, and clearer credibility cues so people can quickly understand why ${businessName} is worth listening to before they compare alternatives.`, recommendedPrimaryCta),
       evidence: readyFindings.length
         ? [originalText(authorityFinding?.finding_title, "Approved authority finding"), socialHighlights[3] ?? socialEvidenceLine]
         : [presenceEvidence, proofHighlights[0] ?? `Detected aesthetic: ${aesthetic}`],
       whyItMatters: "Authority reduces hesitation. If proof, positioning, and presentation feel scattered, the audience may like the brand but still delay the next step.",
-      nextMove: originalText(authorityFinding?.recommended_action, "Add three trust signals to the main conversion path: a clear result, a credibility marker, and a short proof statement. Place them before the call to action, not after."),
+      nextMove: clientFacingCopy(authorityFinding?.recommended_action, "Add three trust signals to the main conversion path: a clear result, a credibility marker, and a short proof statement. Place them before the call to action, not after.", recommendedPrimaryCta),
       cta: `Place authority proof directly above "${recommendedPrimaryCta}" for faster trust-to-action flow.`,
     },
     {
@@ -518,12 +601,12 @@ export function buildFreeAuditReport(
       subtitle: "The clearest idea to test in the next public-facing message.",
       scoreLabel: SCORE_LABELS.messaging_score,
       score: scoreByKey.messaging_score,
-      diagnosis: originalText(messagingFinding?.finding_summary, `The strongest immediate angle is ${auditAngleLabel.toLowerCase()}. The message should move away from describing activity and toward naming the strategic problem the audience already feels.`),
+      diagnosis: clientFacingCopy(messagingFinding?.finding_summary, `The strongest immediate angle is ${auditAngleLabel.toLowerCase()}. The message should move away from describing activity and toward naming the strategic problem the audience already feels.`, recommendedPrimaryCta),
       evidence: readyFindings.length
         ? [originalText(messagingFinding?.finding_title, "Approved messaging finding"), socialHighlights[4] ?? socialEvidenceLine]
         : [`Audit angle: ${auditAngleLabel}`, culturalSummary || `Current blocker: ${currentBlocker}`],
       whyItMatters: "A strong messaging angle creates recognition. It helps the right person think, 'This is about my problem,' before they evaluate the service or price.",
-      nextMove: originalText(messagingFinding?.recommended_action, "Create one hook, one proof point, and one call to action around the core angle. Keep the language plain enough to repeat across the bio, caption, landing page, and email follow-up."),
+      nextMove: clientFacingCopy(messagingFinding?.recommended_action, "Create one hook, one proof point, and one call to action around the core angle. Keep the language plain enough to repeat across the bio, caption, landing page, and email follow-up.", recommendedPrimaryCta),
       cta: `Align message hooks to "${recommendedPrimaryCta}" so each audience segment understands the next move.`,
     },
     {
@@ -533,17 +616,21 @@ export function buildFreeAuditReport(
       subtitle: "What needs to happen after attention is earned.",
       scoreLabel: SCORE_LABELS.conversion_score,
       score: scoreByKey.conversion_score,
-      diagnosis: originalText(conversionFinding?.finding_summary, `${businessName} needs a more obvious next action after someone understands the message. The conversion path should make "${recommendedPrimaryCta}" feel like the natural next step.`),
+      diagnosis: clientFacingCopy(conversionFinding?.finding_summary, `${businessName} needs a more obvious next action after someone understands the message. The conversion path should make "${recommendedPrimaryCta}" feel like the natural next step.`, recommendedPrimaryCta),
       evidence: readyFindings.length
         ? [originalText(conversionFinding?.finding_title, "Approved conversion finding"), socialHighlights[0] ?? socialEvidenceLine]
         : [`Lead intent: ${intentLabel(audit.intent)}`, `Recommended next action: ${recommendedPrimaryCta}`],
-      whyItMatters: "Interest fades when the next step is unclear. A clean path turns attention into a booked conversation while the problem is still active in the prospect's mind.",
-      nextMove: originalText(conversionFinding?.recommended_action, "Place one direct call to action near the clearest proof point. The CTA should explain what the session solves and who it is for, then remove competing actions around it."),
+      whyItMatters: `Interest fades when the next step is unclear. A clean path turns attention into a ${actionResult} while the need is still active in the prospect's mind.`,
+      nextMove: clientFacingCopy(conversionFinding?.recommended_action, "Place one direct call to action near the clearest proof point. The CTA should explain what the next step helps them book or request, who it is for, and what happens after they click.", recommendedPrimaryCta),
       cta: secondaryCtas.length
         ? `Primary CTA: ${recommendedPrimaryCta}. Secondary CTAs: ${secondaryCtas.join(", ")}.`
         : `Primary CTA: ${recommendedPrimaryCta}.`,
     },
   ];
+  const sections = rawSections.map((section) => ({
+    ...section,
+    evidence: section.evidence.map((item) => clientFacingCopy(item, item, recommendedPrimaryCta)),
+  }));
 
   const executiveSummary = intakeOnlyReport
     ? `${businessName} has enough signal to build from. The biggest opportunity is to make the promise clearer, the proof easier to see, and the next step simple to take.`

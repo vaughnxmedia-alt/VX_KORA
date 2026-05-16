@@ -54,6 +54,24 @@ type EvidenceInsert = {
   metadata: Record<string, unknown>;
 };
 
+type KnowledgeInsert = {
+  audit_id: string;
+  client_id: string | null;
+  knowledge_type:
+    | "industry_profile"
+    | "audience_segment"
+    | "offer_path"
+    | "conversion_path"
+    | "proof_requirement"
+    | "strategic_summary";
+  knowledge_key: string;
+  label: string;
+  summary: string;
+  confidence: number | null;
+  source_refs: Array<Record<string, unknown>>;
+  metadata: Record<string, unknown>;
+};
+
 type MetaAccount = {
   id: string;
   organization_id: string;
@@ -776,6 +794,13 @@ function strategicProfileEvidenceRows(audit: AuditRecord, profile: StrategicRese
       details: profile.brand_architecture as unknown as Record<string, unknown>,
     },
     {
+      key: "industry_profile",
+      agent: "Industry Classifier Agent",
+      category: "offer_clarity",
+      summary: `${profile.industry_profile.industry_label}: ${profile.industry_profile.reasoning}`,
+      details: profile.industry_profile as unknown as Record<string, unknown>,
+    },
+    {
       key: "business_model",
       agent: "Business Model Agent",
       category: "offer_clarity",
@@ -867,6 +892,105 @@ function strategicProfileEvidenceRows(audit: AuditRecord, profile: StrategicRese
   });
 }
 
+function keyFrom(value: string): string {
+  return cleanObservation(value, 120)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "") || "unknown";
+}
+
+function sourceRefsFromEvidence(evidence: AuditSocialEvidence[]): Array<Record<string, unknown>> {
+  return evidence.slice(0, 8).map((item) => ({
+    evidence_id: item.id,
+    source_type: item.source_type,
+    source_label: item.source_label,
+    confidence_score: item.confidence_score,
+  }));
+}
+
+function buildAgentKnowledgeRows(
+  audit: AuditRecord,
+  profile: StrategicResearchProfile,
+  evidence: AuditSocialEvidence[],
+): KnowledgeInsert[] {
+  const refs = sourceRefsFromEvidence(evidence);
+  const industry = profile.industry_profile;
+  const baseMetadata = {
+    audit_id: audit.id,
+    lead_key: audit.lead_key,
+    generated_by: "free-audit-social-research",
+  };
+
+  return [
+    {
+      audit_id: audit.id,
+      client_id: audit.customer_id,
+      knowledge_type: "industry_profile",
+      knowledge_key: industry.industry_key,
+      label: industry.industry_label,
+      summary: industry.reasoning,
+      confidence: industry.confidence,
+      source_refs: refs,
+      metadata: { ...baseMetadata, industry_profile: industry },
+    },
+    ...profile.audience.audience_segments.slice(0, 6).map((segment) => ({
+      audit_id: audit.id,
+      client_id: audit.customer_id,
+      knowledge_type: "audience_segment" as const,
+      knowledge_key: keyFrom(segment.segment_name),
+      label: segment.segment_name,
+      summary: `${segment.wants} Proof needed: ${segment.proof_needed}`,
+      confidence: segment.conversion_likelihood === "high" ? 0.78 : segment.conversion_likelihood === "medium" ? 0.62 : 0.48,
+      source_refs: refs,
+      metadata: { ...baseMetadata, segment },
+    })),
+    ...profile.offer_ladder.recommended_offer_ladder.slice(0, 5).map((offer, index) => ({
+      audit_id: audit.id,
+      client_id: audit.customer_id,
+      knowledge_type: "offer_path" as const,
+      knowledge_key: keyFrom(offer),
+      label: offer,
+      summary: `Offer tier ${index + 1}: ${offer}. Suggested CTA: ${profile.offer_ladder.offer_ctas[index] ?? profile.conversion_path.recommended_primary_cta}.`,
+      confidence: 0.64,
+      source_refs: refs,
+      metadata: { ...baseMetadata, offer_index: index, offer_ladder: profile.offer_ladder },
+    })),
+    {
+      audit_id: audit.id,
+      client_id: audit.customer_id,
+      knowledge_type: "conversion_path",
+      knowledge_key: keyFrom(profile.conversion_path.recommended_primary_cta),
+      label: profile.conversion_path.recommended_primary_cta,
+      summary: profile.conversion_path.conversion_path_summary,
+      confidence: profile.conversion_path.cta_matches_business_model ? 0.78 : 0.58,
+      source_refs: refs,
+      metadata: { ...baseMetadata, conversion_path: profile.conversion_path },
+    },
+    ...profile.proof_inventory.missing_proof_points.slice(0, 5).map((proof) => ({
+      audit_id: audit.id,
+      client_id: audit.customer_id,
+      knowledge_type: "proof_requirement" as const,
+      knowledge_key: keyFrom(proof),
+      label: proof,
+      summary: `Proof needed to support trust and conversion for ${profile.industry_profile.industry_label.toLowerCase()}.`,
+      confidence: 0.56,
+      source_refs: refs,
+      metadata: { ...baseMetadata, proof_inventory: profile.proof_inventory },
+    })),
+    {
+      audit_id: audit.id,
+      client_id: audit.customer_id,
+      knowledge_type: "strategic_summary",
+      knowledge_key: "strategist_summary",
+      label: "Strategist summary",
+      summary: profile.strategist_summary.strategist_summary,
+      confidence: profile.industry_profile.confidence,
+      source_refs: refs,
+      metadata: { ...baseMetadata, strategist_summary: profile.strategist_summary },
+    },
+  ];
+}
+
 function fallbackStrategicProfile(audit: AuditRecord): StrategicResearchProfile {
   const businessName = cleanObservation(audit.business_name || audit.lead_key, 180) || "This brand";
   return {
@@ -880,6 +1004,17 @@ function fallbackStrategicProfile(audit: AuditRecord): StrategicResearchProfile 
       naming_consistency_score: 0.52,
       brand_architecture_notes: "Brand architecture agent fallback: naming hierarchy needs manual review.",
       recommended_name_usage: "Use one public brand name consistently until parent/sub-brand roles are confirmed.",
+    },
+    industry_profile: {
+      industry_key: "general_business",
+      industry_label: "General business",
+      confidence: 0.42,
+      reasoning: "Fallback profile used because the strategy agents could not complete; rely on intake and approved evidence.",
+      primary_revenue_model: "Client or customer actions",
+      default_audiences: ["Primary buyers", "High-intent leads", "Repeat customers"],
+      default_ctas: ["Request details", "Book a consultation", "Request a proposal"],
+      offer_examples: ["Entry offer", "Core offer", "Premium offer", "Long-term support path"],
+      proof_examples: ["Customer proof", "Testimonials", "Work samples", "Clear delivery details"],
     },
     business_model: {
       primary_revenue_model: "Client services",
@@ -1039,6 +1174,27 @@ async function insertEvidenceWithFallback(
   return await supabase.from("audit_social_evidence").insert(legacyRows).select("*");
 }
 
+async function replaceAgentKnowledge(
+  supabase: ReturnType<typeof createClient>,
+  auditId: string,
+  rows: KnowledgeInsert[],
+) {
+  if (!rows.length) return { skipped: true };
+  const deleteResult = await supabase.from("audit_agent_knowledge").delete().eq("audit_id", auditId);
+  if (deleteResult.error && /relation .* does not exist/i.test(deleteResult.error.message)) {
+    console.warn("audit_agent_knowledge table missing; skipping knowledge write");
+    return { skipped: true, error: deleteResult.error.message };
+  }
+  if (deleteResult.error) return { error: deleteResult.error.message };
+  const insertResult = await supabase.from("audit_agent_knowledge").insert(rows).select("id");
+  if (insertResult.error && /relation .* does not exist/i.test(insertResult.error.message)) {
+    console.warn("audit_agent_knowledge table missing; skipping knowledge write");
+    return { skipped: true, error: insertResult.error.message };
+  }
+  if (insertResult.error) return { error: insertResult.error.message };
+  return { inserted: insertResult.data?.length ?? 0 };
+}
+
 function buildResearchSummary(
   sources: NormalizedSource[],
   evidence: AuditSocialEvidence[],
@@ -1096,6 +1252,12 @@ async function loadReviewPayload(supabase: ReturnType<typeof createClient>, audi
     .order("confidence_score", { ascending: false });
   if (findingsError) throw findingsError;
 
+  const { data: knowledge } = await supabase
+    .from("audit_agent_knowledge")
+    .select("*")
+    .eq("audit_id", auditId)
+    .order("confidence", { ascending: false });
+
   const { data: auditRow, error: auditError } = await supabase
     .from("free_audits")
     .select("metadata")
@@ -1108,6 +1270,7 @@ async function loadReviewPayload(supabase: ReturnType<typeof createClient>, audi
   return {
     evidence: evidence ?? [],
     findings: findings ?? [],
+    knowledge: knowledge ?? [],
     strategic_profile: socialResearch.strategic_profile ?? null,
     strategist_summary: socialResearch.strategist_summary ?? null,
   };
@@ -1171,6 +1334,7 @@ serve(async (req) => {
     if (parsed.data.force) {
       await supabase.from("audit_findings").delete().eq("audit_id", auditRecord.id);
       await supabase.from("audit_social_evidence").delete().eq("audit_id", auditRecord.id);
+      await supabase.from("audit_agent_knowledge").delete().eq("audit_id", auditRecord.id);
     }
 
     const ownedSources = normalizeAuditSources(auditRecord);
@@ -1222,6 +1386,8 @@ serve(async (req) => {
         evidence = [...evidence, ...((strategicEvidence ?? []) as AuditSocialEvidence[])];
       }
     }
+    const knowledgeRows = buildAgentKnowledgeRows(auditRecord, strategicProfile, evidence);
+    const knowledgeWrite = await replaceAgentKnowledge(supabase, auditRecord.id, knowledgeRows);
 
     const context = {
       auditId: auditRecord.id,
@@ -1253,7 +1419,16 @@ serve(async (req) => {
 
     const warnings = buildEvidenceQualityWarnings(context, evidence, generatedFindings);
     const existingMetadata = asObject(auditRecord.metadata);
-    const socialResearch = buildResearchSummary(sources, evidence, findings?.length ?? 0, warnings, strategicProfile);
+    const socialResearch = {
+      ...buildResearchSummary(sources, evidence, findings?.length ?? 0, warnings, strategicProfile),
+      agentic_knowledge: {
+        rows_prepared: knowledgeRows.length,
+        rows_written: "inserted" in knowledgeWrite ? knowledgeWrite.inserted : 0,
+        skipped: "skipped" in knowledgeWrite ? knowledgeWrite.skipped : false,
+        error: "error" in knowledgeWrite ? knowledgeWrite.error : null,
+        knowledge_types: [...new Set(knowledgeRows.map((row) => row.knowledge_type))],
+      },
+    };
     const { error: updateError } = await supabase
       .from("free_audits")
       .update({ metadata: { ...existingMetadata, social_research: socialResearch, normalized_social_sources: sources } })
@@ -1264,6 +1439,7 @@ serve(async (req) => {
       ok: true,
       evidenceWritten: evidence.length,
       findingsWritten: findings?.length ?? 0,
+      knowledgeWritten: "inserted" in knowledgeWrite ? knowledgeWrite.inserted : 0,
       evidence,
       findings: findings ?? [],
       strategic_profile: socialResearch.strategic_profile,

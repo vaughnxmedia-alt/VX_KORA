@@ -116,12 +116,32 @@ function sourceListFromEvidence(evidence: AuditSocialEvidence[]): Array<{ source
   }));
 }
 
+function fallbackPrimaryCta(context: AuditContext): string {
+  const blob = [
+    context.businessName,
+    context.growthGoal,
+    context.currentBlocker,
+    context.targetAudience,
+    context.websiteLink,
+  ].map((value) => String(value ?? "").toLowerCase()).join(" ");
+  if (/photograph|photographer|photo shoot|photoshoot|portrait|headshot|wedding|pixieset|gallery/.test(blob)) {
+    return "Book a Photo Shoot";
+  }
+  if (/event coverage|live stream|video production|videograph|production/.test(blob)) {
+    return "Request Event Coverage";
+  }
+  if (/book|appointment|availability|schedule/.test(blob)) return "Book an Appointment";
+  if (/consult|coach|advisor|strategy/.test(blob)) return "Book a Consultation";
+  if (/proposal|quote|project|service/.test(blob)) return "Request a Proposal";
+  return "Request Details";
+}
+
 function primaryCtaFromProfile(context: AuditContext): string {
   const strategicProfile = asObject(context.strategicProfile);
   const conversion = asObject(strategicProfile.conversion_path);
   const cta = String(conversion.recommended_primary_cta ?? "").trim();
-  if (cta) return cta;
-  return String(context.intent ?? "").includes("ready") ? "Book a Strategy Session" : "Request a Proposal";
+  if (cta && !/book a strategy session/i.test(cta)) return cta;
+  return fallbackPrimaryCta(context);
 }
 
 function summaryFromParts(parts: string[]): string {
