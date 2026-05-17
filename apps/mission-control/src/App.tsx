@@ -105,6 +105,13 @@ type DeliverableDefinition = {
   matchTerms: string[]
 }
 
+type AudienceBlueprint = {
+  signalExamples: string[]
+  clusterExamples: string[]
+  poolExamples: string[]
+  exportExamples: string[]
+}
+
 type CompanyProfile = {
   id: CompanyId
   label: string
@@ -114,6 +121,7 @@ type CompanyProfile = {
   leadMagnetCatalog: string[]
   workflowCatalog: WorkflowDefinition[]
   deliverableCatalog: DeliverableDefinition[]
+  audienceBlueprint: AudienceBlueprint
   companyMetricCards: { id: CompanyMetricId; label: string }[]
   priorityRuleSummary: string[]
   priorityOrder: PriorityType[]
@@ -259,6 +267,33 @@ const COMPANY_PROFILES: Record<CompanyId, CompanyProfile> = {
       { id: "audio_brief", label: "Audio Briefs", matchTerms: ["audio"] },
       { id: "strategy_summary", label: "Strategy Summaries", matchTerms: ["strategy", "summary"] },
     ],
+    audienceBlueprint: {
+      signalExamples: [
+        "Visited strategy session page",
+        "Submitted free audit",
+        "Clicked campaign link",
+        "Opened The Brief email",
+        "Purchased strategy session",
+        "Watched brand clarity content",
+        "Selected high readiness",
+      ],
+      clusterExamples: [
+        "Creators with visibility but low conversion",
+        "Local service businesses needing more bookings",
+        "Founders needing clearer positioning",
+      ],
+      poolExamples: [
+        "Audit submitters who did not book",
+        "Strategy page visitors who did not purchase",
+        "The Brief subscribers interested in brand clarity",
+      ],
+      exportExamples: [
+        "Meta retargeting audience",
+        "Google Customer Match audience",
+        "Email nurture segment",
+        "SMS follow-up segment",
+      ],
+    },
     companyMetricCards: [
       { id: "audit_requests", label: "Audit Requests" },
       { id: "strategy_session_leads", label: "Strategy Session Leads" },
@@ -312,6 +347,30 @@ const COMPANY_PROFILES: Record<CompanyId, CompanyProfile> = {
       { id: "client_approval_packets", label: "Client Approval Packets", matchTerms: ["approval"] },
       { id: "sponsor_packages", label: "Sponsor Packages", matchTerms: ["sponsor"] },
     ],
+    audienceBlueprint: {
+      signalExamples: [
+        "Viewed event coverage page",
+        "Submitted production inquiry",
+        "Clicked sponsor package link",
+        "Watched recap content",
+        "Requested interview package",
+      ],
+      clusterExamples: [
+        "Event organizers seeking media coverage",
+        "Brands needing sponsor storytelling packages",
+        "Local businesses needing recurring video production",
+      ],
+      poolExamples: [
+        "Event coverage inquiries needing follow-up",
+        "Sponsor prospects with recap engagement",
+        "Production leads awaiting quote approval",
+      ],
+      exportExamples: [
+        "Meta event retargeting audience",
+        "LinkedIn sponsor outreach audience",
+        "Email sponsor nurture segment",
+      ],
+    },
     companyMetricCards: [
       { id: "production_leads", label: "Production Leads" },
       { id: "active_video_projects", label: "Active Video Projects" },
@@ -364,6 +423,30 @@ const COMPANY_PROFILES: Record<CompanyId, CompanyProfile> = {
       { id: "distribution_reports", label: "Distribution Reports", matchTerms: ["distribution"] },
       { id: "sponsor_reports", label: "Sponsor Reports", matchTerms: ["sponsor"] },
     ],
+    audienceBlueprint: {
+      signalExamples: [
+        "Read published story",
+        "Requested interview feature",
+        "Subscribed to content updates",
+        "Clicked sponsor campaign",
+        "Engaged with distribution content",
+      ],
+      clusterExamples: [
+        "Readers consistently consuming local features",
+        "Interview seekers with sponsor overlap",
+        "Subscribers with strong distribution channel engagement",
+      ],
+      poolExamples: [
+        "Story readers who did not subscribe",
+        "Interview requesters with sponsor intent",
+        "Subscribers likely to share distributed content",
+      ],
+      exportExamples: [
+        "Meta story retargeting audience",
+        "TikTok story engagement audience",
+        "Email subscriber growth segment",
+      ],
+    },
     companyMetricCards: [
       { id: "published_stories", label: "Published Stories" },
       { id: "interview_requests", label: "Interview Requests" },
@@ -415,6 +498,30 @@ const COMPANY_PROFILES: Record<CompanyId, CompanyProfile> = {
       { id: "agent_delivery_packets", label: "Agent Delivery Packets", matchTerms: ["agent"] },
       { id: "support_resolutions", label: "Support Resolutions", matchTerms: ["support"] },
     ],
+    audienceBlueprint: {
+      signalExamples: [
+        "Submitted demo request",
+        "Started AI tool onboarding",
+        "Activated product subscription",
+        "Opened support request",
+        "Ran agent workflow",
+      ],
+      clusterExamples: [
+        "Users interested in AI tools but stuck in onboarding",
+        "Demo requesters with high subscription potential",
+        "Teams needing agent builds plus support enablement",
+      ],
+      poolExamples: [
+        "Demo requesters who did not subscribe",
+        "Onboarding users with incomplete setup",
+        "Support users eligible for product upgrade",
+      ],
+      exportExamples: [
+        "LinkedIn demo retargeting audience",
+        "Google product signup audience",
+        "Email activation segment",
+      ],
+    },
     companyMetricCards: [
       { id: "demo_requests", label: "Demo Requests" },
       { id: "product_users", label: "Product Users" },
@@ -461,6 +568,12 @@ const COMPANY_PROFILES: Record<CompanyId, CompanyProfile> = {
     deliverableCatalog: [
       { id: "deliverable_a", label: "Deliverable A", matchTerms: ["deliverable"] },
     ],
+    audienceBlueprint: {
+      signalExamples: ["Signal examples pending company configuration"],
+      clusterExamples: ["Cluster examples pending company configuration"],
+      poolExamples: ["Pool examples pending company configuration"],
+      exportExamples: ["Export examples pending company configuration"],
+    },
     companyMetricCards: [{ id: "demo_requests", label: "Client Leads" }],
     priorityRuleSummary: [
       "Define company profile before tracking live data.",
@@ -788,6 +901,17 @@ function formatLabel(value: string): string {
     .replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
+function inferExportPlatform(example: string): string {
+  const normalized = example.toLowerCase()
+  if (normalized.includes("meta")) return "Meta"
+  if (normalized.includes("google")) return "Google"
+  if (normalized.includes("tiktok")) return "TikTok"
+  if (normalized.includes("linkedin")) return "LinkedIn"
+  if (normalized.includes("email")) return "Email"
+  if (normalized.includes("sms")) return "SMS"
+  return "Platform-specific"
+}
+
 function getRowTextValue(row: TableRow, key: string): string {
   const value = row[key]
   return typeof value === "string" ? value : ""
@@ -879,6 +1003,30 @@ function KpiCard({
       <p className="mt-2 text-2xl font-semibold text-gray-900">{value}</p>
       {hint ? <p className="mt-1 text-xs text-gray-500">{hint}</p> : null}
       {error ? <p className="mt-2 text-xs text-red-600">Error: {error}</p> : null}
+    </div>
+  )
+}
+
+function AudienceSectionCard({
+  title,
+  description,
+  examples,
+}: {
+  title: string
+  description: string
+  examples: string[]
+}) {
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <h3 className="text-base font-semibold text-gray-900">{title}</h3>
+      <p className="mt-1 text-sm text-gray-600">{description}</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {examples.map((item) => (
+          <span key={`${title}-${item}`} className="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">
+            {item}
+          </span>
+        ))}
+      </div>
     </div>
   )
 }
@@ -1495,6 +1643,56 @@ function App() {
   const commandRevenueRows = mode === "test" ? testFixture.revenue : [...liveFiltered.revenueRows, ...liveFiltered.contractRows]
   const commandLearningRows = mode === "test" ? testFixture.learning : liveFiltered.llsRows
 
+  const audienceSignalFeed = useMemo<TableRow[]>(() => {
+    const leadSignals = commandLeadRows.map((row) => ({
+      signal: formatLabel(getRowTextValue(row, "interaction_kind") || getRowTextValue(row, "workflow") || "lead event"),
+      source: formatLabel(getRowTextValue(row, "lead_magnet_id") || getRowTextValue(row, "source") || "lead source"),
+      stage: formatLabel(getRowTextValue(row, "interaction_status") || getRowTextValue(row, "status") || "observed"),
+      occurred_at: getRowTextValue(row, "occurred_at") || getRowTextValue(row, "created_at"),
+    }))
+
+    const campaignSignals = commandCampaignRows.map((row) => ({
+      signal: formatLabel(getRowTextValue(row, "event_name") || getRowTextValue(row, "signal") || "campaign event"),
+      source: getRowTextValue(row, "campaign") || getRowTextValue(row, "campaign_id") || "campaign",
+      stage: getRowTextValue(row, "platform") || "channel",
+      occurred_at: getRowTextValue(row, "occurred_at") || getRowTextValue(row, "created_at"),
+    }))
+
+    return [...leadSignals, ...campaignSignals].filter((row) => row.signal && row.signal !== "Lead Event").slice(0, 24)
+  }, [commandLeadRows, commandCampaignRows])
+
+  const audienceClusterRows = useMemo<TableRow[]>(() => {
+    const signalVolume = Math.max(universalMetrics.audience_signals, 1)
+    return selectedCompany.audienceBlueprint.clusterExamples.map((cluster, index) => ({
+      cluster,
+      observed_signals: Math.max(signalVolume - index * 2, 1),
+      confidence: `${Math.max(62 - index * 6, 38)}%`,
+      status: "Detected pattern",
+    }))
+  }, [selectedCompany.audienceBlueprint.clusterExamples, universalMetrics.audience_signals])
+
+  const audiencePoolRows = useMemo<TableRow[]>(() => {
+    const baseline =
+      Math.max(universalMetrics.new_leads, 1) +
+      Math.max(universalMetrics.follow_up_needed, 0)
+
+    return selectedCompany.audienceBlueprint.poolExamples.map((pool, index) => ({
+      pool,
+      estimated_members: Math.max(baseline - index * 2, 1),
+      source: selectedCompany.label,
+      status: "Ready for workflow follow-up",
+    }))
+  }, [selectedCompany.audienceBlueprint.poolExamples, selectedCompany.label, universalMetrics.new_leads, universalMetrics.follow_up_needed])
+
+  const audienceExportRows = useMemo<TableRow[]>(() => {
+    return selectedCompany.audienceBlueprint.exportExamples.map((exportLabel, index) => ({
+      export_name: exportLabel,
+      platform: inferExportPlatform(exportLabel),
+      source_pool: selectedCompany.audienceBlueprint.poolExamples[index % Math.max(selectedCompany.audienceBlueprint.poolExamples.length, 1)] ?? "Audience pool",
+      readiness: mode === "test" ? "Test-ready" : "Needs identifier validation",
+    }))
+  }, [mode, selectedCompany.audienceBlueprint.exportExamples, selectedCompany.audienceBlueprint.poolExamples])
+
   const smokeChecks = useMemo(() => {
     const requiredLeadMagnets = ["free_audit", "strategy_session", "the_brief", "download", "webinar", "other"]
     const presentLeadMagnets = new Set(state.leadMagnets.map((row) => String(row.id)))
@@ -1720,23 +1918,97 @@ function App() {
         ) : null}
 
         {activeTab === "audience" ? (
-          <section className="grid gap-4 lg:grid-cols-2">
-            <KpiCard
-              label="Audience Signals"
-              value={formatMetric(universalMetrics.audience_signals)}
-              hint={`Signals in ${selectedDateRange.label.toLowerCase()}`}
-            />
-            <DataTable
-              title={`${selectedCompany.label} Audience Signals`}
-              rows={commandCampaignRows}
-              emptyLabel={selectedCompany.emptyStates.audience}
-              columns={[
-                { key: "campaign", label: "Campaign", formatter: (value) => (value ? String(value) : "-") },
-                { key: "event_name", label: "Signal", formatter: (value) => (value ? formatLabel(String(value)) : "-") },
-                { key: "platform", label: "Channel", formatter: (value) => (value ? String(value) : "-") },
-                { key: "occurred_at", label: "When", formatter: formatDate },
-              ]}
-            />
+          <section className="grid gap-4">
+            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+              <h2 className="text-lg font-semibold text-gray-900">Audience Intelligence Model</h2>
+              <p className="mt-1 text-sm text-gray-600">
+                Signals are not the same as custom audiences. This view separates raw observations, pattern intelligence,
+                usable pools, and export-ready outputs for {selectedCompany.label}.
+              </p>
+              <p className="mt-3 text-sm font-medium text-gray-700">
+                Signals become intelligence when KORA groups them into audience pools and connects them to campaign,
+                offer, and revenue outcomes.
+              </p>
+              <p className="mt-2 text-xs text-gray-500">
+                Each platform has its own rules, required identifiers, match quality, and privacy requirements.
+              </p>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <AudienceSectionCard
+                title="1) Signals"
+                description="Raw behaviors and clues KORA has detected."
+                examples={selectedCompany.audienceBlueprint.signalExamples}
+              />
+              <DataTable
+                title={`${selectedCompany.label} Signal Feed`}
+                rows={audienceSignalFeed}
+                emptyLabel={selectedCompany.emptyStates.audience}
+                columns={[
+                  { key: "signal", label: "Signal" },
+                  { key: "source", label: "Source" },
+                  { key: "stage", label: "Status / Channel" },
+                  { key: "occurred_at", label: "Observed", formatter: formatDate },
+                ]}
+              />
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <AudienceSectionCard
+                title="2) Audience Clusters"
+                description="Patterns KORA sees across people, behavior, industry, pain points, and buying intent."
+                examples={selectedCompany.audienceBlueprint.clusterExamples}
+              />
+              <DataTable
+                title={`${selectedCompany.label} Cluster Patterns`}
+                rows={audienceClusterRows}
+                emptyLabel="No cluster patterns available for this range."
+                columns={[
+                  { key: "cluster", label: "Cluster" },
+                  { key: "observed_signals", label: "Observed Signals" },
+                  { key: "confidence", label: "Confidence" },
+                  { key: "status", label: "Status" },
+                ]}
+              />
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <AudienceSectionCard
+                title="3) Audience Pools"
+                description="Usable groups built from clusters and rules for follow-up, campaigns, and retargeting."
+                examples={selectedCompany.audienceBlueprint.poolExamples}
+              />
+              <DataTable
+                title={`${selectedCompany.label} Audience Pools`}
+                rows={audiencePoolRows}
+                emptyLabel="No audience pools available for this range."
+                columns={[
+                  { key: "pool", label: "Pool" },
+                  { key: "estimated_members", label: "Estimated Members" },
+                  { key: "source", label: "Company" },
+                  { key: "status", label: "Status" },
+                ]}
+              />
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <AudienceSectionCard
+                title="4) Custom Audience Exports"
+                description="Platform-ready audiences prepared for Meta, Google, TikTok, LinkedIn, email, or SMS."
+                examples={selectedCompany.audienceBlueprint.exportExamples}
+              />
+              <DataTable
+                title={`${selectedCompany.label} Export Prep`}
+                rows={audienceExportRows}
+                emptyLabel="No export configurations available."
+                columns={[
+                  { key: "export_name", label: "Export" },
+                  { key: "platform", label: "Platform" },
+                  { key: "source_pool", label: "Source Pool" },
+                  { key: "readiness", label: "Readiness" },
+                ]}
+              />
+            </div>
           </section>
         ) : null}
 
