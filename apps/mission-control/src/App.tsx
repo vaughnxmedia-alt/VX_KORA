@@ -1731,7 +1731,7 @@ function App() {
               rows={commandCampaignRows}
               emptyLabel={selectedCompany.emptyStates.audience}
               columns={[
-                { key: "campaign", label: "Campaign", formatter: (value) => (value ? String(value) : getRowTextValue as never) },
+                { key: "campaign", label: "Campaign", formatter: (value) => (value ? String(value) : "-") },
                 { key: "event_name", label: "Signal", formatter: (value) => (value ? formatLabel(String(value)) : "-") },
                 { key: "platform", label: "Channel", formatter: (value) => (value ? String(value) : "-") },
                 { key: "occurred_at", label: "When", formatter: formatDate },
@@ -1749,7 +1749,7 @@ function App() {
               {
                 key: "lead_magnet_id",
                 label: "Lead Source",
-                formatter: (value) => (value ? formatLabel(String(value)) : getRowTextValue as never),
+                formatter: (value) => (value ? formatLabel(String(value)) : "-"),
               },
               {
                 key: "interaction_kind",
