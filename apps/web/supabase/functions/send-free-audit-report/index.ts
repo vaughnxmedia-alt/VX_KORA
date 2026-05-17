@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "npm:resend@2.0.0";
+import QRCode from "npm:qrcode@1.5.4";
 import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
 import { z } from "https://deno.land/x/zod/mod.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
@@ -47,6 +48,271 @@ type ReportAudio = {
   word_count?: number;
 };
 
+type StarterGuideSlide = {
+  eyebrow: string;
+  title: string;
+  body: string[];
+  readMorePath?: string;
+  readMoreLabel?: string;
+  slideCta?: string;
+};
+
+const STARTER_GUIDE_HUB_PATH = "/the-brief/before-you-build-the-brand-starter-guide";
+const STARTER_GUIDE_ARTICLE_PATHS = [
+  STARTER_GUIDE_HUB_PATH,
+  "/the-brief/before-you-build-the-brand/start-here",
+  "/the-brief/before-you-build-the-brand/what-is-a-brand-foundation",
+  "/the-brief/before-you-build-the-brand/why-brand-clarity-matters-before-building-online",
+  "/the-brief/before-you-build-the-brand/brand-name-check",
+  "/the-brief/before-you-build-the-brand/mission-vision-values",
+  "/the-brief/before-you-build-the-brand/know-your-target-audience",
+  "/the-brief/before-you-build-the-brand/brand-positioning",
+  "/the-brief/before-you-build-the-brand/brand-messaging",
+  "/the-brief/before-you-build-the-brand/offer-clarity",
+  "/the-brief/before-you-build-the-brand/digital-presence",
+  "/the-brief/before-you-build-the-brand/website-basics",
+  "/the-brief/before-you-build-the-brand/homepage-checklist",
+  "/the-brief/before-you-build-the-brand/social-media-basics",
+  "/the-brief/before-you-build-the-brand/social-media-bio-formula",
+  "/the-brief/before-you-build-the-brand/first-three-pinned-posts",
+  "/the-brief/before-you-build-the-brand/no-website-yet",
+  "/the-brief/before-you-build-the-brand/no-social-media-yet",
+  "/the-brief/before-you-build-the-brand/trust-signals",
+  "/the-brief/before-you-build-the-brand/common-brand-mistakes",
+  "/the-brief/before-you-build-the-brand/brand-foundation-checklist",
+  "/the-brief/before-you-build-the-brand/your-next-step",
+  "/free-audit",
+];
+
+const STARTER_GUIDE_SLIDES: StarterGuideSlide[] = [
+  {
+    eyebrow: "Cover",
+    title: "Before You Build the Brand",
+    body: [
+      "A Starter Guide for New Businesses",
+      "Before you create the logo, launch the website, post content, or announce the business, make sure your brand foundation is clear enough to support attention.",
+      "By JahKnowsPR",
+    ],
+  },
+  {
+    eyebrow: "Start Here",
+    title: "Build the inside before the outside",
+    body: [
+      "Starting a business is exciting, but it can also feel overwhelming.",
+      "You may feel pressure to create a logo, start posting, build a website, and make the brand look official fast.",
+      "Before you build the outside of the brand, build the inside.",
+      "Your brand foundation helps people understand what you do, who you help, why it matters, what makes you different, why they should trust you, and what step they should take next.",
+      "A brand does not become clear because it looks good. It becomes clear because the message is built right.",
+    ],
+  },
+  {
+    eyebrow: "Foundation",
+    title: "What is a brand foundation?",
+    body: [
+      "Your brand foundation is the strategy behind how your business is understood.",
+      "It is not just your logo, colors, fonts, or graphics.",
+      "Core parts: brand name, mission, vision, values, target audience, positioning, messaging, offer clarity, digital presence, trust signals, and conversion path.",
+      "Many new businesses skip this step, then wonder why people watch and like but do not buy, book, or inquire.",
+    ],
+  },
+  {
+    eyebrow: "Clarity First",
+    title: "Why you need this before building online",
+    body: [
+      "A website cannot fix unclear messaging.",
+      "A social page cannot fix unclear positioning.",
+      "A logo cannot fix an unclear offer.",
+      "Content cannot carry a brand that has not been clearly defined.",
+      "Before you build anything online, your business needs to know what it is supposed to communicate.",
+    ],
+  },
+  {
+    eyebrow: "Naming",
+    title: "Brand name check",
+    body: [
+      "Before you commit, ask: easy to say, spell, remember, and search?",
+      "Check domain and social handle availability.",
+      "Check if another business already uses the name.",
+      "Make sure the name matches direction and can grow over time.",
+      "A strong name should be memorable, searchable, and aligned to the brand you are building.",
+    ],
+  },
+  {
+    eyebrow: "Mission",
+    title: "Mission, vision, and values",
+    body: [
+      "Mission explains why your business exists.",
+      "Vision explains where your business is going.",
+      "Values explain what your business stands on while it grows.",
+      "Simple mission formula: We help [audience] achieve [result] through [method].",
+      "Values should show up in decisions, communication, service, and execution.",
+    ],
+  },
+  {
+    eyebrow: "Audience",
+    title: "Know who you are talking to",
+    body: [
+      "Your target audience is not everybody.",
+      "Ask: who needs this most, what are they trying to solve, what do they want, what are they tired of, what makes them hesitate, and what builds trust?",
+      "The clearer your audience, the easier it is to create messages that connect.",
+      "A clear audience creates a stronger message.",
+    ],
+  },
+  {
+    eyebrow: "Positioning",
+    title: "What do you want to be known for?",
+    body: [
+      "Positioning explains your category, audience, problem solved, differentiator, and reason to choose you.",
+      "Simple formula: For [audience] who need [solution], [brand] helps them [result] through [unique approach].",
+      "Positioning helps your brand stop blending in and start being understood.",
+    ],
+  },
+  {
+    eyebrow: "Messaging",
+    title: "Messaging should be repeatable",
+    body: [
+      "Strong messaging answers: what you do, who you help, what problem you solve, why it matters, why your approach is different, and what to do next.",
+      "If someone cannot explain what you do after visiting your page, your message needs work.",
+    ],
+  },
+  {
+    eyebrow: "Offer",
+    title: "Offer clarity",
+    body: [
+      "Your offer is what people can buy, book, request, join, or sign up for.",
+      "A clear offer explains what it is, who it is for, what it solves, what is included, and the next step.",
+      "Confused people usually do not convert. Clear offers make action easier.",
+    ],
+  },
+  {
+    eyebrow: "Presence",
+    title: "What is digital presence?",
+    body: [
+      "Digital presence includes website, social accounts, Google Business Profile, business email, booking or inquiry form, blog, portfolio, testimonials, media, and reviews.",
+      "Your online presence is not just for visibility. It is for clarity, credibility, and conversion.",
+    ],
+  },
+  {
+    eyebrow: "Website",
+    title: "Website basics",
+    body: [
+      "At minimum, your website should answer: who you are, what you offer, who you help, why to trust you, and how to contact, book, buy, or inquire.",
+      "Core pages: Home, About, Services/Offers, Contact, FAQ, Blog/Resources, and Testimonials/Proof.",
+      "A website does not have to be perfect to be useful. It needs to be clear.",
+    ],
+  },
+  {
+    eyebrow: "Homepage",
+    title: "Homepage checklist",
+    body: [
+      "Include a clear headline, who you help, your main offer, why your work matters, proof, and one clear CTA.",
+      "Example CTAs: Book a Strategy Session, Start with the Free Brand Audit, Join the Community, Download the Guide, Schedule a Consultation, Request a Quote.",
+      "Your homepage should guide people, not make them search for the point.",
+    ],
+  },
+  {
+    eyebrow: "Social",
+    title: "Social media basics",
+    body: [
+      "Your profile should include a searchable name, clear username, profile image, bio, contact info, website link, pinned posts, and consistent content direction.",
+      "Posting more will not fix a profile people do not understand.",
+    ],
+  },
+  {
+    eyebrow: "Bio",
+    title: "Social media bio formula",
+    body: [
+      "Formula: I help [audience] achieve [result] through [method]. [Proof or belief]. [Call to action].",
+      "Your bio is not just a description. It is a direction.",
+    ],
+  },
+  {
+    eyebrow: "Pinned Posts",
+    title: "Your first 3 pinned posts",
+    body: [
+      "Post 1: who you are and who you help.",
+      "Post 2: the problem you solve and why your brand exists.",
+      "Post 3: how to work with you and the exact next step.",
+      "Pinned posts act like a mini website for your social page.",
+    ],
+  },
+  {
+    eyebrow: "No Website Yet",
+    title: "Start simple",
+    body: [
+      "Choose your brand name, secure domain, set up business email, write mission and offer, launch a simple landing page, add contact options, add social links, and connect basic analytics.",
+      "Start with clarity before complexity.",
+    ],
+  },
+  {
+    eyebrow: "No Social Yet",
+    title: "Start where your audience is",
+    body: [
+      "Secure usernames, create profile image/logo, write bio, add contact link, create first 9 posts, pin 3 foundation posts, post consistently, and track response.",
+      "You do not need to be everywhere. You need to be clear where you show up.",
+    ],
+  },
+  {
+    eyebrow: "Trust",
+    title: "Trust signals",
+    body: [
+      "Use testimonials, reviews, results, portfolio examples, story, process, values, media mentions, and consistent messaging.",
+      "Trust is built through clarity, consistency, and proof.",
+    ],
+  },
+  {
+    eyebrow: "Mistakes",
+    title: "Common mistakes to avoid",
+    body: [
+      "Do not build around only a logo, pretty feed, random posting, trend chasing, vague bio, unclear CTA, or confusing offer.",
+      "Pretty branding gets attention. Clear branding creates understanding.",
+    ],
+  },
+  {
+    eyebrow: "Checklist",
+    title: "Brand foundation checklist",
+    body: [
+      "Before launching, answer: brand name, what you do, who you help, what problem you solve, why it matters, values, main offer, next step, priority platforms, and proof.",
+      "Use this checklist before major spend on website, visuals, content strategy, or ads.",
+    ],
+  },
+  {
+    eyebrow: "Next Step",
+    title: "Get specific about your business",
+    body: [
+      "Ask: Is my message clear? Is my audience specific? Is my offer easy to understand? Does my digital presence guide people toward action?",
+      "If you are ready to see where your brand stands, start with the free brand audit.",
+      "Your brand is not just what people see. It is what they understand.",
+    ],
+  },
+  {
+    eyebrow: "Final CTA",
+    title: "Ready to build with more clarity?",
+    body: [
+      "Start with the Free Brand Audit from JahKnowsPR.",
+      "We review Positioning, Audience, Authority, Messaging, and Conversion.",
+      "Before you post more, build more, or spend more, make sure your brand is clear enough to carry attention.",
+      "Then launch your blog series: Building a Digital Presence (Website and Social Media Accounts).",
+      "Visit: jahknowspr.com/free-audit",
+    ],
+  },
+];
+
+function starterGuideSlidesWithLinks(): StarterGuideSlide[] {
+  return STARTER_GUIDE_SLIDES.map((slide, index) => ({
+    ...slide,
+    readMorePath: STARTER_GUIDE_ARTICLE_PATHS[index] ?? STARTER_GUIDE_HUB_PATH,
+    readMoreLabel: index === 0
+      ? "Open the guide hub"
+      : index === STARTER_GUIDE_SLIDES.length - 1
+        ? "Start the Free Brand Audit"
+        : "Read the full breakdown",
+    slideCta: index === STARTER_GUIDE_SLIDES.length - 1
+      ? "Scan to start your free brand audit."
+      : "Scan to read the full breakdown.",
+  }));
+}
+
 function asObject(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
@@ -76,6 +342,63 @@ function reportAudioFromAudit(audit: Record<string, unknown>): ReportAudio | nul
     generated_at: typeof audio.generated_at === "string" ? audio.generated_at : undefined,
     estimated_minutes: typeof audio.estimated_minutes === "number" ? audio.estimated_minutes : undefined,
     word_count: typeof audio.word_count === "number" ? audio.word_count : undefined,
+  };
+}
+
+function numberOrZero(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function shouldUseStarterGuide(
+  report: FreeAuditReport,
+  audit: Record<string, unknown>,
+  approvedFindings: Array<Record<string, unknown>>,
+): boolean {
+  const metadata = asObject(audit.metadata);
+  if (metadata.report_mode === "starter_guide") return true;
+  const hasWebsite = String(audit.website_link ?? "").trim().length > 0;
+  const hasAllCoreSocials = [
+    String(audit.instagram ?? "").trim(),
+    String(audit.facebook ?? "").trim(),
+    String(audit.tiktok ?? "").trim(),
+  ].every((value) => value.length > 0);
+  if (!(hasWebsite || hasAllCoreSocials)) return true;
+  const socialResearch = asObject(metadata.social_research);
+  const totals = asObject(socialResearch.totals);
+  const totalSignals = Object.values(totals).reduce((sum, value) => sum + numberOrZero(value), 0);
+  const socialHighlights = report.evidence.socialHighlights?.length ?? 0;
+  const contextLength = [
+    report.evidence.growthGoal,
+    report.evidence.currentBlocker,
+    report.evidence.targetAudience,
+    report.evidence.presence.join(" "),
+  ].join(" ").replace(/Not provided/gi, "").trim().length;
+  const hasResearch = approvedFindings.length > 0 || socialHighlights > 0 || totalSignals > 0;
+  const lowContext = contextLength < 140;
+  const noPresence = report.evidence.presence.length === 0;
+  if (noPresence) return true;
+  return !hasResearch && lowContext;
+}
+
+function buildStarterGuideReport(baseReport: FreeAuditReport): FreeAuditReport {
+  const nowIso = new Date().toISOString();
+  return {
+    ...baseReport,
+    subject: "Before You Build the Brand - Starter Guide for New Businesses",
+    filename: `${publicAuditSlug(baseReport.businessName)}-starter-guide.pdf`,
+    auditAngleLabel: "Starter Guide for New Businesses",
+    generatedAt: nowIso,
+    executiveSummary:
+      "There was not enough verified public-source research to build a full evidence diagnosis, so JahKnowsPR generated a Starter Guide to help this business build a strong brand foundation first.",
+    warnings: [
+      {
+        severity: "info",
+        title: "Starter guide generated",
+        detail:
+          "Not enough verifiable public-source research was available for a full personalized diagnosis. This guide is the correct next step before deeper research and campaign optimization.",
+      },
+      ...baseReport.warnings.filter((warning) => warning.severity !== "error"),
+    ],
   };
 }
 
@@ -185,6 +508,30 @@ function drawDeckCard(page: PdfPage, x: number, y: number, width: number, height
   });
 }
 
+async function createQrPngData(url: string): Promise<Uint8Array | null> {
+  try {
+    const dataUrl = await QRCode.toDataURL(url, {
+      errorCorrectionLevel: "M",
+      margin: 1,
+      width: 180,
+      color: {
+        dark: "#0A1A35",
+        light: "#FFFFFF",
+      },
+    });
+    const base64 = dataUrl.split(",")[1];
+    if (!base64) return null;
+    return Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+  } catch (error) {
+    console.error("Could not generate starter guide QR code", error);
+    return null;
+  }
+}
+
+function displayGuideUrl(path: string): string {
+  return `jahknowspr.com${path}`;
+}
+
 function drawChrome(page: PdfPage, fonts: Fonts, eyebrow: string, pageNumber: number) {
   page.drawRectangle({ x: 0, y: 0, width: PAGE.width, height: PAGE.height, color: BRAND.offWhite });
   page.drawRectangle({ x: 492, y: 676, width: 148, height: 148, color: rgb(0.925, 0.875, 0.69) });
@@ -233,6 +580,133 @@ function drawCover(page: PdfPage, fonts: Fonts, report: FreeAuditReport) {
     maxLines: 3,
   });
   page.drawRectangle({ x: centerX - 56, y: 258, width: 112, height: 3, color: BRAND.gold });
+}
+
+function drawStarterGuideCover(page: PdfPage, fonts: Fonts, report: FreeAuditReport) {
+  drawChrome(page, fonts, "Starter Guide Cover", 1);
+  const centerX = PAGE.width / 2;
+  page.drawText("STARTER GUIDE".toUpperCase(), {
+    x: centerX - fonts.bold.widthOfTextAtSize("STARTER GUIDE", 9) / 2,
+    y: 480,
+    size: 9,
+    font: fonts.bold,
+    color: BRAND.gold,
+    characterSpacing: 2.8,
+  });
+  drawCenteredWrappedText(page, "Before You Build the Brand", {
+    centerX,
+    y: 430,
+    maxWidth: 420,
+    size: 44,
+    lineHeight: 46,
+    font: fonts.title,
+    color: BRAND.navy,
+    maxLines: 3,
+  });
+  drawCenteredWrappedText(page, "A Starter Guide for New Businesses", {
+    centerX,
+    y: 304,
+    maxWidth: 420,
+    size: 14,
+    lineHeight: 18,
+    font: fonts.bold,
+    color: BRAND.muted,
+    maxLines: 2,
+  });
+  drawCenteredWrappedText(page, `Prepared for ${report.businessName}`, {
+    centerX,
+    y: 256,
+    maxWidth: 420,
+    size: 11,
+    lineHeight: 14,
+    font: fonts.body,
+    color: BRAND.muted,
+    maxLines: 2,
+  });
+  page.drawRectangle({ x: centerX - 56, y: 220, width: 112, height: 3, color: BRAND.gold });
+}
+
+async function drawStarterGuideSlidePage(
+  pdf: PDFDocument,
+  page: PdfPage,
+  fonts: Fonts,
+  slide: StarterGuideSlide,
+  pageNumber: number,
+) {
+  drawChrome(page, fonts, slide.eyebrow, pageNumber);
+  page.drawText(slide.eyebrow.toUpperCase(), { x: 64, y: 620, size: 8, font: fonts.bold, color: BRAND.gold, characterSpacing: 3 });
+  let cursor = drawWrappedText(page, slide.title, {
+    x: 64,
+    y: 586,
+    maxWidth: 484,
+    size: 32,
+    lineHeight: 35,
+    font: fonts.title,
+    color: BRAND.navy,
+    maxLines: 3,
+  }) - 18;
+
+  slide.body.forEach((paragraph) => {
+    if (!paragraph.trim() || cursor < 154) return;
+    const isBullet = /^[-*]\s+/.test(paragraph.trim());
+    const text = paragraph.replace(/^[-*]\s+/, "");
+    if (isBullet) {
+      page.drawRectangle({ x: 68, y: cursor + 2, width: 5, height: 5, color: BRAND.gold });
+      cursor = drawWrappedText(page, text, {
+        x: 82,
+        y: cursor + 6,
+        maxWidth: 458,
+        size: 10,
+        lineHeight: 14,
+        font: fonts.body,
+        color: BRAND.navy,
+      }) - 10;
+      return;
+    }
+    cursor = drawWrappedText(page, text, {
+      x: 64,
+      y: cursor,
+      maxWidth: 484,
+      size: 10.2,
+      lineHeight: 14.5,
+      font: fonts.body,
+      color: BRAND.navy,
+    }) - 10;
+  });
+
+  if (!slide.readMorePath) return;
+  const readMoreUrl = `${PUBLIC_SITE_URL}${slide.readMorePath}`;
+  drawDeckCard(page, 64, 54, 484, 78, rgb(1, 1, 1));
+  page.drawText((slide.readMoreLabel ?? "Read the full breakdown").toUpperCase(), {
+    x: 82,
+    y: 106,
+    size: 7.5,
+    font: fonts.bold,
+    color: BRAND.gold,
+    characterSpacing: 2,
+  });
+  drawWrappedText(page, slide.slideCta ?? "Scan to read the full breakdown.", {
+    x: 82,
+    y: 90,
+    maxWidth: 300,
+    size: 9,
+    lineHeight: 12,
+    font: fonts.body,
+    color: BRAND.navy,
+    maxLines: 2,
+  });
+  page.drawText(`Read more: ${displayGuideUrl(slide.readMorePath)}`, {
+    x: 82,
+    y: 68,
+    size: 7.5,
+    font: fonts.bold,
+    color: BRAND.muted,
+  });
+  const qrPng = await createQrPngData(readMoreUrl);
+  if (qrPng) {
+    const qrImage = await pdf.embedPng(qrPng);
+    page.drawImage(qrImage, { x: 472, y: 70, width: 48, height: 48 });
+  }
 }
 
 function drawScoresPage(page: PdfPage, fonts: Fonts, report: FreeAuditReport) {
@@ -409,6 +883,7 @@ async function buildReportPdf(
   report: FreeAuditReport,
   template: Record<string, unknown> | null,
   supabase: ReturnType<typeof createClient>,
+  starterGuideSlides: StarterGuideSlide[] = [],
 ) {
   void template;
   void supabase;
@@ -419,6 +894,13 @@ async function buildReportPdf(
     bold: await pdf.embedFont(StandardFonts.HelveticaBold),
     italic: await pdf.embedFont(StandardFonts.HelveticaOblique),
   };
+  if (starterGuideSlides.length) {
+    drawStarterGuideCover(pdf.addPage([PAGE.width, PAGE.height]), fonts, report);
+    for (const [index, slide] of starterGuideSlides.entries()) {
+      await drawStarterGuideSlidePage(pdf, pdf.addPage([PAGE.width, PAGE.height]), fonts, slide, index + 2);
+    }
+    return pdf.save();
+  }
   drawCover(pdf.addPage([PAGE.width, PAGE.height]), fonts, report);
   drawScoresPage(pdf.addPage([PAGE.width, PAGE.height]), fonts, report);
   let pageNumber = 3;
@@ -433,7 +915,7 @@ async function buildReportPdf(
   return pdf.save();
 }
 
-function buildEmailHtml(report: FreeAuditReport, reportAudio: ReportAudio | null) {
+function buildEmailHtml(report: FreeAuditReport, reportAudio: ReportAudio | null, starterGuideMode = false) {
   const filingWarning = report.warnings.find((item) => /business filing required/i.test(item.title));
   const warningBlock = filingWarning
     ? `
@@ -452,21 +934,30 @@ function buildEmailHtml(report: FreeAuditReport, reportAudio: ReportAudio | null
       <p style="font-size:12px;color:#666;margin:0;">Note: this audio was created using your submitted audit data plus JahKnowsPR KORA assistants.</p>
     </div>`
     : "";
+  const heading = starterGuideMode ? "Your Starter Guide is ready" : "Your Brand Diagnosis is ready";
+  const introLine = starterGuideMode
+    ? `Your JahKnowsPR Starter Guide for <strong>${report.businessName}</strong> is attached as a PDF.`
+    : `Your JahKnowsPR Free Audit for <strong>${report.businessName}</strong> is attached as a PDF diagnosis report.`;
+  const ctaLabel = starterGuideMode ? "Start the Free Brand Audit" : "Book Strategy Session";
+  const ctaHref = starterGuideMode ? "https://www.jahknowspr.com/free-audit" : "https://www.jahknowspr.com/brand-strategy-session";
+  const followupLine = starterGuideMode
+    ? "Then begin your blog series: Building a Digital Presence (Website and Social Media Accounts)."
+    : "If you're ready to turn the diagnosis into a strategy, book your Strategy Session here:";
   return `
   <body style="margin:0;background:#F7F3EA;padding:28px 12px;font-family:Arial,sans-serif;color:#0A1A35;line-height:1.6;">
     <div style="max-width:680px;margin:0 auto;background:#fff;border:1px solid #E8DFC8;border-radius:24px;overflow:hidden;">
       <div style="height:8px;background:#0A1A35;"></div>
       <div style="padding:34px 32px 28px;">
         <p style="margin:0 0 14px;font-size:11px;letter-spacing:0.28em;text-transform:uppercase;color:#8C6C27;font-weight:700;">JahKnowsPR Firm / Brand Diagnosis</p>
-        <h1 style="font-family:Georgia,serif;margin:0 0 18px;font-size:38px;line-height:1.05;color:#0A1A35;">Your Brand Diagnosis is ready</h1>
+        <h1 style="font-family:Georgia,serif;margin:0 0 18px;font-size:38px;line-height:1.05;color:#0A1A35;">${heading}</h1>
         <p style="margin:0 0 14px;">Hi ${report.contactName || "there"},</p>
-        <p style="margin:0 0 14px;">Your JahKnowsPR Free Audit for <strong>${report.businessName}</strong> is attached as a PDF diagnosis report.</p>
+        <p style="margin:0 0 14px;">${introLine}</p>
         <div style="margin:20px 0;padding:18px;border-left:4px solid #C59B3C;background:#F7F3EA;border-radius:0 16px 16px 0;">
           <p style="margin:0;color:#0A1A35;">${report.executiveSummary}</p>
         </div>
         ${audioBlock}
-        <p style="margin:0 0 16px;">If you're ready to turn the diagnosis into a strategy, book your Strategy Session here:</p>
-        <p style="margin:0 0 18px;"><a href="https://www.jahknowspr.com/brand-strategy-session" style="display:inline-block;background:#0A1A35;color:#fff;padding:13px 20px;border-radius:999px;text-decoration:none;font-weight:700;">Book Strategy Session</a></p>
+        <p style="margin:0 0 16px;">${followupLine}</p>
+        <p style="margin:0 0 18px;"><a href="${ctaHref}" style="display:inline-block;background:#0A1A35;color:#fff;padding:13px 20px;border-radius:999px;text-decoration:none;font-weight:700;">${ctaLabel}</a></p>
         ${warningBlock}
         <p style="margin:24px 0 0;font-size:12px;color:#666;">JahKnowsPR Firm</p>
       </div>
@@ -546,12 +1037,20 @@ serve(async (req) => {
       .eq("report_ready", true)
       .order("confidence_score", { ascending: false })
       .limit(40);
+    const approvedFindingsRows = (approvedFindings ?? []) as Record<string, unknown>[];
     const baseReport = buildFreeAuditReport(audit, aestheticSignal ?? null, approvedFindings ?? []);
-    const report = await personalizePdfAuditReport({
-      report: baseReport,
-      audit: audit as Record<string, unknown>,
-      approvedFindings: (approvedFindings ?? []) as Record<string, unknown>[],
-    });
+    const starterGuideMode = shouldUseStarterGuide(
+      baseReport,
+      audit as Record<string, unknown>,
+      approvedFindingsRows,
+    );
+    const report = starterGuideMode
+      ? buildStarterGuideReport(baseReport)
+      : await personalizePdfAuditReport({
+        report: baseReport,
+        audit: audit as Record<string, unknown>,
+        approvedFindings: approvedFindingsRows,
+      });
     const reportAudio = reportAudioFromAudit(audit);
     const blockingWarning = report.warnings.find((warning) => warning.severity === "error");
     if (blockingWarning) {
@@ -566,9 +1065,14 @@ serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    const pdfBytes = await buildReportPdf(report, template, supabase);
+    const pdfBytes = await buildReportPdf(
+      report,
+      template,
+      supabase,
+      starterGuideMode ? starterGuideSlidesWithLinks() : [],
+    );
     const pdfBase64 = bytesToBase64(pdfBytes);
-    const previewEmailHtml = buildEmailHtml(report, reportAudio);
+    const previewEmailHtml = buildEmailHtml(report, reportAudio, starterGuideMode);
 
     if (mode === "preview") {
       return jsonResponse({
@@ -579,6 +1083,7 @@ serve(async (req) => {
         filename: report.filename,
         pdfBase64,
         contentType: "application/pdf",
+        reportMode: starterGuideMode ? "starter_guide" : "brand_diagnosis",
         audioBrief: reportAudio,
         emailHtml: previewEmailHtml,
       }, 200, corsHeaders);
@@ -593,7 +1098,7 @@ serve(async (req) => {
       return jsonResponse({ error: "RESEND_API_KEY is not configured" }, 500, corsHeaders);
     }
 
-    const html = buildEmailHtml(report, includeAudio ? reportAudio : null);
+    const html = buildEmailHtml(report, includeAudio ? reportAudio : null, starterGuideMode);
     const resend = new Resend(RESEND_API_KEY);
     const sendResult = await resend.emails.send({
       from: `${FROM_NAME} <${FROM_EMAIL}>`,
@@ -660,6 +1165,7 @@ serve(async (req) => {
           metadata: {
             email_provider_message_id: (sendResult as { data?: { id?: string } })?.data?.id ?? null,
             include_audio: includeAudio,
+            report_mode: starterGuideMode ? "starter_guide" : "brand_diagnosis",
           },
         }, { onConflict: "audit_intake_id" }),
     ]);
@@ -682,6 +1188,7 @@ serve(async (req) => {
       to: report.recipient,
       report,
       warnings: report.warnings,
+      reportMode: starterGuideMode ? "starter_guide" : "brand_diagnosis",
       audioBrief: includeAudio ? reportAudio : null,
     }, 200, corsHeaders);
   } catch (error) {

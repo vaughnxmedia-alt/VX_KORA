@@ -92,6 +92,102 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_intake_original_answers: {
+        Row: {
+          id: string
+          audit_intake_id: string
+          contact_name: string | null
+          phone: string | null
+          business_entity_type: string | null
+          business_name: string | null
+          public_business_name: string | null
+          website_link: string | null
+          website_url: string | null
+          website_not_started: boolean
+          instagram: string | null
+          instagram_url: string | null
+          instagram_not_started: boolean
+          facebook: string | null
+          facebook_url: string | null
+          facebook_not_started: boolean
+          tiktok: string | null
+          tiktok_url: string | null
+          tiktok_not_started: boolean
+          other_socials: string | null
+          other_public_pages: string | null
+          other_public_pages_not_started: boolean
+          growth_goal: string | null
+          current_blocker: string | null
+          target_audience_belief: string | null
+          intent: string | null
+          submitted_at: string
+          raw_answers: Json
+          metadata: Json
+        }
+        Insert: {
+          id?: string
+          audit_intake_id: string
+          contact_name?: string | null
+          phone?: string | null
+          business_entity_type?: string | null
+          business_name?: string | null
+          public_business_name?: string | null
+          website_link?: string | null
+          website_url?: string | null
+          website_not_started?: boolean
+          instagram?: string | null
+          instagram_url?: string | null
+          instagram_not_started?: boolean
+          facebook?: string | null
+          facebook_url?: string | null
+          facebook_not_started?: boolean
+          tiktok?: string | null
+          tiktok_url?: string | null
+          tiktok_not_started?: boolean
+          other_socials?: string | null
+          other_public_pages?: string | null
+          other_public_pages_not_started?: boolean
+          growth_goal?: string | null
+          current_blocker?: string | null
+          target_audience_belief?: string | null
+          intent?: string | null
+          submitted_at?: string
+          raw_answers?: Json
+          metadata?: Json
+        }
+        Update: {
+          id?: string
+          audit_intake_id?: string
+          contact_name?: string | null
+          phone?: string | null
+          business_entity_type?: string | null
+          business_name?: string | null
+          public_business_name?: string | null
+          website_link?: string | null
+          website_url?: string | null
+          website_not_started?: boolean
+          instagram?: string | null
+          instagram_url?: string | null
+          instagram_not_started?: boolean
+          facebook?: string | null
+          facebook_url?: string | null
+          facebook_not_started?: boolean
+          tiktok?: string | null
+          tiktok_url?: string | null
+          tiktok_not_started?: boolean
+          other_socials?: string | null
+          other_public_pages?: string | null
+          other_public_pages_not_started?: boolean
+          growth_goal?: string | null
+          current_blocker?: string | null
+          target_audience_belief?: string | null
+          intent?: string | null
+          submitted_at?: string
+          raw_answers?: Json
+          metadata?: Json
+        }
+        Relationships: []
+      }
       free_audit_templates: {
         Row: {
           id: string

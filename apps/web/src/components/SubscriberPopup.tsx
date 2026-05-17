@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
+import { readFreeAuditAttribution } from "@/lib/freeAuditAttribution";
 import {
   parseSubscriberPopupState,
   writeSubscriberPopupState,
@@ -109,33 +110,30 @@ export function SubscriberPopup() {
     setIsSubmitting(true);
 
     try {
-      const { data: existing } = await supabase
-        .from("subscribers")
-        .select("id")
-        .eq("email", result.data.email.toLowerCase())
-        .maybeSingle();
-
-      if (existing) {
-        toast({
-          title: "Already subscribed",
-          description: "This email is already on our list.",
-        });
-        suppressSubscriberPopupAsSignedUp();
-        setOpen(false);
-        return;
-      }
-
-      const { error } = await supabase.from("subscribers").insert({
-        name: result.data.name,
-        email: result.data.email.toLowerCase(),
+      const leadSource = readFreeAuditAttribution();
+      const { data, error } = await supabase.functions.invoke("new-subscriber", {
+        body: {
+          record: {
+            name: result.data.name.trim(),
+            email: result.data.email.trim().toLowerCase(),
+          },
+          leadSource,
+        },
       });
 
       if (error) throw error;
 
-      toast({
-        title: "Welcome to The Brief",
-        description: "You've been added to our list.",
-      });
+      if (data?.alreadySubscribed) {
+        toast({
+          title: "Already subscribed",
+          description: "This email is already on our list.",
+        });
+      } else {
+        toast({
+          title: "Welcome to The Brief",
+          description: "You've been added to our list and we'll send updates by email.",
+        });
+      }
 
       suppressSubscriberPopupAsSignedUp();
       setOpen(false);
@@ -143,9 +141,18 @@ export function SubscriberPopup() {
       setEmail("");
     } catch (error) {
       console.error("Subscription error:", error);
+      let description = "Please try again later.";
+      if (error && typeof error === "object" && "context" in error) {
+        const context = (error as { context?: unknown }).context;
+        if (context && typeof context === "object" && "error" in context && typeof (context as { error?: unknown }).error === "string") {
+          description = (context as { error: string }).error;
+        }
+      } else if (error instanceof Error && error.message) {
+        description = error.message;
+      }
       toast({
         title: "Something went wrong",
-        description: "Please try again later.",
+        description,
         variant: "destructive",
       });
     } finally {

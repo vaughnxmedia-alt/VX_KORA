@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,7 @@ import {
   getPublicSiteOrigin,
 } from "@/lib/blog-share";
 import { answerPages } from "@/data/answerPages";
+import { GUIDE_HUB_PATH } from "@/content/guides/beforeYouBuildTheBrand";
 import {
   Pagination,
   PaginationContent,
@@ -41,6 +42,30 @@ type BlogPost = {
   is_featured?: boolean | null;
   is_hot_topic?: boolean | null;
 };
+
+const CATEGORY_RENAMES: Record<string, string> = {
+  "Brand Authority": "Visionary Highlight",
+  "Educational Frameworks": "Educational Series",
+};
+
+const FEATURED_CATEGORIES = [
+  "All",
+  "Client Highlights",
+  "Educational Series",
+  "Public Relations",
+];
+
+const HIDDEN_CATEGORY_FILTERS = new Set([
+  "Visionary Highlight",
+  "Profile",
+  "Start a Business in any State",
+  "The Making of a Brand",
+]);
+
+function normalizeCategory(category: string | null | undefined): string {
+  const value = category?.trim() || "";
+  return CATEGORY_RENAMES[value] ?? value;
+}
 
 const updateTheBriefSEO = () => {
   document.title = "The Brief | JahKnowsPR";
@@ -122,23 +147,7 @@ const Blog = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const articlesPerPage = 6;
 
-  useEffect(() => {
-    updateTheBriefSEO();
-    fetchBlogPosts();
-    
-    const categoryParam = searchParams.get('category');
-    if (categoryParam) {
-      setSelectedCategory(categoryParam);
-    }
-    
-    if (searchParams.get('new_access') === 'true') {
-      setShowWelcome(true);
-      searchParams.delete('new_access');
-      setSearchParams(searchParams);
-    }
-  }, [searchParams, setSearchParams]);
-  
-  const fetchBlogPosts = async () => {
+  const fetchBlogPosts = useCallback(async () => {
       const { data, error } = await supabase
         .from("blog_posts")
         .select("*")
@@ -153,11 +162,35 @@ const Blog = () => {
               variant: "destructive",
           });
       } else {
-          setArticles(data as BlogPost[]);
+          setArticles((data as BlogPost[]).map((post) => ({
+            ...post,
+            category: normalizeCategory(post.category),
+          })));
       }
-  };
+  }, [toast]);
 
-  const categories = ["All", ...Array.from(new Set(articles.map(a => a.category).filter(Boolean)))];
+  useEffect(() => {
+    updateTheBriefSEO();
+    fetchBlogPosts();
+    
+    const categoryParam = searchParams.get('category');
+    if (categoryParam) {
+      setSelectedCategory(normalizeCategory(categoryParam));
+    }
+    
+    if (searchParams.get('new_access') === 'true') {
+      setShowWelcome(true);
+      searchParams.delete('new_access');
+      setSearchParams(searchParams);
+    }
+  }, [fetchBlogPosts, searchParams, setSearchParams]);
+
+  const categories = [
+    ...FEATURED_CATEGORIES,
+    ...Array.from(new Set(articles.map(a => normalizeCategory(a.category)).filter(Boolean)))
+      .filter((category) => !FEATURED_CATEGORIES.includes(category))
+      .filter((category) => !HIDDEN_CATEGORY_FILTERS.has(category)),
+  ];
 
   const { heroArticle, hotArticles, gridArticles } = deriveBriefPageSections(
     articles,
@@ -172,6 +205,16 @@ const Blog = () => {
   );
 
   const handleCategoryClick = (category: string) => {
+    if (category === "Educational Series") {
+      setSelectedCategory("All");
+      setCurrentPage(1);
+      setSearchParams({});
+      setTimeout(() => {
+        const element = document.getElementById("educational-series");
+        element?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+      return;
+    }
     setSelectedCategory(category);
     setCurrentPage(1);
     if (category === "All") {
@@ -272,14 +315,6 @@ const Blog = () => {
                     {cat}
                   </Button>
                 ))}
-                <Button
-                  variant="outline"
-                  onClick={() => navigate("/the-brief/the-perfect-startup")}
-                  className="rounded-full"
-                  size="sm"
-                >
-                  Startup
-                </Button>
               </div>
             </div>
           </div>
@@ -495,7 +530,14 @@ const Blog = () => {
         ) : renderAnswersSection()}
 
         {isAllCategory && (
-          <div className="mt-12 space-y-8 sm:mt-16">
+          <div id="educational-series" className="mt-12 scroll-mt-24 space-y-8 sm:mt-16">
+            <div className="text-center">
+              <p className="text-sm font-semibold uppercase tracking-[0.25em] text-gold-dark">Educational Series</p>
+              <h2 className="mt-3 text-2xl font-bold tracking-tight text-primary sm:text-4xl">
+                Build the foundation before you build the brand<span className="text-gold">.</span>
+              </h2>
+            </div>
+
             <section className="rounded-3xl border bg-[#F7F3EA] p-6 shadow-sm md:p-8">
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
@@ -507,6 +549,21 @@ const Blog = () => {
                 </div>
                 <Button onClick={() => navigate("/the-brief/the-perfect-startup")} className="shrink-0">
                   Browse State Guides
+                </Button>
+              </div>
+            </section>
+
+            <section className="rounded-3xl border bg-[#EAF3F7] p-6 shadow-sm md:p-8">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <Badge variant="outline" className="border-sky-500/40 text-sky-700">The Making of a Brand</Badge>
+                  <h2 className="mt-3 text-2xl font-bold tracking-tight text-primary">Before the audience grows, make the brand clear.</h2>
+                  <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                    Read the JahKnowsPR brand-building series for founders shaping their presence, message, trust signals, and digital foundation.
+                  </p>
+                </div>
+                <Button onClick={() => navigate(GUIDE_HUB_PATH)} className="shrink-0">
+                  Browse Brand Guides
                 </Button>
               </div>
             </section>

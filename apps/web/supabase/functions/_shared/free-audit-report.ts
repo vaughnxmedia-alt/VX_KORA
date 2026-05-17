@@ -289,6 +289,16 @@ function socialHighlightsFromFindings(findings: AuditFindingRecord[], metadata: 
   return [];
 }
 
+function reportBusinessName(audit: FreeAuditRecord, recipient: string): string {
+  const metadata = asObject(audit.metadata);
+  const legalName = originalText(metadata.legal_or_registered_business_name);
+  const publicName = originalText(metadata.public_business_name);
+  return originalText(
+    publicName || audit.business_name || legalName || audit.contact_name || recipient,
+    "Your Brand",
+  );
+}
+
 function metadataQualityWarnings(metadata: JsonRecord): FreeAuditReportWarning[] {
   const socialResearch = asObject(metadata.social_research);
   const rawWarnings = Array.isArray(socialResearch.quality_warnings) ? socialResearch.quality_warnings : [];
@@ -390,7 +400,7 @@ export function buildFreeAuditReport(
   const metadata = asObject(audit.metadata);
   const metadataScan = asObject(metadata.aesthetic_scan);
   const recipient = originalText(audit.lead_email_lower || audit.lead_key);
-  const businessName = originalText(audit.business_name || audit.contact_name || recipient, "Your Brand");
+  const businessName = reportBusinessName(audit, recipient);
   const contactName = originalText(audit.contact_name, "there");
   const readinessLevel = originalText(audit.readiness_level, "WARM").toUpperCase();
   const readinessBaseline = readinessLevel === "HOT" ? 62 : readinessLevel === "COLD" ? 44 : 54;

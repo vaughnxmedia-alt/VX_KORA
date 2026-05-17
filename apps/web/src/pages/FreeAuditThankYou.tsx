@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, Navigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Mail, CalendarDays } from "lucide-react";
 
@@ -13,7 +13,18 @@ function ctaCopy(readiness: Readiness | null): string {
 
 export default function FreeAuditThankYou() {
   const location = useLocation();
-  const readiness = ((location.state as { readiness?: Readiness } | null)?.readiness ?? null) as Readiness | null;
+  const state = (location.state as {
+    readiness?: Readiness;
+    nextStep?: string;
+    reportMode?: string;
+    businessName?: string;
+    auditId?: string;
+  } | null);
+  const readiness = (state?.readiness ?? null) as Readiness | null;
+
+  if (state?.nextStep === "brand_foundation" || state?.reportMode === "starter_guide") {
+    return <Navigate to="/brand-foundation" replace state={state} />;
+  }
 
   return (
     <main className="min-h-screen bg-background text-foreground">

@@ -28,6 +28,7 @@ const SignupConfirmation = React.lazy(() => import('./pages/SignupConfirmation')
 const NotFound = React.lazy(() => import('./pages/NotFound'));
 const TheBriefRoute = React.lazy(() => import('./components/TheBriefRoute'));
 const TheBriefPostRoute = React.lazy(() => import('./components/TheBriefPostRoute'));
+const BeforeYouBuildBrandGuide = React.lazy(() => import('./pages/blog/BeforeYouBuildBrandGuide'));
 const PerfectStartupLandingPage = React.lazy(() =>
   import('./pages/ThePerfectStartup').then((module) => ({ default: module.PerfectStartupLandingPage })),
 );
@@ -39,6 +40,7 @@ const Events = React.lazy(() => import('./pages/Events'));
 const BrandStrategySessionLanding = React.lazy(() => import('./pages/BrandStrategySessionLanding'));
 const FreeAudit = React.lazy(() => import('./pages/FreeAudit'));
 const FreeAuditThankYou = React.lazy(() => import('./pages/FreeAuditThankYou'));
+const BrandFoundationStarterGuide = React.lazy(() => import('./pages/BrandFoundationStarterGuide'));
 const AuditAudioPage = React.lazy(() => import('./pages/AuditAudioPage'));
 const StrategySessionBooking = React.lazy(() => import('./pages/StrategySessionBooking'));
 const StrategySessionPayment = React.lazy(() => import('./pages/StrategySessionPayment'));
@@ -150,6 +152,7 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="/brand-strategy-session" element={<BrandStrategySessionLanding />} />
                 <Route path="/free-audit" element={<FreeAudit />} />
                 <Route path="/free-audit/thank-you" element={<FreeAuditThankYou />} />
+                <Route path="/brand-foundation" element={<BrandFoundationStarterGuide />} />
                 <Route path="/audit/:businessSlug" element={<AuditAudioPage />} />
                 <Route path="/strategy-session" element={<StrategySessionBooking />} />
                 <Route path="/strategy-session/payment" element={<StrategySessionPayment />} />
@@ -166,6 +169,8 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="/the-brief" element={<TheBriefRoute />} />
                 <Route path="/the-brief/the-perfect-startup" element={<PerfectStartupLandingPage />} />
                 <Route path="/the-brief/the-perfect-startup/:stateSlug" element={<PerfectStartupStatePage />} />
+                <Route path="/the-brief/before-you-build-the-brand-starter-guide" element={<BeforeYouBuildBrandGuide />} />
+                <Route path="/the-brief/before-you-build-the-brand/:guideSlug" element={<BeforeYouBuildBrandGuide />} />
                 <Route path="/the-brief/:id" element={<TheBriefPostRoute />} />
                 <Route path="/locations" element={<LocationsIndexPage />} />
                 <Route path="/locations/:citySlug" element={<CityLandingPage />} />

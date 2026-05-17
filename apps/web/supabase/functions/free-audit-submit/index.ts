@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { z } from "https://deno.land/x/zod/mod.ts";
 import { Resend } from "npm:resend@2.0.0";
+import QRCode from "npm:qrcode@1.5.4";
+import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import {
   createServiceClient,
@@ -16,10 +18,20 @@ const submitSchema = z.object({
   name: z.string().max(120).nullable().optional(),
   businessName: z.string().max(160).nullable().optional(),
   publicBusinessName: z.string().max(160).nullable().optional(),
+  websiteUrl: z.string().max(300).nullable().optional(),
+  websiteNotStarted: z.boolean().default(false),
   websiteLink: z.string().max(300).nullable().optional(),
+  instagramUrl: z.string().max(200).nullable().optional(),
+  instagramNotStarted: z.boolean().default(false),
   instagram: z.string().max(200).nullable().optional(),
+  facebookUrl: z.string().max(200).nullable().optional(),
+  facebookNotStarted: z.boolean().default(false),
   facebook: z.string().max(200).nullable().optional(),
+  tiktokUrl: z.string().max(200).nullable().optional(),
+  tiktokNotStarted: z.boolean().default(false),
   tiktok: z.string().max(200).nullable().optional(),
+  otherPublicPages: z.string().max(4000).nullable().optional(),
+  otherPublicPagesNotStarted: z.boolean().default(false),
   otherSocials: z.string().max(4000).nullable().optional(),
   growthGoal: z.string().max(1200).nullable().optional(),
   currentBlocker: z.string().max(1200).nullable().optional(),
@@ -38,10 +50,174 @@ const submitSchema = z.object({
   leadSource: z.record(z.unknown()).optional(),
 });
 
+type SubmitPayload = z.infer<typeof submitSchema>;
+
+type PresenceState = {
+  websiteUrl: string | null;
+  websiteNotStarted: boolean;
+  instagramUrl: string | null;
+  instagramNotStarted: boolean;
+  facebookUrl: string | null;
+  facebookNotStarted: boolean;
+  tiktokUrl: string | null;
+  tiktokNotStarted: boolean;
+  otherPublicPages: string | null;
+  otherPublicPagesNotStarted: boolean;
+};
+
 const FROM_NAME = "Jah Jah";
 const DEFAULT_FROM_EMAIL = "welcome@jahknowspr.com";
+const STARTER_GUIDE_HUB_PATH = "/the-brief/before-you-build-the-brand-starter-guide";
+const STARTER_GUIDE_SECTIONS = [
+  {
+    title: "Before You Build the Brand",
+    readMorePath: STARTER_GUIDE_HUB_PATH,
+    body: [
+      "A Starter Guide for New Businesses",
+      "Before you create the logo, launch the website, post the content, or announce the business, make sure your brand foundation is clear enough to support the attention.",
+    ],
+  },
+  {
+    title: "Start Here",
+    readMorePath: "/the-brief/before-you-build-the-brand/start-here",
+    body: [
+      "Starting a business is exciting, but it can also feel overwhelming.",
+      "Before you build the outside of the brand, you need to build the inside.",
+      "Your brand foundation helps people understand what you do, who you help, why it matters, what makes you different, why they should trust you, and what step they should take next.",
+    ],
+  },
+  {
+    title: "What Is a Brand Foundation?",
+    readMorePath: "/the-brief/before-you-build-the-brand/what-is-a-brand-foundation",
+    body: [
+      "Your brand foundation is the strategy behind how your business is understood.",
+      "It includes your brand name, mission, vision, values, target audience, positioning, messaging, offer clarity, digital presence, trust signals, and conversion path.",
+      "Before people support the brand, they have to understand the brand.",
+    ],
+  },
+  {
+    title: "Website + Social Media Basics",
+    readMorePath: "/the-brief/before-you-build-the-brand/digital-presence",
+    body: [
+      "A beginner website should answer who you are, what you offer, who you help, why people should trust you, and how they can contact, book, buy, or inquire.",
+      "A social media profile should include a searchable name, clear username, profile image, bio, contact link, pinned posts, and consistent content direction.",
+      "Posting more will not fix a profile people do not understand.",
+    ],
+  },
+  {
+    title: "Your First Next Steps",
+    readMorePath: "/the-brief/before-you-build-the-brand/your-next-step",
+    body: [
+      "Choose your brand name and check domain availability.",
+      "Secure your social media usernames.",
+      "Set up a business email.",
+      "Write your mission, offer, and audience statement.",
+      "Create a simple landing page before building a full website.",
+      "Start a blog series about Building a Digital Presence: Website and Social Media Accounts.",
+    ],
+  },
+];
 
-function normalizeLeadKey(data: z.infer<typeof submitSchema>) {
+function cleanPresenceValue(
+  value: string | null | undefined,
+  options?: { treatAsEmpty?: string[] },
+): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (options?.treatAsEmpty?.includes(trimmed.toLowerCase())) return null;
+  return trimmed;
+}
+
+function resolvePresenceChannel(input: {
+  canonical?: string | null;
+  legacy?: string | null;
+  notStarted?: boolean;
+  treatAsEmpty?: string[];
+}) {
+  const value = cleanPresenceValue(input.canonical, { treatAsEmpty: input.treatAsEmpty }) ??
+    cleanPresenceValue(input.legacy, { treatAsEmpty: input.treatAsEmpty });
+  if (value) return { value, notStarted: false };
+  return { value: null, notStarted: Boolean(input.notStarted) };
+}
+
+function resolvePresenceState(form: SubmitPayload): PresenceState {
+  const website = resolvePresenceChannel({
+    canonical: form.websiteUrl,
+    legacy: form.websiteLink,
+    notStarted: form.websiteNotStarted,
+  });
+  const instagram = resolvePresenceChannel({
+    canonical: form.instagramUrl,
+    legacy: form.instagram,
+    notStarted: form.instagramNotStarted,
+  });
+  const facebook = resolvePresenceChannel({
+    canonical: form.facebookUrl,
+    legacy: form.facebook,
+    notStarted: form.facebookNotStarted,
+  });
+  const tiktok = resolvePresenceChannel({
+    canonical: form.tiktokUrl,
+    legacy: form.tiktok,
+    notStarted: form.tiktokNotStarted,
+  });
+  const otherPublicPages = resolvePresenceChannel({
+    canonical: form.otherPublicPages,
+    legacy: form.otherSocials,
+    notStarted: form.otherPublicPagesNotStarted,
+    treatAsEmpty: ["no other public pages submitted."],
+  });
+  return {
+    websiteUrl: website.value,
+    websiteNotStarted: website.notStarted,
+    instagramUrl: instagram.value,
+    instagramNotStarted: instagram.notStarted,
+    facebookUrl: facebook.value,
+    facebookNotStarted: facebook.notStarted,
+    tiktokUrl: tiktok.value,
+    tiktokNotStarted: tiktok.notStarted,
+    otherPublicPages: otherPublicPages.value,
+    otherPublicPagesNotStarted: otherPublicPages.notStarted,
+  };
+}
+
+function buildBrandStageSignals(presence: PresenceState) {
+  const channels = {
+    website: { value: presence.websiteUrl, not_started: presence.websiteNotStarted },
+    instagram: { value: presence.instagramUrl, not_started: presence.instagramNotStarted },
+    facebook: { value: presence.facebookUrl, not_started: presence.facebookNotStarted },
+    tiktok: { value: presence.tiktokUrl, not_started: presence.tiktokNotStarted },
+    other_public_pages: { value: presence.otherPublicPages, not_started: presence.otherPublicPagesNotStarted },
+  };
+  const submittedPresenceCount = Object.values(channels).filter((channel) => Boolean(channel.value)).length;
+  const presenceNotStartedCount = Object.values(channels).filter((channel) => channel.not_started).length;
+
+  return {
+    presence_not_started_count: presenceNotStartedCount,
+    submitted_presence_count: submittedPresenceCount,
+    has_any_public_presence: submittedPresenceCount > 0,
+    channels: {
+      website_not_started: channels.website.not_started,
+      instagram_not_started: channels.instagram.not_started,
+      facebook_not_started: channels.facebook.not_started,
+      tiktok_not_started: channels.tiktok.not_started,
+      other_public_pages_not_started: channels.other_public_pages.not_started,
+    },
+  };
+}
+
+function usesBrandFoundationPipeline(presence: PresenceState): boolean {
+  // Product rule:
+  // - Website present => audit pipeline.
+  // - OR Instagram + Facebook + TikTok all present => audit pipeline.
+  // - Otherwise => brand foundation starter-guide pipeline.
+  const hasWebsite = Boolean(presence.websiteUrl);
+  const hasAllCoreSocials = Boolean(presence.instagramUrl) && Boolean(presence.facebookUrl) && Boolean(presence.tiktokUrl);
+  return !(hasWebsite || hasAllCoreSocials);
+}
+
+function normalizeLeadKey(data: SubmitPayload) {
   if (data.leadKey?.trim()) return data.leadKey.trim().toLowerCase();
   if (data.email?.trim()) return data.email.trim().toLowerCase();
   return data.customerId!;
@@ -174,7 +350,10 @@ async function syncAuditSeparation(input: {
   leadKey: string;
   leadEmailLower: string | null;
   customerId: string | null;
-  form: z.infer<typeof submitSchema>;
+  form: SubmitPayload;
+  presence: PresenceState;
+  brandStageSignals: ReturnType<typeof buildBrandStageSignals>;
+  usesBrandFoundationPipeline: boolean;
   attribution: ReturnType<typeof readAttributionFromPayload>;
   normalizedSocialSources: Record<string, unknown>;
 }) {
@@ -189,9 +368,11 @@ async function syncAuditSeparation(input: {
     legal_or_registered_business_name: input.form.businessName ?? null,
     public_business_name: input.form.publicBusinessName ?? null,
     requires_filing_notice: input.form.businessEntityType === "personal_brand_without_documentation",
+    brand_stage_signals: input.brandStageSignals,
+    report_mode: input.usesBrandFoundationPipeline ? "starter_guide" : "brand_diagnosis",
     normalized_social_sources: input.normalizedSocialSources,
     social_research: {
-      status: "queued",
+      status: input.usesBrandFoundationPipeline ? "skipped_no_digital_presence" : "queued",
       queued_at: nowIso,
       normalized_sources: input.normalizedSocialSources,
     },
@@ -232,11 +413,21 @@ async function syncAuditSeparation(input: {
     business_entity_type: input.form.businessEntityType ?? null,
     business_name: input.form.businessName ?? null,
     public_business_name: input.form.publicBusinessName ?? null,
-    website_link: input.form.websiteLink ?? null,
-    instagram: input.form.instagram ?? null,
-    facebook: input.form.facebook ?? null,
-    tiktok: input.form.tiktok ?? null,
-    other_socials: input.form.otherSocials ?? null,
+    website_link: input.presence.websiteUrl,
+    instagram: input.presence.instagramUrl,
+    facebook: input.presence.facebookUrl,
+    tiktok: input.presence.tiktokUrl,
+    other_socials: input.presence.otherPublicPages,
+    website_url: input.presence.websiteUrl,
+    website_not_started: input.presence.websiteNotStarted,
+    instagram_url: input.presence.instagramUrl,
+    instagram_not_started: input.presence.instagramNotStarted,
+    facebook_url: input.presence.facebookUrl,
+    facebook_not_started: input.presence.facebookNotStarted,
+    tiktok_url: input.presence.tiktokUrl,
+    tiktok_not_started: input.presence.tiktokNotStarted,
+    other_public_pages: input.presence.otherPublicPages,
+    other_public_pages_not_started: input.presence.otherPublicPagesNotStarted,
     growth_goal: input.form.growthGoal ?? null,
     current_blocker: input.form.currentBlocker ?? null,
     target_audience_belief: input.form.targetAudienceBelief ?? null,
@@ -249,11 +440,21 @@ async function syncAuditSeparation(input: {
       businessEntityType: input.form.businessEntityType ?? null,
       businessName: input.form.businessName ?? null,
       publicBusinessName: input.form.publicBusinessName ?? null,
-      websiteLink: input.form.websiteLink ?? null,
-      instagram: input.form.instagram ?? null,
-      facebook: input.form.facebook ?? null,
-      tiktok: input.form.tiktok ?? null,
-      otherSocials: input.form.otherSocials ?? null,
+      websiteUrl: input.presence.websiteUrl,
+      websiteNotStarted: input.presence.websiteNotStarted,
+      websiteLink: input.presence.websiteUrl,
+      instagramUrl: input.presence.instagramUrl,
+      instagramNotStarted: input.presence.instagramNotStarted,
+      instagram: input.presence.instagramUrl,
+      facebookUrl: input.presence.facebookUrl,
+      facebookNotStarted: input.presence.facebookNotStarted,
+      facebook: input.presence.facebookUrl,
+      tiktokUrl: input.presence.tiktokUrl,
+      tiktokNotStarted: input.presence.tiktokNotStarted,
+      tiktok: input.presence.tiktokUrl,
+      otherPublicPages: input.presence.otherPublicPages,
+      otherPublicPagesNotStarted: input.presence.otherPublicPagesNotStarted,
+      otherSocials: input.presence.otherPublicPages,
       growthGoal: input.form.growthGoal ?? null,
       currentBlocker: input.form.currentBlocker ?? null,
       targetAudienceBelief: input.form.targetAudienceBelief ?? null,
@@ -262,6 +463,8 @@ async function syncAuditSeparation(input: {
     metadata: {
       source: "free_audit_submit",
       attribution: input.attribution,
+      brand_stage_signals: input.brandStageSignals,
+      report_mode: input.usesBrandFoundationPipeline ? "starter_guide" : "brand_diagnosis",
     },
   }, { onConflict: "audit_intake_id" });
   if (originalError) throw originalError;
@@ -285,6 +488,8 @@ async function syncAuditSeparation(input: {
     metadata: {
       source: "free_audit_submit",
       attribution: input.attribution,
+      brand_stage_signals: input.brandStageSignals,
+      report_mode: input.usesBrandFoundationPipeline ? "starter_guide" : "brand_diagnosis",
     },
   }, { onConflict: "audit_intake_id" });
   if (analysisError) throw analysisError;
@@ -338,6 +543,129 @@ function normalizeEmail(value: string): string | null {
   const trimmed = value.trim().toLowerCase();
   if (!trimmed) return null;
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ? trimmed : null;
+}
+
+function pdfBytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.slice(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+function wrapPdfText(text: string, font: Awaited<ReturnType<PDFDocument["embedFont"]>>, size: number, maxWidth: number) {
+  const words = text.replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    const candidate = `${current} ${word}`.trim();
+    if (font.widthOfTextAtSize(candidate, size) > maxWidth && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+async function createStarterGuideQrPng(url: string): Promise<Uint8Array | null> {
+  try {
+    const dataUrl = await QRCode.toDataURL(url, {
+      errorCorrectionLevel: "M",
+      margin: 1,
+      width: 160,
+      color: {
+        dark: "#0A1A35",
+        light: "#FFFFFF",
+      },
+    });
+    const base64 = dataUrl.split(",")[1];
+    if (!base64) return null;
+    return Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+  } catch (error) {
+    console.error("Could not generate starter guide QR code", error);
+    return null;
+  }
+}
+
+async function buildStarterGuidePdf(input: { businessName: string }) {
+  const pdf = await PDFDocument.create();
+  const titleFont = await pdf.embedFont(StandardFonts.TimesRomanBold);
+  const bodyFont = await pdf.embedFont(StandardFonts.Helvetica);
+  const boldFont = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const pageWidth = 612;
+  const pageHeight = 792;
+  const margin = 56;
+  const navy = rgb(0.039, 0.102, 0.208);
+  const gold = rgb(0.773, 0.608, 0.235);
+  const offWhite = rgb(0.969, 0.953, 0.918);
+  const publicSiteUrl = (Deno.env.get("PUBLIC_SITE_URL")?.trim() || "https://www.jahknowspr.com").replace(/\/$/, "");
+
+  for (const [index, section] of STARTER_GUIDE_SECTIONS.entries()) {
+    const page = pdf.addPage([pageWidth, pageHeight]);
+    page.drawRectangle({ x: 0, y: 0, width: pageWidth, height: pageHeight, color: offWhite });
+    page.drawText(index === 0 ? "JAHKNOWSPR / STARTER GUIDE" : `SECTION ${index + 1}`, {
+      x: margin,
+      y: 720,
+      size: 9,
+      font: boldFont,
+      color: gold,
+      characterSpacing: 2,
+    });
+    let cursor = 650;
+    wrapPdfText(section.title, titleFont, index === 0 ? 34 : 28, pageWidth - margin * 2).slice(0, 3).forEach((line) => {
+      page.drawText(line, { x: margin, y: cursor, size: index === 0 ? 34 : 28, font: titleFont, color: navy });
+      cursor -= index === 0 ? 38 : 32;
+    });
+    cursor -= 28;
+    section.body.forEach((paragraph) => {
+      wrapPdfText(paragraph, bodyFont, 11, pageWidth - margin * 2).forEach((line) => {
+        page.drawText(line, { x: margin, y: cursor, size: 11, font: bodyFont, color: navy });
+        cursor -= 16;
+      });
+      cursor -= 14;
+    });
+    if (index === 0) {
+      page.drawText(`Prepared for ${input.businessName}`, { x: margin, y: 300, size: 11, font: boldFont, color: navy });
+      page.drawText("By JahKnowsPR", { x: margin, y: 278, size: 11, font: boldFont, color: navy });
+    }
+    const readMoreUrl = `${publicSiteUrl}${section.readMorePath}`;
+    page.drawRectangle({
+      x: margin,
+      y: 58,
+      width: pageWidth - margin * 2,
+      height: 74,
+      color: rgb(1, 1, 1),
+      borderColor: rgb(0.86, 0.82, 0.72),
+      borderWidth: 0.7,
+    });
+    page.drawText(index === 0 ? "OPEN THE GUIDE HUB" : "READ THE FULL BREAKDOWN", {
+      x: margin + 16,
+      y: 108,
+      size: 7.5,
+      font: boldFont,
+      color: gold,
+      characterSpacing: 1.8,
+    });
+    page.drawText(`Read more: jahknowspr.com${section.readMorePath}`, {
+      x: margin + 16,
+      y: 84,
+      size: 8,
+      font: boldFont,
+      color: navy,
+    });
+    const qrPng = await createStarterGuideQrPng(readMoreUrl);
+    if (qrPng) {
+      const qrImage = await pdf.embedPng(qrPng);
+      page.drawImage(qrImage, { x: pageWidth - margin - 58, y: 70, width: 46, height: 46 });
+    }
+    page.drawRectangle({ x: 0, y: 0, width: pageWidth, height: 10, color: navy });
+  }
+
+  return pdf.save();
 }
 
 async function fetchAdminEmails(supabase: ReturnType<typeof createServiceClient>): Promise<string[]> {
@@ -433,6 +761,57 @@ async function safeNotifyNewAuditEmail(
   }
 }
 
+async function safeSendStarterGuideEmail(input: {
+  email: string;
+  contactName?: string | null;
+  businessName?: string | null;
+}) {
+  const resendApiKey = Deno.env.get("RESEND_API_KEY")?.trim();
+  if (!resendApiKey) return;
+  const recipient = normalizeEmail(input.email);
+  if (!recipient) return;
+
+  const fromEmail = (Deno.env.get("FREE_AUDIT_FROM_EMAIL")?.trim() ||
+    Deno.env.get("STRATEGY_SESSION_FROM_EMAIL")?.trim() ||
+    DEFAULT_FROM_EMAIL);
+  const publicSiteUrl = (Deno.env.get("PUBLIC_SITE_URL")?.trim() || "https://www.jahknowspr.com").replace(/\/$/, "");
+  const businessName = input.businessName?.trim() || "your new business";
+  const contactName = input.contactName?.trim() || "there";
+  const pdfBytes = await buildStarterGuidePdf({ businessName });
+  const pdfBase64 = pdfBytesToBase64(pdfBytes);
+  const filename = `${businessName.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").slice(0, 80) || "brand"}-starter-guide.pdf`;
+
+  const html = `
+  <body style="margin:0;background:#F7F3EA;padding:28px 12px;font-family:Arial,sans-serif;color:#0A1A35;line-height:1.6;">
+    <div style="max-width:680px;margin:0 auto;background:#fff;border:1px solid #E8DFC8;border-radius:24px;overflow:hidden;">
+      <div style="height:8px;background:#0A1A35;"></div>
+      <div style="padding:34px 32px 28px;">
+        <p style="margin:0 0 14px;font-size:11px;letter-spacing:0.28em;text-transform:uppercase;color:#8C6C27;font-weight:700;">JahKnowsPR Firm / Brand Foundation</p>
+        <h1 style="font-family:Georgia,serif;margin:0 0 18px;font-size:36px;line-height:1.05;color:#0A1A35;">Your Starter Guide is attached</h1>
+        <p style="margin:0 0 14px;">Hi ${contactName},</p>
+        <p style="margin:0 0 14px;">You finished the questionnaire for <strong>${businessName}</strong>. Because there is no website or social media presence to review yet, we attached the Brand Foundation Starter Guide instead of a full research-heavy audit.</p>
+        <p style="margin:0 0 14px;">Use this guide to build the basics first: brand foundation, website direction, social profile setup, content direction, and trust signals.</p>
+        <p style="margin:0 0 18px;">Once your website or social media accounts are live, apply for the Free Brand Audit again so JahKnowsPR can review the actual public presence.</p>
+        <p style="margin:0 0 18px;"><a href="${publicSiteUrl}/free-audit" style="display:inline-block;background:#0A1A35;color:#fff;padding:13px 20px;border-radius:999px;text-decoration:none;font-weight:700;">Apply Again After Setup</a></p>
+        <p style="margin:24px 0 0;font-size:12px;color:#666;">JahKnowsPR Firm</p>
+      </div>
+    </div>
+  </body>`;
+
+  try {
+    const resend = new Resend(resendApiKey);
+    await resend.emails.send({
+      from: `${FROM_NAME} <${fromEmail}>`,
+      to: recipient,
+      subject: "Your Brand Foundation Starter Guide",
+      html,
+      attachments: [{ filename, content: pdfBase64 }],
+    });
+  } catch (error) {
+    console.warn("starter guide email failed", error);
+  }
+}
+
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -457,6 +836,9 @@ serve(async (req) => {
     const supabase = createServiceClient();
     const leadKey = normalizeLeadKey(p);
     const leadEmailLower = p.email?.trim().toLowerCase() ?? null;
+    const presence = resolvePresenceState(p);
+    const brandStageSignals = buildBrandStageSignals(presence);
+    const brandFoundationPipeline = usesBrandFoundationPipeline(presence);
     if (leadEmailLower) {
       const { data: existingAudit, error: existingAuditError } = await supabase
         .from("free_audits")
@@ -476,11 +858,11 @@ serve(async (req) => {
       }
     }
     const normalizedSocialSources = normalizeAuditSources({
-      website_link: p.websiteLink,
-      instagram: p.instagram,
-      facebook: p.facebook,
-      tiktok: p.tiktok,
-      other_socials: p.otherSocials,
+      website_link: presence.websiteUrl,
+      instagram: presence.instagramUrl,
+      facebook: presence.facebookUrl,
+      tiktok: presence.tiktokUrl,
+      other_socials: presence.otherPublicPages,
     });
     const attribution = readAttributionFromPayload(body);
     const attributionMeta = attribution.metadata as Record<string, unknown>;
@@ -509,11 +891,11 @@ serve(async (req) => {
         contact_name: p.name ?? null,
         phone: p.phone ?? null,
         business_name: p.publicBusinessName?.trim() || p.businessName || null,
-        website_link: p.websiteLink ?? null,
-        instagram: p.instagram ?? null,
-        facebook: p.facebook ?? null,
-        tiktok: p.tiktok ?? null,
-        other_socials: p.otherSocials ?? null,
+        website_link: presence.websiteUrl,
+        instagram: presence.instagramUrl,
+        facebook: presence.facebookUrl,
+        tiktok: presence.tiktokUrl,
+        other_socials: presence.otherPublicPages,
         growth_goal: p.growthGoal ?? null,
         current_blocker: p.currentBlocker ?? null,
         target_audience_belief: p.targetAudienceBelief ?? null,
@@ -536,9 +918,11 @@ serve(async (req) => {
           legal_or_registered_business_name: p.businessName ?? null,
           public_business_name: p.publicBusinessName ?? null,
           requires_filing_notice: p.businessEntityType === "personal_brand_without_documentation",
+          brand_stage_signals: brandStageSignals,
+          report_mode: brandFoundationPipeline ? "starter_guide" : "brand_diagnosis",
           normalized_social_sources: normalizedSocialSources,
           social_research: {
-            status: "queued",
+            status: brandFoundationPipeline ? "skipped_no_digital_presence" : "queued",
             queued_at: new Date().toISOString(),
             normalized_sources: normalizedSocialSources,
           },
@@ -566,6 +950,9 @@ serve(async (req) => {
       leadEmailLower,
       customerId: p.customerId ?? null,
       form: p,
+      presence,
+      brandStageSignals,
+      usesBrandFoundationPipeline: brandFoundationPipeline,
       attribution,
       normalizedSocialSources,
     });
@@ -635,6 +1022,8 @@ serve(async (req) => {
           attribution,
           audit_angle: p.auditAngle,
           readiness_level: p.readinessLevel,
+          brand_stage_signals: brandStageSignals,
+          report_mode: brandFoundationPipeline ? "starter_guide" : "brand_diagnosis",
         },
       }),
       safeUpsertFunnelAttribution(supabase, {
@@ -659,6 +1048,8 @@ serve(async (req) => {
           audit_intake_id: audit.id,
           buyer_journey_id: buyerJourneyId,
           audit_angle: p.auditAngle,
+          brand_stage_signals: brandStageSignals,
+          report_mode: brandFoundationPipeline ? "starter_guide" : "brand_diagnosis",
         },
       }),
       safeRecordOutcome(supabase, {
@@ -711,6 +1102,8 @@ serve(async (req) => {
           attribution,
           audit_intake_id: audit.id,
           buyer_journey_id: buyerJourneyId,
+          brand_stage_signals: brandStageSignals,
+          report_mode: brandFoundationPipeline ? "starter_guide" : "brand_diagnosis",
         },
       }),
       safeRecordOutcome(supabase, {
@@ -761,10 +1154,21 @@ serve(async (req) => {
           readiness_level: p.readinessLevel,
           audit_intake_id: audit.id,
           buyer_journey_id: buyerJourneyId,
+          brand_stage_signals: brandStageSignals,
+          report_mode: brandFoundationPipeline ? "starter_guide" : "brand_diagnosis",
         },
       }),
-      safeRequestAestheticScan(audit.id),
-      safeRequestSocialResearch(audit.id),
+      ...(brandFoundationPipeline ? [] : [
+        safeRequestAestheticScan(audit.id),
+        safeRequestSocialResearch(audit.id),
+      ]),
+      ...(brandFoundationPipeline ? [
+        safeSendStarterGuideEmail({
+          email: p.email,
+          contactName: audit.contact_name,
+          businessName: audit.business_name,
+        }),
+      ] : []),
       safeNotifyNewAuditEmail(supabase, {
         contactName: audit.contact_name,
         businessName: audit.business_name,
@@ -776,6 +1180,8 @@ serve(async (req) => {
       auditIntakeId: audit.id,
       leadKey,
       buyerKey,
+      nextStep: brandFoundationPipeline ? "brand_foundation" : "audit_review",
+      reportMode: brandFoundationPipeline ? "starter_guide" : "brand_diagnosis",
       startedAt: audit.started_at,
     }), {
       status: 200,

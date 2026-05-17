@@ -20,10 +20,20 @@ type FormState = {
   businessEntityType: BusinessEntityType | "";
   businessName: string;
   publicBusinessName: string;
+  websiteUrl: string;
+  websiteNotStarted: boolean;
   websiteLink: string;
+  instagramUrl: string;
+  instagramNotStarted: boolean;
   instagram: string;
+  facebookUrl: string;
+  facebookNotStarted: boolean;
   facebook: string;
+  tiktokUrl: string;
+  tiktokNotStarted: boolean;
   tiktok: string;
+  otherPublicPages: string;
+  otherPublicPagesNotStarted: boolean;
   otherSocials: string;
   growthGoal: string;
   currentBlocker: string;
@@ -38,10 +48,20 @@ const INITIAL_FORM: FormState = {
   businessEntityType: "",
   businessName: "",
   publicBusinessName: "",
+  websiteUrl: "",
+  websiteNotStarted: false,
   websiteLink: "",
+  instagramUrl: "",
+  instagramNotStarted: false,
   instagram: "",
+  facebookUrl: "",
+  facebookNotStarted: false,
   facebook: "",
+  tiktokUrl: "",
+  tiktokNotStarted: false,
   tiktok: "",
+  otherPublicPages: "",
+  otherPublicPagesNotStarted: false,
   otherSocials: "",
   growthGoal: "",
   currentBlocker: "",
@@ -121,35 +141,35 @@ const QUESTIONS: Question[] = [
     placeholder: "Public-facing business or brand name",
   },
   {
-    key: "websiteLink",
+    key: "websiteUrl",
     eyebrow: "Presence",
     title: "Do you have a website?",
     input: "url",
     placeholder: "https://...",
   },
   {
-    key: "instagram",
+    key: "instagramUrl",
     eyebrow: "Presence",
     title: "What is your Instagram?",
     input: "text",
     placeholder: "@yourbrand",
   },
   {
-    key: "facebook",
+    key: "facebookUrl",
     eyebrow: "Presence",
     title: "What is your Facebook?",
     input: "text",
     placeholder: "Facebook page or profile link",
   },
   {
-    key: "tiktok",
+    key: "tiktokUrl",
     eyebrow: "Presence",
     title: "What is your TikTok?",
     input: "text",
     placeholder: "@yourbrand",
   },
   {
-    key: "otherSocials",
+    key: "otherPublicPages",
     eyebrow: "Presence",
     title: "Do you use any other public pages?",
     description: "Tap a platform, then add the username or paste the profile link. More links help us understand your full public brand footprint.",
@@ -188,6 +208,37 @@ const QUESTIONS: Question[] = [
   },
 ].map((question) => ({ ...question, required: true }));
 
+type PresenceFieldKey =
+  | "websiteUrl"
+  | "instagramUrl"
+  | "facebookUrl"
+  | "tiktokUrl"
+  | "otherPublicPages";
+
+type PresenceFlagKey =
+  | "websiteNotStarted"
+  | "instagramNotStarted"
+  | "facebookNotStarted"
+  | "tiktokNotStarted"
+  | "otherPublicPagesNotStarted";
+
+type LegacyPresenceFieldKey =
+  | "websiteLink"
+  | "instagram"
+  | "facebook"
+  | "tiktok"
+  | "otherSocials";
+
+const PRESENCE_CONFIG: Record<PresenceFieldKey, { legacyKey: LegacyPresenceFieldKey; notStartedKey: PresenceFlagKey }> = {
+  websiteUrl: { legacyKey: "websiteLink", notStartedKey: "websiteNotStarted" },
+  instagramUrl: { legacyKey: "instagram", notStartedKey: "instagramNotStarted" },
+  facebookUrl: { legacyKey: "facebook", notStartedKey: "facebookNotStarted" },
+  tiktokUrl: { legacyKey: "tiktok", notStartedKey: "tiktokNotStarted" },
+  otherPublicPages: { legacyKey: "otherSocials", notStartedKey: "otherPublicPagesNotStarted" },
+};
+
+const PRESENCE_FIELDS = Object.keys(PRESENCE_CONFIG) as PresenceFieldKey[];
+
 function setMeta(selector: string, attr: "content" | "href", value: string) {
   const node = document.querySelector(selector);
   if (node) node.setAttribute(attr, value);
@@ -200,6 +251,11 @@ function readinessFromIntent(intent: Intent | ""): Readiness {
 }
 
 function isQuestionAnswered(form: FormState, question: Question): boolean {
+  if (PRESENCE_FIELDS.includes(question.key as PresenceFieldKey)) {
+    const key = question.key as PresenceFieldKey;
+    const config = PRESENCE_CONFIG[key];
+    return form[key].trim().length > 0 || form[config.notStartedKey];
+  }
   const value = form[question.key];
   return typeof value === "string" && value.trim().length > 0;
 }
@@ -248,11 +304,11 @@ function inferIndustry(form: FormState): string {
   const blob = [
     form.businessName,
     form.publicBusinessName,
-    form.websiteLink,
-    form.instagram,
-    form.facebook,
-    form.tiktok,
-    form.otherSocials,
+    form.websiteUrl,
+    form.instagramUrl,
+    form.facebookUrl,
+    form.tiktokUrl,
+    form.otherPublicPages,
     form.growthGoal,
     form.currentBlocker,
     form.targetAudienceBelief,
@@ -267,19 +323,84 @@ function inferIndustry(form: FormState): string {
   return "professional_services";
 }
 
+function buildBrandStageSignals(form: FormState) {
+  const normalizePresenceValue = (value: string): string => {
+    const trimmed = value.trim();
+    const lowered = trimmed.toLowerCase();
+    if (
+      !trimmed ||
+      lowered === "no other public pages submitted." ||
+      lowered === "no other public pages submitted" ||
+      lowered === "no other pages" ||
+      lowered === "none" ||
+      lowered === "n/a"
+    ) {
+      return "";
+    }
+    return trimmed;
+  };
+  const channels = {
+    website: { value: normalizePresenceValue(form.websiteUrl), not_started: form.websiteNotStarted },
+    instagram: { value: normalizePresenceValue(form.instagramUrl), not_started: form.instagramNotStarted },
+    facebook: { value: normalizePresenceValue(form.facebookUrl), not_started: form.facebookNotStarted },
+    tiktok: { value: normalizePresenceValue(form.tiktokUrl), not_started: form.tiktokNotStarted },
+    other_public_pages: { value: normalizePresenceValue(form.otherPublicPages), not_started: form.otherPublicPagesNotStarted },
+  };
+  const submittedPresenceCount = Object.values(channels).filter((channel) => channel.value.length > 0).length;
+  const presenceNotStartedCount = Object.values(channels).filter((channel) => channel.not_started).length;
+
+  return {
+    presence_not_started_count: presenceNotStartedCount,
+    submitted_presence_count: submittedPresenceCount,
+    has_any_public_presence: submittedPresenceCount > 0,
+    channels: {
+      website_not_started: channels.website.not_started,
+      instagram_not_started: channels.instagram.not_started,
+      facebook_not_started: channels.facebook.not_started,
+      tiktok_not_started: channels.tiktok.not_started,
+      other_public_pages_not_started: channels.other_public_pages.not_started,
+    },
+  };
+}
+
+function normalizeCorePresenceValue(value: string): string {
+  const trimmed = value.trim();
+  const lowered = trimmed.toLowerCase();
+  if (!trimmed || lowered === "none" || lowered === "n/a" || lowered === "not started") return "";
+  return trimmed;
+}
+
+function qualifiesForAuditPipeline(form: FormState): boolean {
+  const hasWebsite = normalizeCorePresenceValue(form.websiteUrl).length > 0;
+  const hasAllCoreSocials = [
+    normalizeCorePresenceValue(form.instagramUrl),
+    normalizeCorePresenceValue(form.facebookUrl),
+    normalizeCorePresenceValue(form.tiktokUrl),
+  ].every((value) => value.length > 0);
+  return hasWebsite || hasAllCoreSocials;
+}
+
 function buildAuditScoreSummary(form: FormState, readiness: Readiness, auditAngle: string) {
   const baseline = readiness === "HOT" ? 62 : readiness === "WARM" ? 54 : 44;
-  const presenceCount = [form.websiteLink, form.instagram, form.facebook, form.tiktok, form.otherSocials]
+  const presenceCount = [form.websiteUrl, form.instagramUrl, form.facebookUrl, form.tiktokUrl, form.otherPublicPages]
     .filter((value) => value.trim().length > 0).length;
+  const presenceNotStartedCount = [
+    form.websiteNotStarted,
+    form.instagramNotStarted,
+    form.facebookNotStarted,
+    form.tiktokNotStarted,
+    form.otherPublicPagesNotStarted,
+  ].filter(Boolean).length;
   const goalDepth = contextDepth(form.growthGoal);
   const blockerDepth = contextDepth(form.currentBlocker);
   const audienceDepth = contextDepth(form.targetAudienceBelief);
   const presenceBoost = Math.min(8, presenceCount * 2);
+  const missingPresencePenalty = presenceCount > 0 ? 0 : (presenceNotStartedCount > 0 ? 0 : 8);
 
   return {
     positioning_score: clampScore(baseline - 8 + goalDepth - Math.max(0, blockerDepth / 2)),
     audience_score: clampScore(baseline - 5 + audienceDepth),
-    authority_score: clampScore(baseline + presenceBoost - (presenceCount ? 0 : 8)),
+    authority_score: clampScore(baseline + presenceBoost - missingPresencePenalty),
     messaging_score: clampScore(baseline - 2 + Math.min(5, goalDepth + audienceDepth)),
     conversion_score: clampScore(baseline - 10 + (form.intent === "ready_now" ? 5 : 0) + Math.min(4, presenceCount)),
     primary_gap: form.currentBlocker.trim(),
@@ -290,8 +411,16 @@ function buildAuditScoreSummary(form: FormState, readiness: Readiness, auditAngl
     industry: inferIndustry(form),
     evidence: {
       submitted_presence_count: presenceCount,
-      has_website: Boolean(form.websiteLink.trim()),
+      presence_not_started_count: presenceNotStartedCount,
+      has_website: Boolean(form.websiteUrl.trim()),
       has_social_context: presenceCount > 1,
+      channels_not_started: {
+        website_not_started: form.websiteNotStarted,
+        instagram_not_started: form.instagramNotStarted,
+        facebook_not_started: form.facebookNotStarted,
+        tiktok_not_started: form.tiktokNotStarted,
+        other_public_pages_not_started: form.otherPublicPagesNotStarted,
+      },
       answer_depth: {
         growth_goal: form.growthGoal.trim().length,
         current_blocker: form.currentBlocker.trim().length,
@@ -308,6 +437,7 @@ export default function FreeAudit() {
   const [started, setStarted] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [filingAcknowledged, setFilingAcknowledged] = useState(false);
   const [selectedOtherSocial, setSelectedOtherSocial] = useState<(typeof OTHER_SOCIAL_OPTIONS)[number]["id"] | null>(null);
   const [otherSocialValues, setOtherSocialValues] = useState<Record<string, string>>({});
@@ -376,13 +506,42 @@ export default function FreeAudit() {
   }, []);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
+    setSubmitError(null);
     setForm((current) => {
-      const next = { ...current, [key]: value };
+      const next = { ...current, [key]: value } as FormState;
       if (key === "businessEntityType" && value !== "personal_brand_without_documentation") {
         setFilingAcknowledged(false);
       }
+      if (PRESENCE_FIELDS.includes(key as PresenceFieldKey)) {
+        const field = key as PresenceFieldKey;
+        const config = PRESENCE_CONFIG[field];
+        const textValue = String(value ?? "");
+        next[config.legacyKey] = textValue;
+        if (textValue.trim()) next[config.notStartedKey] = false;
+      }
       return next;
     });
+  }
+
+  function setPresenceNotStarted(field: PresenceFieldKey, checked: boolean) {
+    const config = PRESENCE_CONFIG[field];
+    setSubmitError(null);
+    setForm((current) => {
+      const next = { ...current, [config.notStartedKey]: checked } as FormState;
+      if (checked) {
+        next[field] = "";
+        next[config.legacyKey] = "";
+      }
+      return next;
+    });
+    if (field === "otherPublicPages") {
+      if (checked) {
+        setSelectedOtherSocial("none");
+        setOtherSocialValues({});
+      } else if (selectedOtherSocial === "none") {
+        setSelectedOtherSocial(null);
+      }
+    }
   }
 
   function syncOtherSocials(nextValues: Record<string, string>, selectedId = selectedOtherSocial) {
@@ -394,24 +553,28 @@ export default function FreeAudit() {
       })
       .filter(Boolean);
     if (selectedId === "none") {
-      update("otherSocials", "No other public pages submitted.");
+      setPresenceNotStarted("otherPublicPages", true);
       return;
     }
-    update("otherSocials", lines.join("\n"));
+    update("otherPublicPages", lines.join("\n"));
   }
 
   function selectOtherSocial(optionId: (typeof OTHER_SOCIAL_OPTIONS)[number]["id"]) {
+    setSubmitError(null);
     setSelectedOtherSocial(optionId);
     if (optionId === "none") {
       const cleared: Record<string, string> = {};
       setOtherSocialValues(cleared);
-      update("otherSocials", "No other public pages submitted.");
+      setPresenceNotStarted("otherPublicPages", true);
       return;
     }
+    if (form.otherPublicPagesNotStarted) setPresenceNotStarted("otherPublicPages", false);
     syncOtherSocials(otherSocialValues, optionId);
   }
 
   function updateOtherSocialValue(optionId: string, value: string) {
+    setSubmitError(null);
+    if (form.otherPublicPagesNotStarted) setPresenceNotStarted("otherPublicPages", false);
     const nextValues = { ...otherSocialValues, [optionId]: value };
     setOtherSocialValues(nextValues);
     syncOtherSocials(nextValues, optionId as (typeof OTHER_SOCIAL_OPTIONS)[number]["id"]);
@@ -437,14 +600,28 @@ export default function FreeAudit() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (currentRequiredMissing || !allQuestionsAnswered || !form.intent || filingAckMissing) return;
+    if (filingAckMissing) {
+      setSubmitError("Please acknowledge the filing notice before submitting.");
+      return;
+    }
+    if (!form.intent) {
+      setSubmitError("Please select your readiness intent before submitting.");
+      return;
+    }
+    if (currentRequiredMissing || !allQuestionsAnswered) {
+      setSubmitError("Please complete all required questions before submitting.");
+      return;
+    }
     setSubmitting(true);
+    setSubmitError(null);
     const nextAttribution = collectFreeAuditAttribution({
       messaging_angle: attribution?.messaging_angle ?? "positioning_gap",
       hook: attribution?.hook ?? "free_brand_audit",
     });
     const auditAngle = normalizeAuditAngle(nextAttribution.messaging_angle);
     const scoreSummary = buildAuditScoreSummary(form, readiness, auditAngle);
+    const brandStageSignals = buildBrandStageSignals(form);
+    const usesBrandFoundationPipeline = !qualifiesForAuditPipeline(form);
     try {
       const submit = await supabase.functions.invoke("free-audit-submit", {
         body: {
@@ -463,10 +640,22 @@ export default function FreeAudit() {
             lead_magnet_id: "free_audit",
             offer_stage: "free",
             buyer_key: nextAttribution.buyer_key,
+            brand_stage_signals: brandStageSignals,
+            report_mode: usesBrandFoundationPipeline ? "starter_guide" : "brand_diagnosis",
             report_inputs: {
               business_entity_type: form.businessEntityType,
               public_business_name: form.publicBusinessName.trim(),
               requires_filing_notice: form.businessEntityType === "personal_brand_without_documentation",
+              website_url: form.websiteUrl.trim(),
+              website_not_started: form.websiteNotStarted,
+              instagram_url: form.instagramUrl.trim(),
+              instagram_not_started: form.instagramNotStarted,
+              facebook_url: form.facebookUrl.trim(),
+              facebook_not_started: form.facebookNotStarted,
+              tiktok_url: form.tiktokUrl.trim(),
+              tiktok_not_started: form.tiktokNotStarted,
+              other_public_pages: form.otherPublicPages.trim(),
+              other_public_pages_not_started: form.otherPublicPagesNotStarted,
               growth_goal: form.growthGoal.trim(),
               current_blocker: form.currentBlocker.trim(),
               target_audience_belief: form.targetAudienceBelief.trim(),
@@ -480,10 +669,18 @@ export default function FreeAudit() {
         if (submit.error) throw new Error(await freeAuditFunctionErrorMessage(submit.error));
         throw new Error("Could not submit audit.");
       }
+      const submitData = submit.data as {
+        auditId: string;
+        nextStep?: string;
+        reportMode?: string;
+      };
+      const shouldRouteToBrandFoundation = usesBrandFoundationPipeline ||
+        submitData.nextStep === "brand_foundation" ||
+        submitData.reportMode === "starter_guide";
 
       await supabase.functions.invoke("free-audit-complete", {
         body: {
-          auditId: submit.data.auditId,
+          auditId: submitData.auditId,
           completionStatus: "completed",
           scoreSummary: {
             readiness_level: readiness,
@@ -499,10 +696,22 @@ export default function FreeAudit() {
           metadata: {
             attribution: { ...nextAttribution, messaging_angle: auditAngle },
             readiness_level: readiness,
+            brand_stage_signals: brandStageSignals,
+            report_mode: usesBrandFoundationPipeline ? "starter_guide" : "brand_diagnosis",
             report_inputs: {
               business_entity_type: form.businessEntityType,
               public_business_name: form.publicBusinessName.trim(),
               requires_filing_notice: form.businessEntityType === "personal_brand_without_documentation",
+              website_url: form.websiteUrl.trim(),
+              website_not_started: form.websiteNotStarted,
+              instagram_url: form.instagramUrl.trim(),
+              instagram_not_started: form.instagramNotStarted,
+              facebook_url: form.facebookUrl.trim(),
+              facebook_not_started: form.facebookNotStarted,
+              tiktok_url: form.tiktokUrl.trim(),
+              tiktok_not_started: form.tiktokNotStarted,
+              other_public_pages: form.otherPublicPages.trim(),
+              other_public_pages_not_started: form.otherPublicPagesNotStarted,
               growth_goal: form.growthGoal.trim(),
               current_blocker: form.currentBlocker.trim(),
               target_audience_belief: form.targetAudienceBelief.trim(),
@@ -529,13 +738,26 @@ export default function FreeAudit() {
         },
       });
 
-      navigate("/free-audit/thank-you", {
-        replace: true,
-        state: { readiness },
-      });
+      if (shouldRouteToBrandFoundation) {
+        navigate("/brand-foundation", {
+          replace: true,
+          state: {
+            readiness,
+            auditId: submitData.auditId,
+            businessName: form.publicBusinessName.trim() || form.businessName.trim() || "your new business",
+          },
+        });
+      } else {
+        navigate("/free-audit/thank-you", {
+          replace: true,
+          state: { readiness, nextStep: submitData.nextStep, reportMode: submitData.reportMode },
+        });
+      }
     } catch (error) {
       console.error("free audit submit failed", error);
-      alert(error instanceof Error ? error.message : "Could not submit audit.");
+      const message = error instanceof Error ? error.message : "Could not submit audit.";
+      setSubmitError(message);
+      alert(message);
     } finally {
       setSubmitting(false);
     }
@@ -627,6 +849,7 @@ export default function FreeAudit() {
                         <button
                           key={option.id}
                           type="button"
+                          disabled={form.otherPublicPagesNotStarted}
                           className={`rounded-2xl border p-4 text-left transition ${
                             selectedOtherSocial === option.id
                               ? "border-gold bg-gold/10 shadow-lg shadow-gold/10"
@@ -650,14 +873,15 @@ export default function FreeAudit() {
                         <Input
                           autoFocus
                           className="h-12 text-base"
+                          disabled={form.otherPublicPagesNotStarted}
                           placeholder={OTHER_SOCIAL_OPTIONS.find((option) => option.id === selectedOtherSocial)?.placeholder}
                           value={otherSocialValues[selectedOtherSocial] ?? ""}
                           onChange={(event) => updateOtherSocialValue(selectedOtherSocial, event.target.value)}
                         />
-                        {form.otherSocials.trim() ? (
+                        {form.otherPublicPages.trim() ? (
                           <div className="mt-4 rounded-xl bg-background/70 p-3 text-sm text-muted-foreground">
                             <p className="font-medium text-foreground">Added so far</p>
-                            <p className="mt-1 whitespace-pre-wrap">{form.otherSocials}</p>
+                            <p className="mt-1 whitespace-pre-wrap">{form.otherPublicPages}</p>
                           </div>
                         ) : null}
                       </div>
@@ -720,6 +944,9 @@ export default function FreeAudit() {
                   <Input
                     autoFocus
                     className="h-14 text-lg"
+                    disabled={PRESENCE_FIELDS.includes(resolvedQuestion.key as PresenceFieldKey)
+                      ? form[PRESENCE_CONFIG[resolvedQuestion.key as PresenceFieldKey].notStartedKey]
+                      : false}
                     required={resolvedQuestion.required}
                     type={resolvedQuestion.input}
                     placeholder={resolvedQuestion.placeholder}
@@ -727,6 +954,17 @@ export default function FreeAudit() {
                     onChange={(event) => update(resolvedQuestion.key, event.target.value as never)}
                   />
                 )}
+                {PRESENCE_FIELDS.includes(resolvedQuestion.key as PresenceFieldKey) ? (
+                  <label className="mt-4 flex cursor-pointer items-start gap-2 text-sm text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={form[PRESENCE_CONFIG[resolvedQuestion.key as PresenceFieldKey].notStartedKey]}
+                      onChange={(event) => setPresenceNotStarted(resolvedQuestion.key as PresenceFieldKey, event.target.checked)}
+                    />
+                    <span>I don&rsquo;t have this at all yet.</span>
+                  </label>
+                ) : null}
                 {filingAckRequiredNow ? (
                   <div className="mt-4 rounded-2xl border border-destructive/30 bg-destructive/10 p-4">
                     <p className="text-sm font-semibold text-destructive">Immediate next step before continuing</p>
@@ -761,6 +999,11 @@ export default function FreeAudit() {
                   </Button>
                 )}
               </div>
+              {submitError ? (
+                <p className="mt-4 text-sm font-medium text-destructive">
+                  {submitError}
+                </p>
+              ) : null}
             </div>
           </form>
         </section>

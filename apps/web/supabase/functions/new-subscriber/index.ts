@@ -218,25 +218,31 @@ serve(async (req) => {
 });
 
 const createEmailHtml = (name: string) => `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; line-height: 1.6; color: #333;">
-     <h2 style="color: #2563eb; margin-bottom: 20px;">Hey ${name},</h2>
-      <p>Thank you for requesting access to <strong>JahKnowsPR Firm</strong>. Your name has been added to our early-access list; and that means you'll be among the first to experience what's coming next.</p>
-      <p>We're currently finalizing our new platform; a home for strategy, storytelling, and visibility designed to help brands and creators be seen, heard, and remembered.</p>
-      <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 25px 0;">
-        <h3 style="color: #1e40af; margin-top: 0;">You've been granted immediate access to The Brief!</h3>
-        <p>In the meantime, you can start exploring our exclusive content hub for brand strategy insights and marketing analysis.</p>
-        <a href="${THE_BRIEF_URL}" style="display: inline-block; background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 10px;">
-          Explore The Brief Now
-        </a>
-      </div>
-      <p>Stay close; we'll keep you updated as new platform features, services, and client opportunities roll out.</p>
-      <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-        <p style="margin-bottom: 5px;"><strong>Warm regards,</strong></p>
-        <p style="margin-bottom: 5px;"><strong>${FROM_NAME}</strong></p>
-        <p style="margin-bottom: 5px; color: #6b7280;">Founder & Lead Strategist</p>
-        <p style="margin-bottom: 0; color: #6b7280;"><strong>JahKnowsPR Firm</strong></p>
+  <body style="margin:0;background:#F7F3EA;padding:28px 12px;font-family:Arial,sans-serif;color:#0A1A35;line-height:1.6;">
+    <div style="max-width:680px;margin:0 auto;background:#fff;border:1px solid #E8DFC8;border-radius:24px;overflow:hidden;">
+      <div style="height:8px;background:#0A1A35;"></div>
+      <div style="padding:34px 32px 28px;">
+        <p style="margin:0 0 14px;font-size:11px;letter-spacing:0.28em;text-transform:uppercase;color:#8C6C27;font-weight:700;">JahKnowsPR Firm / The Brief</p>
+        <h1 style="font-family:Georgia,serif;margin:0 0 18px;font-size:38px;line-height:1.05;color:#0A1A35;">You're in.</h1>
+        <p style="margin:0 0 14px;">Hi ${name},</p>
+        <p style="margin:0 0 14px;">
+          Thank you for requesting access to <strong>The Brief</strong>. You now have immediate access to JahKnowsPR strategic articles.
+        </p>
+        <div style="margin:20px 0;padding:18px;border-left:4px solid #C59B3C;background:#F7F3EA;border-radius:0 16px 16px 0;">
+          <p style="margin:0;color:#0A1A35;">
+            Use The Brief to strengthen your positioning, audience clarity, messaging, and conversion decisions before your next campaign move.
+          </p>
+        </div>
+        <p style="margin:0 0 16px;">Start reading here:</p>
+        <p style="margin:0 0 18px;">
+          <a href="${THE_BRIEF_URL}" style="display:inline-block;background:#0A1A35;color:#fff;padding:13px 20px;border-radius:999px;text-decoration:none;font-weight:700;">
+            Explore The Brief Now
+          </a>
+        </p>
+        <p style="margin:24px 0 0;font-size:12px;color:#666;">JahKnowsPR Firm</p>
       </div>
     </div>
+  </body>
   `;
 const subscriberSchema = z.object({
   name: z.string().min(2, "Name is too short").max(50, "Name is too long"),
