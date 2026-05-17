@@ -214,6 +214,8 @@ export default function StrategySessionBooking() {
       funnel_id: "strategy_session",
       funnel_step: "landing",
       offer_id: "strategy_session",
+      lead_magnet_id: "strategy_session",
+      offer_stage: "paid_trust_builder",
       metadata: { booking_kind: bookingKindFromUrl ?? null },
     });
   }, [bookingKindFromUrl]);
@@ -226,6 +228,9 @@ export default function StrategySessionBooking() {
       form_name: "Strategy Session Intake",
       funnel_id: "strategy_session",
       funnel_step: "intake_start",
+      offer_id: "strategy_session",
+      lead_magnet_id: "strategy_session",
+      offer_stage: "paid_trust_builder",
     });
   }, [step]);
 
@@ -305,6 +310,9 @@ export default function StrategySessionBooking() {
       form_name: "Strategy Session Intake",
       funnel_id: "strategy_session",
       funnel_step: "intake_complete",
+      offer_id: "strategy_session",
+      lead_magnet_id: "strategy_session",
+      offer_stage: "paid_trust_builder",
     });
     const firstOpen = nextOpenDayOnOrAfter(new Date(), DEFAULT_OPEN_WEEKDAYS);
     if (!selectedDay) {
@@ -327,6 +335,8 @@ export default function StrategySessionBooking() {
       funnel_id: "strategy_session",
       funnel_step: "slot_selected",
       offer_id: "strategy_session",
+      lead_magnet_id: "strategy_session",
+      offer_stage: "paid_trust_builder",
       cta_id: "book_strategy_session",
       cta_label: "Book Session",
       metadata: { timezone, selected_slot_iso: selectedSlotIso, booking_kind: bookingKindFromUrl ?? null },

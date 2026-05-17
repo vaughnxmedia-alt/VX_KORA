@@ -250,6 +250,11 @@ function isJahKnowsPrAudit(audit: FreeAuditRecord, businessName: string): boolea
 
 function inferPrimaryCta(audit: FreeAuditRecord, businessName: string, industry = ""): string {
   const blob = auditContextBlob(audit, businessName, industry);
+  if (/podcast|episode|creator|youtube|channel|show|broadcast|stream/.test(blob)) {
+    if (/nonprofit|community|member|membership|donor|ministry|church|join/.test(blob)) return "Join the Community";
+    if (/sponsor|partnership|partner/.test(blob)) return "Sponsor a Series";
+    return "Submit a Story";
+  }
   if (/photograph|photographer|photo shoot|photoshoot|portrait|headshot|wedding|pixieset|gallery/.test(blob)) {
     return "Book a Photo Shoot";
   }

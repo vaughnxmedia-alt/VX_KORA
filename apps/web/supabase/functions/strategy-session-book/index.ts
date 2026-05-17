@@ -88,6 +88,20 @@ function splitName(full: string): { first: string; last: string | null } {
   return { first: t.slice(0, i).trim(), last: t.slice(i + 1).trim() || null };
 }
 
+function textOrNull(value: unknown, max = 180): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed.slice(0, max) : null;
+}
+
+function canonicalBuyerKey(input: { buyerKey?: string | null; emailNorm: string; customerId: string }) {
+  return textOrNull(input.buyerKey, 180) ?? textOrNull(input.emailNorm, 180) ?? input.customerId;
+}
+
+function buyerJourneyKey(input: { customerId: string; canonicalBuyerKey: string }) {
+  return `jahknowspr_web:jahknowspr:${input.customerId}:${input.canonicalBuyerKey}`.slice(0, 300);
+}
+
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
@@ -123,6 +137,15 @@ serve(async (req) => {
     }
     const p = parsed.data;
     const leadSource = readAttributionFromPayload(body as Record<string, unknown>);
+    const leadSourceMeta = leadSource.metadata as Record<string, unknown>;
+    const buyerKeyFromSource = textOrNull(leadSourceMeta.buyer_key, 180);
+    const leadMagnetId = textOrNull(leadSourceMeta.lead_magnet_id, 120) ?? "strategy_session";
+    const offerStage = textOrNull(leadSourceMeta.offer_stage, 80) ?? "paid_trust_builder";
+    const campaignId = textOrNull(leadSourceMeta.campaign_id, 120);
+    const adsetId = textOrNull(leadSourceMeta.adset_id, 120);
+    const creativeId = textOrNull(leadSourceMeta.creative_id, 120);
+    const audienceClusterId = textOrNull(leadSourceMeta.audience_cluster_id, 120);
+    const audiencePoolId = textOrNull(leadSourceMeta.audience_pool_id, 120);
     const slotDate = new Date(p.slotStart);
     if (Number.isNaN(slotDate.getTime())) {
       return new Response(JSON.stringify({ error: "Invalid slot time" }), {
@@ -264,8 +287,24 @@ serve(async (req) => {
       customerId = inserted!.id;
     }
 
+    const correlationLookup = (leadSource.correlation_id ?? emailNorm).replace(/,/g, "");
+    const { data: linkedAudit } = await supabase
+      .from("free_audits")
+      .select("id,audit_intake_id,buyer_key")
+      .or(`correlation_id.eq.${correlationLookup},lead_email_lower.eq.${emailNorm},lead_key.eq.${emailNorm}`)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const auditIntakeId = linkedAudit?.audit_intake_id ?? linkedAudit?.id ?? null;
+    const buyerKey = linkedAudit?.buyer_key ?? buyerKeyFromSource ?? emailNorm;
+    const canonicalBuyer = canonicalBuyerKey({ buyerKey, emailNorm, customerId });
+    const journeyKey = buyerJourneyKey({ customerId, canonicalBuyerKey: canonicalBuyer });
+
     const meetingPayload = {
       customer_id: customerId,
+      audit_intake_id: auditIntakeId,
+      buyer_key: buyerKey,
+      lead_magnet_id: leadMagnetId,
       title: `Strategy Session — ${p.businessName}`,
       description: null as string | null,
       meeting_date: slotDate.toISOString(),
@@ -318,36 +357,208 @@ serve(async (req) => {
 
     const meetingId = meetingRow!.id as string;
 
+    await supabase.from("buyer_identity_links").upsert([
+      {
+        canonical_buyer_key: canonicalBuyer,
+        identity_type: "buyer_key",
+        identity_value: buyerKey,
+        site_id: "jahknowspr_web",
+        brand_id: "jahknowspr",
+        client_id: customerId,
+        last_seen_at: new Date().toISOString(),
+        metadata: { source: "strategy_session_book" },
+      },
+      {
+        canonical_buyer_key: canonicalBuyer,
+        identity_type: "email",
+        identity_value: emailNorm,
+        site_id: "jahknowspr_web",
+        brand_id: "jahknowspr",
+        client_id: customerId,
+        last_seen_at: new Date().toISOString(),
+        metadata: { source: "strategy_session_book" },
+      },
+      {
+        canonical_buyer_key: canonicalBuyer,
+        identity_type: "customer_id",
+        identity_value: customerId,
+        site_id: "jahknowspr_web",
+        brand_id: "jahknowspr",
+        client_id: customerId,
+        last_seen_at: new Date().toISOString(),
+        metadata: { source: "strategy_session_book" },
+      },
+    ], { onConflict: "canonical_buyer_key,identity_type,identity_value" });
+
+    const { data: buyerJourney, error: buyerJourneyError } = await supabase
+      .from("buyer_journeys")
+      .upsert({
+        journey_key: journeyKey,
+        site_id: "jahknowspr_web",
+        brand_id: "jahknowspr",
+        client_id: customerId,
+        canonical_buyer_key: canonicalBuyer,
+        buyer_key: buyerKey,
+        lead_key: emailNorm,
+        customer_id: customerId,
+        audit_intake_id: auditIntakeId,
+        strategy_session_id: meetingId,
+        first_event_at: slotDate.toISOString(),
+        last_event_at: slotDate.toISOString(),
+        first_touch_utm_source: leadSource.utm_source ?? null,
+        first_touch_utm_medium: leadSource.utm_medium ?? null,
+        first_touch_utm_campaign: leadSource.utm_campaign ?? null,
+        first_touch_utm_content: leadSource.utm_content ?? null,
+        first_touch_utm_term: leadSource.utm_term ?? null,
+        last_touch_utm_source: leadSource.utm_source ?? null,
+        last_touch_utm_medium: leadSource.utm_medium ?? null,
+        last_touch_utm_campaign: leadSource.utm_campaign ?? null,
+        last_touch_utm_content: leadSource.utm_content ?? null,
+        last_touch_utm_term: leadSource.utm_term ?? null,
+        journey_status: "strategy_session_booked",
+        latest_offer_id: "strategy_session",
+        latest_campaign_id: campaignId,
+        latest_lead_magnet_id: leadMagnetId,
+        metadata: {
+          source: "strategy_session_book",
+          booking_kind: p.bookingKind ?? "full_program_sales",
+        },
+      }, { onConflict: "journey_key" })
+      .select("id")
+      .single();
+    if (buyerJourneyError) throw buyerJourneyError;
+    const buyerJourneyId = buyerJourney?.id as string;
+
+    await supabase
+      .from("meetings")
+      .update({ buyer_journey_id: buyerJourneyId })
+      .eq("id", meetingId);
+
     await supabase
       .from("free_audits")
-      .update({ follow_up_status: "booked_strategy_session" })
+      .update({ follow_up_status: "booked_strategy_session", strategy_session_id: meetingId })
       .or(`correlation_id.eq.${leadSource.correlation_id ?? emailNorm},lead_key.eq.${emailNorm}`);
+
+    if (auditIntakeId) {
+      await supabase
+        .from("audit_intakes")
+        .update({
+          status: "booked_strategy_session",
+          last_touch_at: new Date().toISOString(),
+        })
+        .eq("id", auditIntakeId);
+    }
 
     if (payRow) {
       const { error: linkPayErr } = await supabase
         .from("payment_transactions")
-        .update({ meeting_id: meetingId })
+        .update({ meeting_id: meetingId, buyer_key: buyerKey, buyer_journey_id: buyerJourneyId })
         .eq("id", payRow.id);
       if (linkPayErr) throw linkPayErr;
     }
 
     await Promise.allSettled([
+      supabase
+        .from("lead_magnet_interactions")
+        .insert({
+          lead_magnet_id: leadMagnetId,
+          interaction_kind: "booking",
+          interaction_status: "success",
+          occurred_at: slotDate.toISOString(),
+          site_id: "jahknowspr_web",
+          brand_id: "jahknowspr",
+          client_id: customerId,
+          buyer_journey_id: buyerJourneyId,
+          canonical_buyer_key: canonicalBuyer,
+          buyer_key: buyerKey,
+          lead_key: emailNorm,
+          customer_id: customerId,
+          audit_intake_id: auditIntakeId,
+          strategy_session_id: meetingId,
+          payment_transaction_id: payRow?.id ?? null,
+          campaign_id: campaignId,
+          adset_id: adsetId,
+          creative_id: creativeId,
+          audience_cluster_id: audienceClusterId,
+          audience_pool_id: audiencePoolId,
+          offer_id: "strategy_session",
+          offer_stage: offerStage,
+          revenue_value: complimentary ? 0 : 150,
+          currency: "USD",
+          metadata: {
+            source: "strategy_session_book",
+            booking_kind: p.bookingKind ?? "full_program_sales",
+          },
+        }),
+      supabase
+        .from("offer_presentations")
+        .insert({
+          presented_at: slotDate.toISOString(),
+          site_id: "jahknowspr_web",
+          brand_id: "jahknowspr",
+          client_id: customerId,
+          buyer_journey_id: buyerJourneyId,
+          canonical_buyer_key: canonicalBuyer,
+          buyer_key: buyerKey,
+          lead_key: emailNorm,
+          customer_id: customerId,
+          offer_id: "strategy_session",
+          offer_name: "Strategy Session",
+          offer_type: "consultation",
+          offer_stage: offerStage,
+          lead_magnet_id: leadMagnetId,
+          audit_intake_id: auditIntakeId,
+          strategy_session_id: meetingId,
+          campaign_id: campaignId,
+          adset_id: adsetId,
+          creative_id: creativeId,
+          audience_cluster_id: audienceClusterId,
+          audience_pool_id: audiencePoolId,
+          presented_by: "system",
+          metadata: {
+            source: "strategy_session_book",
+            booking_kind: p.bookingKind ?? "full_program_sales",
+          },
+        }),
       safeUpsertFunnelAttribution(supabase, {
         lead_key: emailNorm,
         lead_kind: "meeting",
         tenant_id: customerId,
         attribution_confidence: 0.75,
         multi_touch_weight: 0.55,
+        buyer_key: buyerKey,
+        lead_magnet_id: leadMagnetId,
+        campaign_id: campaignId,
+        adset_id: adsetId,
+        creative_id: creativeId,
+        offer_id: "strategy_session",
+        offer_stage: offerStage,
+        audience_cluster_id: audienceClusterId,
+        audience_pool_id: audiencePoolId,
         ...leadSource,
         metadata: {
           ...leadSource.metadata,
           meeting_id: meetingId,
+          buyer_journey_id: buyerJourneyId,
+          audit_intake_id: auditIntakeId,
           booking_kind: p.bookingKind ?? "full_program_sales",
         },
       }),
       safeRecordOutcome(supabase, {
         tenant_id: customerId,
         lead_id: emailNorm,
+        buyer_key: buyerKey,
+        buyer_journey_id: buyerJourneyId,
+        audit_intake_id: auditIntakeId,
+        strategy_session_id: meetingId,
+        lead_magnet_id: leadMagnetId,
+        campaign_id: campaignId,
+        adset_id: adsetId,
+        creative_id: creativeId,
+        offer_id: "strategy_session",
+        offer_stage: offerStage,
+        audience_cluster_id: audienceClusterId,
+        audience_pool_id: audiencePoolId,
         subject_kind: "meeting",
         subject_id: meetingId,
         actor_kind: "client",
@@ -384,7 +595,12 @@ serve(async (req) => {
           complimentary,
           payment_transaction_id: payRow?.id ?? null,
         },
-        metadata: { leadSource, employee_reference_code: employeeRefNormalized },
+        metadata: {
+          leadSource,
+          employee_reference_code: employeeRefNormalized,
+          audit_intake_id: auditIntakeId,
+          buyer_journey_id: buyerJourneyId,
+        },
       }),
     ]);
 
@@ -393,6 +609,9 @@ serve(async (req) => {
       JSON.stringify({
         ok: true,
         meetingId,
+        auditIntakeId: auditIntakeId ?? null,
+        buyerKey,
+        buyerJourneyId,
         confirmationStatus: "pending_approval",
         message:
           "Request received. Our team will confirm your time and email you shortly.",

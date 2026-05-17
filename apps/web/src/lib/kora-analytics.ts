@@ -128,6 +128,60 @@ function collectUtm(): Pick<
   };
 }
 
+function collectAttributionParams(): Pick<
+  KoraAnalyticsEvent,
+  | "client_id"
+  | "industry_key"
+  | "audience_cluster_id"
+  | "lead_magnet_id"
+  | "offer_stage"
+  | "platform"
+  | "content_angle"
+  | "message_angle"
+  | "landing_page_url"
+  | "audit_intake_id"
+  | "strategy_session_id"
+  | "buyer_journey_id"
+  | "audience_pool_id"
+  | "offer_id"
+  | "campaign_id"
+  | "adset_id"
+  | "creative_id"
+  | "buyer_key"
+> {
+  if (!isBrowser()) return {};
+
+  const params = new URLSearchParams(window.location.search);
+  const readParam = (...keys: string[]): string | null => {
+    for (const key of keys) {
+      const value = params.get(key)?.trim();
+      if (value) return value.slice(0, 180);
+    }
+    return null;
+  };
+
+  return {
+    client_id: readParam("client_id", "k_client", "cid"),
+    industry_key: readParam("industry_key", "k_industry", "industry"),
+    audience_cluster_id: readParam("audience_cluster_id", "k_audience_cluster", "k_audience"),
+    lead_magnet_id: readParam("lead_magnet_id", "k_lead_magnet"),
+    offer_stage: readParam("offer_stage", "k_offer_stage"),
+    platform: readParam("platform", "k_platform"),
+    content_angle: readParam("content_angle", "k_content_angle"),
+    message_angle: readParam("message_angle", "k_message_angle"),
+    landing_page_url: readParam("landing_page_url", "k_landing_url"),
+    audit_intake_id: readParam("audit_intake_id", "k_audit_intake"),
+    strategy_session_id: readParam("strategy_session_id", "k_strategy_session"),
+    buyer_journey_id: readParam("buyer_journey_id", "k_buyer_journey"),
+    audience_pool_id: readParam("audience_pool_id", "k_audience_pool"),
+    offer_id: readParam("offer_id", "k_offer"),
+    campaign_id: readParam("campaign_id", "k_campaign"),
+    adset_id: readParam("adset_id", "k_adset"),
+    creative_id: readParam("creative_id", "k_creative"),
+    buyer_key: readParam("buyer_key", "k_buyer"),
+  };
+}
+
 export function getOrCreateAnonymousVisitorId(): string {
   if (!isBrowser()) return "server_visitor";
   const existing = window.localStorage.getItem(VISITOR_STORAGE_KEY);
@@ -172,6 +226,7 @@ function basePayload(): Omit<AnalyticsTrackPayload, "event_name"> {
     device_type: detectDeviceType(),
     browser: detectBrowser(),
     ...collectUtm(),
+    ...collectAttributionParams(),
     metadata: {},
   };
 }

@@ -98,7 +98,7 @@ serve(async (req) => {
   const { data: meeting, error: mErr } = await supabase
     .from("meetings")
     .select(
-      "id, customer_id, full_name, business_name, email, phone, meeting_date, session_type, timezone, service_name, booking_status, confirmation_status, host_user_id",
+      "id, customer_id, audit_intake_id, buyer_key, buyer_journey_id, full_name, business_name, email, phone, meeting_date, session_type, timezone, service_name, booking_status, confirmation_status, host_user_id",
     )
     .eq("id", meetingId)
     .maybeSingle();
@@ -255,6 +255,13 @@ serve(async (req) => {
       safeRecordOutcome(supabase, {
         tenant_id: (meeting.customer_id as string | null) ?? null,
         lead_id: guestEmail,
+        buyer_key: (meeting as Record<string, unknown>).buyer_key as string | null ?? guestEmail,
+        buyer_journey_id: (meeting as Record<string, unknown>).buyer_journey_id as string | null ?? null,
+        audit_intake_id: (meeting as Record<string, unknown>).audit_intake_id as string | null ?? null,
+        strategy_session_id: meetingId,
+        lead_magnet_id: "strategy_session",
+        offer_id: "strategy_session",
+        offer_stage: "paid_trust_builder",
         subject_kind: "meeting",
         subject_id: meetingId,
         actor_kind: "employee",
@@ -312,6 +319,13 @@ serve(async (req) => {
       safeRecordOutcome(supabase, {
         tenant_id: (meeting.customer_id as string | null) ?? null,
         lead_id: guestEmail,
+        buyer_key: (meeting as Record<string, unknown>).buyer_key as string | null ?? guestEmail,
+        buyer_journey_id: (meeting as Record<string, unknown>).buyer_journey_id as string | null ?? null,
+        audit_intake_id: (meeting as Record<string, unknown>).audit_intake_id as string | null ?? null,
+        strategy_session_id: meetingId,
+        lead_magnet_id: "strategy_session",
+        offer_id: "strategy_session",
+        offer_stage: "paid_trust_builder",
         subject_kind: "meeting",
         subject_id: meetingId,
         actor_kind: "employee",

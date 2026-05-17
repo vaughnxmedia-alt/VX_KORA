@@ -22,6 +22,20 @@ export interface LlsConfidenceInput {
 export interface LlsOutcomePayload extends LlsConfidenceInput {
   tenant_id?: string | null;
   lead_id?: string | null;
+  buyer_key?: string | null;
+  buyer_journey_id?: string | null;
+  audit_intake_id?: string | null;
+  strategy_session_id?: string | null;
+  lead_magnet_id?: string | null;
+  campaign_id?: string | null;
+  adset_id?: string | null;
+  creative_id?: string | null;
+  offer_id?: string | null;
+  offer_stage?: string | null;
+  audience_cluster_id?: string | null;
+  audience_pool_id?: string | null;
+  revenue_attribution_id?: string | null;
+  contract_attribution_id?: string | null;
   subject_kind:
     | "free_audit"
     | "lead"
@@ -85,6 +99,15 @@ export interface LlsAttributionPayload {
   lead_key: string;
   lead_kind: "subscriber" | "meeting" | "brand_blueprint" | "free_audit" | "customer";
   tenant_id?: string | null;
+  buyer_key?: string | null;
+  lead_magnet_id?: string | null;
+  campaign_id?: string | null;
+  adset_id?: string | null;
+  creative_id?: string | null;
+  offer_id?: string | null;
+  offer_stage?: string | null;
+  audience_cluster_id?: string | null;
+  audience_pool_id?: string | null;
   utm_source?: string | null;
   utm_medium?: string | null;
   utm_campaign?: string | null;
@@ -283,6 +306,15 @@ export function readAttributionFromPayload(body: Record<string, unknown>) {
         ? source.utm_content
         : null;
   return {
+    buyer_key: typeof source.buyer_key === "string" ? source.buyer_key : null,
+    lead_magnet_id: typeof source.lead_magnet_id === "string" ? source.lead_magnet_id : null,
+    campaign_id: typeof source.campaign_id === "string" ? source.campaign_id : null,
+    adset_id: typeof source.adset_id === "string" ? source.adset_id : null,
+    creative_id: typeof source.creative_id === "string" ? source.creative_id : null,
+    offer_id: typeof source.offer_id === "string" ? source.offer_id : null,
+    offer_stage: typeof source.offer_stage === "string" ? source.offer_stage : null,
+    audience_cluster_id: typeof source.audience_cluster_id === "string" ? source.audience_cluster_id : null,
+    audience_pool_id: typeof source.audience_pool_id === "string" ? source.audience_pool_id : null,
     utm_source: typeof source.utm_source === "string" ? source.utm_source : null,
     utm_medium: typeof source.utm_medium === "string" ? source.utm_medium : null,
     utm_campaign: typeof source.utm_campaign === "string" ? source.utm_campaign : null,

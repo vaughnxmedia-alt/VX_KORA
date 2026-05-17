@@ -72,6 +72,19 @@ export type KoraAnalyticsEvent = {
   site_id: string;
   client_id?: string | null;
   brand_id: string;
+  industry_key?: string | null;
+  audience_cluster_id?: string | null;
+  lead_magnet_id?: string | null;
+  offer_stage?: string | null;
+  platform?: string | null;
+  content_angle?: string | null;
+  message_angle?: string | null;
+  landing_page_url?: string | null;
+  audit_intake_id?: string | null;
+  strategy_session_id?: string | null;
+  buyer_journey_id?: string | null;
+  adset_id?: string | null;
+  creative_id?: string | null;
   page_path?: string | null;
   page_title?: string | null;
   referrer?: string | null;
@@ -100,6 +113,7 @@ export type KoraAnalyticsEvent = {
   anonymous_visitor_id: string;
   session_id: string;
   user_id?: string | null;
+  buyer_key?: string | null;
   device_type?: string | null;
   browser?: string | null;
   country_or_region?: string | null;
@@ -217,21 +231,40 @@ export type RevenueAttribution = {
   id: string;
   created_at: string;
   site_id: string;
+  client_id?: string | null;
   brand_id: string;
+  industry_key?: string | null;
+  audience_cluster_id?: string | null;
+  audience_pool_id?: string | null;
+  lead_magnet_id?: string | null;
+  offer_stage?: string | null;
   order_id: string | null;
   payment_provider: string | null;
   offer_id: string | null;
   offer_name: string | null;
   amount: number;
   currency: string | null;
+  platform?: string | null;
+  content_angle?: string | null;
+  message_angle?: string | null;
+  landing_page_url?: string | null;
   page_path: string | null;
   campaign_id: string | null;
+  adset_id?: string | null;
+  creative_id?: string | null;
   utm_source: string | null;
   utm_medium: string | null;
   utm_campaign: string | null;
+  utm_content?: string | null;
+  utm_term?: string | null;
   anonymous_visitor_id: string | null;
   session_id: string | null;
   user_id: string | null;
+  audit_intake_id?: string | null;
+  strategy_session_id?: string | null;
+  buyer_journey_id?: string | null;
+  contract_attribution_id?: string | null;
+  buyer_key?: string | null;
   metadata: Record<string, unknown>;
 };
 
@@ -266,6 +299,19 @@ export type AnalyticsTrackPayload = Pick<
   | "site_id"
   | "client_id"
   | "brand_id"
+  | "industry_key"
+  | "audience_cluster_id"
+  | "lead_magnet_id"
+  | "offer_stage"
+  | "platform"
+  | "content_angle"
+  | "message_angle"
+  | "landing_page_url"
+  | "audit_intake_id"
+  | "strategy_session_id"
+  | "buyer_journey_id"
+  | "adset_id"
+  | "creative_id"
   | "page_path"
   | "page_title"
   | "referrer"
@@ -294,6 +340,7 @@ export type AnalyticsTrackPayload = Pick<
   | "anonymous_visitor_id"
   | "session_id"
   | "user_id"
+  | "buyer_key"
   | "device_type"
   | "browser"
   | "country_or_region"

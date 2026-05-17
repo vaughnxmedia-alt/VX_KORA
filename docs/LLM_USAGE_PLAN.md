@@ -7,6 +7,53 @@ KORA uses a dual-LLM architecture optimized for cost, quality, and task-specific
 - **Gemini** (gemini-1.5-pro, gemini-1.5-flash): Deep reasoning, long-context synthesis, profile understanding, research digestion
 - **OpenAI** (gpt-4o, gpt-4o-mini): Extraction, embeddings, classification, cleanup, schema formatting, final structured output
 
+## Closed-Loop Intelligence Alignment
+
+KORA remains a closed-loop system. LLM routing and agent pipelines must support the full business intelligence loop, not an audit-only loop.
+
+```text
+KORA Closed-Loop Intelligence System
+├── Audience Intelligence
+├── Buyer Intelligence
+├── Offer Intelligence
+├── Campaign Intelligence
+├── Lead Magnet Intelligence
+├── Revenue Intelligence
+└── Learning Log System
+```
+
+Core loop language:
+
+```text
+Audience hypothesis
+↓
+Campaign, content, or lead magnet
+↓
+Audience response
+↓
+Lead capture
+↓
+Nurture or strategy session
+↓
+Offer presented
+↓
+Purchase or no purchase
+↓
+Revenue attribution
+↓
+Learning log
+↓
+Improved audience, message, offer, and campaign strategy
+```
+
+Framing constraints for LLM outputs:
+- Free audit is a lead magnet and diagnostic data source.
+- Strategy session is a paid trust builder and qualification step.
+- Long-term client contract is the main business conversion goal.
+- PDF audit reports and audio explanations are deliverables, not the center of the system.
+- Original intake answers represent prospect belief prior to analysis and must remain distinguishable from inferred/diagnostic content.
+- Learning signals must include both buyers and non-buyers.
+
 ## Provider Selection Principles
 
 ### Use Gemini When:

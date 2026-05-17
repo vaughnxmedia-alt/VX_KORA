@@ -417,6 +417,40 @@ serve(async (req) => {
       existingPreset === selectedVoicePreset &&
       existingAudioMode === selectedAudioMode
     ) {
+      const auditIntakeId = typeof (audit as Record<string, unknown>).audit_intake_id === "string"
+        ? String((audit as Record<string, unknown>).audit_intake_id)
+        : String(audit.id);
+      await supabase.from("audit_audio_deliverables").upsert({
+        audit_intake_id: auditIntakeId,
+        free_audit_id: String(audit.id),
+        delivery_status: "generated",
+        generated_at: typeof existingAudio.generated_at === "string" ? existingAudio.generated_at : new Date().toISOString(),
+        audio_storage_bucket: typeof existingAudio.storage_bucket === "string" ? existingAudio.storage_bucket : AUDIO_BUCKET,
+        audio_storage_path: typeof existingAudio.storage_path === "string" ? existingAudio.storage_path : null,
+        audio_public_url: existingAudio.url,
+        script: typeof existingAudio.script === "string" ? existingAudio.script : null,
+        script_version: typeof existingAudio.script_version === "string" ? existingAudio.script_version : AUDIO_SCRIPT_VERSION,
+        script_writer: typeof existingAudio.script_writer === "string" ? existingAudio.script_writer : null,
+        script_model: typeof existingAudio.script_model === "string" ? existingAudio.script_model : null,
+        script_style_preset: typeof existingAudio.script_style_preset === "string" ? existingAudio.script_style_preset : null,
+        voice_preset: typeof existingAudio.voice_preset === "string" ? existingAudio.voice_preset : null,
+        voice_settings: typeof existingAudio.voices === "object" && existingAudio.voices !== null
+          ? existingAudio.voices
+          : {},
+        audio_mode: typeof existingAudio.audio_mode === "string" ? existingAudio.audio_mode : selectedAudioMode,
+        word_count: typeof existingAudio.word_count === "number" ? existingAudio.word_count : null,
+        estimated_minutes: typeof existingAudio.estimated_minutes === "number" ? existingAudio.estimated_minutes : null,
+        checks: typeof existingAudio.audio_brief_checks === "object" && existingAudio.audio_brief_checks !== null
+          ? existingAudio.audio_brief_checks
+          : {},
+        plain_language_brief:
+          typeof existingAudio.plain_language_audio_brief === "object" && existingAudio.plain_language_audio_brief !== null
+            ? existingAudio.plain_language_audio_brief
+            : {},
+        metadata: {
+          source: "generate_audit_audio_reuse",
+        },
+      }, { onConflict: "audit_intake_id" });
       return jsonResponse({
         ok: true,
         reused: true,
@@ -658,6 +692,38 @@ serve(async (req) => {
       })
       .eq("id", audit.id);
     if (updateError) throw updateError;
+
+    const auditIntakeId = typeof (audit as Record<string, unknown>).audit_intake_id === "string"
+      ? String((audit as Record<string, unknown>).audit_intake_id)
+      : String(audit.id);
+    const { error: audioDeliverableError } = await supabase.from("audit_audio_deliverables").upsert({
+      // Audio deliverable persistence is isolated from original intake answers and analysis.
+      audit_intake_id: auditIntakeId,
+      free_audit_id: String(audit.id),
+      delivery_status: "generated",
+      generated_at: generatedAt,
+      audio_storage_bucket: AUDIO_BUCKET,
+      audio_storage_path: storagePath,
+      audio_public_url: audioUrl,
+      script: audioScript.script,
+      script_version: AUDIO_SCRIPT_VERSION,
+      script_writer: scriptWriter,
+      script_model: scriptModel,
+      script_style_preset: stylePreset.id,
+      voice_preset: preset.key,
+      voice_settings: voicesUsed,
+      audio_mode: audioScript.mode,
+      word_count: audioScript.wordCount,
+      estimated_minutes: audioScript.estimatedMinutes,
+      checks: audioScript.checks,
+      plain_language_brief: audioScript.plain_language_audio_brief,
+      metadata: {
+        provider: providerUsed,
+        model: reportAudio.model,
+        disclosure: reportAudio.disclosure,
+      },
+    }, { onConflict: "audit_intake_id" });
+    if (audioDeliverableError) throw audioDeliverableError;
 
     return jsonResponse({
       ok: true,

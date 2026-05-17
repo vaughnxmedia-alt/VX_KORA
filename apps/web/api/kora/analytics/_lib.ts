@@ -80,6 +80,19 @@ export type TrackPayload = {
   site_id: string;
   client_id?: string | null;
   brand_id: string;
+  industry_key?: string | null;
+  audience_cluster_id?: string | null;
+  lead_magnet_id?: string | null;
+  offer_stage?: string | null;
+  platform?: string | null;
+  content_angle?: string | null;
+  message_angle?: string | null;
+  landing_page_url?: string | null;
+  audit_intake_id?: string | null;
+  strategy_session_id?: string | null;
+  buyer_journey_id?: string | null;
+  adset_id?: string | null;
+  creative_id?: string | null;
   page_path?: string | null;
   page_title?: string | null;
   referrer?: string | null;
@@ -108,6 +121,7 @@ export type TrackPayload = {
   anonymous_visitor_id: string;
   session_id: string;
   user_id?: string | null;
+  buyer_key?: string | null;
   device_type?: string | null;
   browser?: string | null;
   country_or_region?: string | null;
@@ -186,6 +200,19 @@ export function sanitizeEventPayload(input: Record<string, unknown>): TrackPaylo
     site_id,
     client_id: sanitizeString(input.client_id, 120),
     brand_id,
+    industry_key: sanitizeString(input.industry_key, 120),
+    audience_cluster_id: sanitizeString(input.audience_cluster_id, 120),
+    lead_magnet_id: sanitizeString(input.lead_magnet_id, 120),
+    offer_stage: sanitizeString(input.offer_stage, 80),
+    platform: sanitizeString(input.platform, 80),
+    content_angle: sanitizeString(input.content_angle, 160),
+    message_angle: sanitizeString(input.message_angle, 160),
+    landing_page_url: sanitizeString(input.landing_page_url, 300),
+    audit_intake_id: sanitizeString(input.audit_intake_id, 64),
+    strategy_session_id: sanitizeString(input.strategy_session_id, 64),
+    buyer_journey_id: sanitizeString(input.buyer_journey_id, 64),
+    adset_id: sanitizeString(input.adset_id, 120),
+    creative_id: sanitizeString(input.creative_id, 120),
     anonymous_visitor_id,
     session_id,
     page_path: sanitizeString(input.page_path, 300),
@@ -214,6 +241,7 @@ export function sanitizeEventPayload(input: Record<string, unknown>): TrackPaylo
     revenue_value,
     currency: sanitizeString(input.currency, 16),
     user_id: sanitizeString(input.user_id, 64),
+    buyer_key: sanitizeString(input.buyer_key, 180),
     device_type: sanitizeString(input.device_type, 40),
     browser: sanitizeString(input.browser, 60),
     country_or_region: sanitizeString(input.country_or_region, 80),

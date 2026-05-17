@@ -47,6 +47,249 @@ function normalizeLeadKey(data: z.infer<typeof submitSchema>) {
   return data.customerId!;
 }
 
+function textOrNull(value: unknown, max = 180): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed.slice(0, max) : null;
+}
+
+function canonicalBuyerKey(input: {
+  buyerKey?: string | null;
+  leadKey: string;
+  leadEmailLower?: string | null;
+  auditId: string;
+}) {
+  return textOrNull(input.buyerKey, 180) ??
+    textOrNull(input.leadEmailLower, 180) ??
+    textOrNull(input.leadKey, 180) ??
+    input.auditId;
+}
+
+function buyerJourneyKey(input: {
+  clientId?: string | null;
+  canonicalBuyerKey: string;
+}) {
+  return `jahknowspr_web:jahknowspr:${input.clientId ?? "jahknowspr"}:${input.canonicalBuyerKey}`.slice(0, 300);
+}
+
+async function upsertBuyerIdentityLinks(
+  supabase: ReturnType<typeof createServiceClient>,
+  input: {
+    canonicalBuyerKey: string;
+    buyerKey?: string | null;
+    leadKey: string;
+    leadEmailLower?: string | null;
+    clientId?: string | null;
+    customerId?: string | null;
+    metadata?: Record<string, unknown>;
+  },
+) {
+  const rows = [
+    { identity_type: "buyer_key", identity_value: textOrNull(input.buyerKey, 180) },
+    { identity_type: "lead_key", identity_value: textOrNull(input.leadKey, 180) },
+    { identity_type: "email", identity_value: textOrNull(input.leadEmailLower, 180) },
+    { identity_type: "customer_id", identity_value: textOrNull(input.customerId, 120) },
+  ]
+    .filter((row): row is { identity_type: string; identity_value: string } => Boolean(row.identity_value))
+    .map((row) => ({
+      canonical_buyer_key: input.canonicalBuyerKey,
+      identity_type: row.identity_type,
+      identity_value: row.identity_value,
+      site_id: "jahknowspr_web",
+      brand_id: "jahknowspr",
+      client_id: input.clientId ?? null,
+      last_seen_at: new Date().toISOString(),
+      metadata: input.metadata ?? {},
+    }));
+  if (!rows.length) return;
+  await supabase.from("buyer_identity_links").upsert(rows, {
+    onConflict: "canonical_buyer_key,identity_type,identity_value",
+  });
+}
+
+async function upsertBuyerJourney(
+  supabase: ReturnType<typeof createServiceClient>,
+  input: {
+    canonicalBuyerKey: string;
+    buyerKey?: string | null;
+    leadKey: string;
+    clientId?: string | null;
+    customerId?: string | null;
+    auditIntakeId: string;
+    campaignId?: string | null;
+    leadMagnetId: string;
+    offerId: string;
+    offerStage: string;
+    utmSource?: string | null;
+    utmMedium?: string | null;
+    utmCampaign?: string | null;
+    utmContent?: string | null;
+    utmTerm?: string | null;
+    metadata?: Record<string, unknown>;
+  }) {
+  const journeyKey = buyerJourneyKey({
+    clientId: input.clientId,
+    canonicalBuyerKey: input.canonicalBuyerKey,
+  });
+  const nowIso = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("buyer_journeys")
+    .upsert({
+      journey_key: journeyKey,
+      site_id: "jahknowspr_web",
+      brand_id: "jahknowspr",
+      client_id: input.clientId ?? null,
+      canonical_buyer_key: input.canonicalBuyerKey,
+      buyer_key: input.buyerKey ?? null,
+      lead_key: input.leadKey,
+      customer_id: input.customerId ?? null,
+      audit_intake_id: input.auditIntakeId,
+      first_event_at: nowIso,
+      last_event_at: nowIso,
+      first_touch_utm_source: input.utmSource ?? null,
+      first_touch_utm_medium: input.utmMedium ?? null,
+      first_touch_utm_campaign: input.utmCampaign ?? null,
+      first_touch_utm_content: input.utmContent ?? null,
+      first_touch_utm_term: input.utmTerm ?? null,
+      last_touch_utm_source: input.utmSource ?? null,
+      last_touch_utm_medium: input.utmMedium ?? null,
+      last_touch_utm_campaign: input.utmCampaign ?? null,
+      last_touch_utm_content: input.utmContent ?? null,
+      last_touch_utm_term: input.utmTerm ?? null,
+      journey_status: "audit_submitted",
+      latest_offer_id: input.offerId,
+      latest_campaign_id: input.campaignId ?? null,
+      latest_lead_magnet_id: input.leadMagnetId,
+      metadata: input.metadata ?? {},
+    }, { onConflict: "journey_key" })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data?.id as string;
+}
+
+async function syncAuditSeparation(input: {
+  supabase: ReturnType<typeof createServiceClient>;
+  auditId: string;
+  leadKey: string;
+  leadEmailLower: string | null;
+  customerId: string | null;
+  form: z.infer<typeof submitSchema>;
+  attribution: ReturnType<typeof readAttributionFromPayload>;
+  normalizedSocialSources: Record<string, unknown>;
+}) {
+  const { supabase } = input;
+  const nowIso = new Date().toISOString();
+  // Data separation contract:
+  // - `audit_intake_original_answers` stores only user-submitted wording.
+  // - `audit_intake_analysis` stores KORA interpretation/scoring.
+  // - Deliverable payloads are written later by PDF/audio generation flows.
+  const intakeMetadata = {
+    business_entity_type: input.form.businessEntityType ?? null,
+    legal_or_registered_business_name: input.form.businessName ?? null,
+    public_business_name: input.form.publicBusinessName ?? null,
+    requires_filing_notice: input.form.businessEntityType === "personal_brand_without_documentation",
+    normalized_social_sources: input.normalizedSocialSources,
+    social_research: {
+      status: "queued",
+      queued_at: nowIso,
+      normalized_sources: input.normalizedSocialSources,
+    },
+  };
+
+  const { error: intakeError } = await supabase.from("audit_intakes").upsert({
+    id: input.auditId,
+    free_audit_id: input.auditId,
+    customer_id: input.customerId,
+    lead_key: input.leadKey,
+    lead_email_lower: input.leadEmailLower,
+    status: "started",
+    source: "free_audit_form",
+    correlation_id: input.attribution.correlation_id ?? input.leadKey,
+    lead_source: input.attribution.lead_source ?? "direct",
+    utm_source: input.attribution.utm_source ?? null,
+    utm_medium: input.attribution.utm_medium ?? null,
+    utm_campaign: input.attribution.utm_campaign ?? null,
+    utm_content: input.attribution.utm_content ?? null,
+    utm_term: input.attribution.utm_term ?? null,
+    referrer: input.attribution.referrer ?? null,
+    landing_page: input.attribution.landing_path ?? null,
+    current_url: input.attribution.current_url ?? null,
+    first_touch_at: input.attribution.first_touch_at ?? null,
+    last_touch_at: input.attribution.last_touch_at ?? nowIso,
+    metadata: {
+      ...(input.form.metadata ?? {}),
+      attribution: input.attribution,
+      ...intakeMetadata,
+    },
+  }, { onConflict: "free_audit_id" });
+  if (intakeError) throw intakeError;
+
+  const { error: originalError } = await supabase.from("audit_intake_original_answers").upsert({
+    audit_intake_id: input.auditId,
+    contact_name: input.form.name ?? null,
+    phone: input.form.phone ?? null,
+    business_entity_type: input.form.businessEntityType ?? null,
+    business_name: input.form.businessName ?? null,
+    public_business_name: input.form.publicBusinessName ?? null,
+    website_link: input.form.websiteLink ?? null,
+    instagram: input.form.instagram ?? null,
+    facebook: input.form.facebook ?? null,
+    tiktok: input.form.tiktok ?? null,
+    other_socials: input.form.otherSocials ?? null,
+    growth_goal: input.form.growthGoal ?? null,
+    current_blocker: input.form.currentBlocker ?? null,
+    target_audience_belief: input.form.targetAudienceBelief ?? null,
+    intent: input.form.intent,
+    submitted_at: nowIso,
+    raw_answers: {
+      email: input.form.email,
+      name: input.form.name ?? null,
+      phone: input.form.phone ?? null,
+      businessEntityType: input.form.businessEntityType ?? null,
+      businessName: input.form.businessName ?? null,
+      publicBusinessName: input.form.publicBusinessName ?? null,
+      websiteLink: input.form.websiteLink ?? null,
+      instagram: input.form.instagram ?? null,
+      facebook: input.form.facebook ?? null,
+      tiktok: input.form.tiktok ?? null,
+      otherSocials: input.form.otherSocials ?? null,
+      growthGoal: input.form.growthGoal ?? null,
+      currentBlocker: input.form.currentBlocker ?? null,
+      targetAudienceBelief: input.form.targetAudienceBelief ?? null,
+      intent: input.form.intent,
+    },
+    metadata: {
+      source: "free_audit_submit",
+      attribution: input.attribution,
+    },
+  }, { onConflict: "audit_intake_id" });
+  if (originalError) throw originalError;
+
+  const { error: analysisError } = await supabase.from("audit_intake_analysis").upsert({
+    audit_intake_id: input.auditId,
+    readiness_level: input.form.readinessLevel,
+    audience_segment: input.form.readinessLevel,
+    audit_angle: input.form.auditAngle,
+    intended_cta: input.form.intendedCta ?? "book_strategy_session",
+    predicted_conversion_probability: input.form.predictedConversionProbability ?? 0.12,
+    expected_baseline: input.form.expectedBaseline ?? 0,
+    completion_status: "started",
+    score_summary: {},
+    actual_outcome: {},
+    interpreted_growth_goal: input.form.growthGoal ?? null,
+    interpreted_blocker: input.form.currentBlocker ?? null,
+    interpreted_target_audience: input.form.targetAudienceBelief ?? null,
+    analysis_version: "v1-intake",
+    analyzed_at: nowIso,
+    metadata: {
+      source: "free_audit_submit",
+      attribution: input.attribution,
+    },
+  }, { onConflict: "audit_intake_id" });
+  if (analysisError) throw analysisError;
+}
+
 async function safeRequestAestheticScan(auditId: string) {
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -97,16 +340,39 @@ function normalizeEmail(value: string): string | null {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ? trimmed : null;
 }
 
-async function safeNotifyNewAuditEmail(input: { contactName?: string | null; businessName?: string | null }) {
+async function fetchAdminEmails(supabase: ReturnType<typeof createServiceClient>): Promise<string[]> {
+  const { data: roleRows, error } = await supabase
+    .from("user_roles")
+    .select("user_id,role")
+    .eq("role", "admin");
+  if (error || !(roleRows ?? []).length) return [];
+
+  const emails = await Promise.all(
+    (roleRows ?? []).map(async (row) => {
+      const userId = String((row as { user_id?: string }).user_id ?? "").trim();
+      if (!userId) return null;
+      try {
+        const { data } = await supabase.auth.admin.getUserById(userId);
+        return normalizeEmail(data.user?.email ?? "");
+      } catch {
+        return null;
+      }
+    }),
+  );
+  return Array.from(new Set(emails.filter((item): item is string => Boolean(item))));
+}
+
+async function safeNotifyNewAuditEmail(
+  supabase: ReturnType<typeof createServiceClient>,
+  input: { contactName?: string | null; businessName?: string | null },
+) {
   const resendApiKey = Deno.env.get("RESEND_API_KEY")?.trim();
   if (!resendApiKey) return;
 
   const recipientRaw = Deno.env.get("AUDIT_NOTIFICATION_EMAILS")?.trim() ||
     Deno.env.get("STRATEGY_SESSION_OPS_EMAIL")?.trim() ||
     "";
-  if (!recipientRaw) return;
-
-  const recipients = Array.from(
+  const envRecipients = Array.from(
     new Set(
       recipientRaw
         .split(",")
@@ -114,6 +380,8 @@ async function safeNotifyNewAuditEmail(input: { contactName?: string | null; bus
         .filter((item): item is string => Boolean(item)),
     ),
   );
+  const adminRecipients = await fetchAdminEmails(supabase);
+  const recipients = Array.from(new Set([...envRecipients, ...adminRecipients]));
   if (!recipients.length) return;
 
   const fromEmail = (Deno.env.get("FREE_AUDIT_FROM_EMAIL")?.trim() ||
@@ -214,12 +482,29 @@ serve(async (req) => {
       tiktok: p.tiktok,
       other_socials: p.otherSocials,
     });
+    const attribution = readAttributionFromPayload(body);
+    const attributionMeta = attribution.metadata as Record<string, unknown>;
+    const correlationId = attribution.correlation_id ?? leadKey;
+    const messagingAngle = attribution.messaging_angle ?? p.auditAngle;
+    const hook = attribution.hook ?? p.intendedCta ?? "start_free_audit";
+    const buyerKey = textOrNull(attributionMeta.buyer_key, 180) ?? leadEmailLower ?? leadKey;
+    const leadMagnetId = textOrNull(attributionMeta.lead_magnet_id, 120) ?? "free_audit";
+    const offerStage = textOrNull(attributionMeta.offer_stage, 80) ?? "free";
+    const campaignId = textOrNull(attributionMeta.campaign_id, 120);
+    const adsetId = textOrNull(attributionMeta.adset_id, 120);
+    const creativeId = textOrNull(attributionMeta.creative_id, 120);
+    const audienceClusterId = textOrNull(attributionMeta.audience_cluster_id, 120);
+    const audiencePoolId = textOrNull(attributionMeta.audience_pool_id, 120);
+    const auditId = crypto.randomUUID();
 
     const { data: audit, error } = await supabase
       .from("free_audits")
       .insert({
+        id: auditId,
+        audit_intake_id: auditId,
         lead_key: leadKey,
         lead_email_lower: leadEmailLower,
+        buyer_key: buyerKey,
         customer_id: p.customerId ?? null,
         contact_name: p.name ?? null,
         phone: p.phone ?? null,
@@ -237,8 +522,8 @@ serve(async (req) => {
         audience_segment: p.readinessLevel,
         follow_up_status: p.readinessLevel === "HOT" ? "follow_up_needed" : "new",
         retargeting_ready: true,
-        correlation_id: readAttributionFromPayload(body).correlation_id ?? leadKey,
-        lead_source: readAttributionFromPayload(body).lead_source ?? "direct",
+        correlation_id: correlationId,
+        lead_source: attribution.lead_source ?? "direct",
         audit_angle: p.auditAngle,
         intended_cta: p.intendedCta ?? "book_strategy_session",
         predicted_conversion_probability: p.predictedConversionProbability ?? 0.12,
@@ -246,7 +531,7 @@ serve(async (req) => {
         completion_status: "started",
         metadata: {
           ...(p.metadata ?? {}),
-          attribution: readAttributionFromPayload(body),
+          attribution,
           business_entity_type: p.businessEntityType ?? null,
           legal_or_registered_business_name: p.businessName ?? null,
           public_business_name: p.publicBusinessName ?? null,
@@ -274,23 +559,122 @@ serve(async (req) => {
       throw error;
     }
 
-    const attribution = readAttributionFromPayload(body);
-    const correlationId = attribution.correlation_id ?? leadKey;
-    const messagingAngle = attribution.messaging_angle ?? p.auditAngle;
-    const hook = attribution.hook ?? p.intendedCta ?? "start_free_audit";
+    await syncAuditSeparation({
+      supabase,
+      auditId: audit.id,
+      leadKey,
+      leadEmailLower,
+      customerId: p.customerId ?? null,
+      form: p,
+      attribution,
+      normalizedSocialSources,
+    });
+
+    const canonicalBuyer = canonicalBuyerKey({
+      buyerKey,
+      leadKey,
+      leadEmailLower,
+      auditId: audit.id,
+    });
+    await upsertBuyerIdentityLinks(supabase, {
+      canonicalBuyerKey: canonicalBuyer,
+      buyerKey,
+      leadKey,
+      leadEmailLower,
+      clientId: p.customerId ?? "jahknowspr",
+      customerId: p.customerId ?? null,
+      metadata: { source: "free_audit_submit", audit_id: audit.id },
+    });
+    const buyerJourneyId = await upsertBuyerJourney(supabase, {
+      canonicalBuyerKey: canonicalBuyer,
+      buyerKey,
+      leadKey,
+      clientId: p.customerId ?? "jahknowspr",
+      customerId: p.customerId ?? null,
+      auditIntakeId: audit.id,
+      campaignId,
+      leadMagnetId,
+      offerId: "free_audit",
+      offerStage,
+      utmSource: attribution.utm_source ?? null,
+      utmMedium: attribution.utm_medium ?? null,
+      utmCampaign: attribution.utm_campaign ?? null,
+      utmContent: attribution.utm_content ?? null,
+      utmTerm: attribution.utm_term ?? null,
+      metadata: {
+        source: "free_audit_submit",
+        audit_angle: p.auditAngle,
+        readiness_level: p.readinessLevel,
+      },
+    });
+
     await Promise.allSettled([
+      supabase.from("lead_magnet_interactions").insert({
+        lead_magnet_id: leadMagnetId,
+        interaction_kind: "submit",
+        interaction_status: "success",
+        occurred_at: audit.started_at,
+        site_id: "jahknowspr_web",
+        brand_id: "jahknowspr",
+        client_id: p.customerId ?? "jahknowspr",
+        buyer_journey_id: buyerJourneyId,
+        canonical_buyer_key: canonicalBuyer,
+        buyer_key: buyerKey,
+        lead_key: leadKey,
+        customer_id: p.customerId ?? null,
+        audit_intake_id: audit.id,
+        campaign_id: campaignId,
+        adset_id: adsetId,
+        creative_id: creativeId,
+        audience_cluster_id: audienceClusterId,
+        audience_pool_id: audiencePoolId,
+        offer_id: "free_audit",
+        offer_stage: offerStage,
+        source_event_id: null,
+        metadata: {
+          attribution,
+          audit_angle: p.auditAngle,
+          readiness_level: p.readinessLevel,
+        },
+      }),
       safeUpsertFunnelAttribution(supabase, {
         lead_key: leadKey,
         lead_kind: "free_audit",
         tenant_id: p.customerId ?? null,
         attribution_confidence: 0.55,
         multi_touch_weight: 0.35,
+        buyer_key: buyerKey,
+        lead_magnet_id: leadMagnetId,
+        campaign_id: campaignId,
+        adset_id: adsetId,
+        creative_id: creativeId,
+        offer_id: "free_audit",
+        offer_stage: offerStage,
+        audience_cluster_id: audienceClusterId,
+        audience_pool_id: audiencePoolId,
         ...attribution,
-        metadata: { ...attribution.metadata, audit_id: audit.id, audit_angle: p.auditAngle },
+        metadata: {
+          ...attribution.metadata,
+          audit_id: audit.id,
+          audit_intake_id: audit.id,
+          buyer_journey_id: buyerJourneyId,
+          audit_angle: p.auditAngle,
+        },
       }),
       safeRecordOutcome(supabase, {
         tenant_id: p.customerId ?? null,
         lead_id: leadKey,
+        buyer_key: buyerKey,
+        buyer_journey_id: buyerJourneyId,
+        audit_intake_id: audit.id,
+        lead_magnet_id: leadMagnetId,
+        offer_id: "free_audit",
+        offer_stage: offerStage,
+        campaign_id: campaignId,
+        adset_id: adsetId,
+        creative_id: creativeId,
+        audience_cluster_id: audienceClusterId,
+        audience_pool_id: audiencePoolId,
         subject_kind: "free_audit",
         subject_id: audit.id,
         actor_kind: "anonymous",
@@ -322,11 +706,27 @@ serve(async (req) => {
           audit_angle: p.auditAngle,
         },
         actual_outcome: { audit_started: true },
-        metadata: { ...(p.metadata ?? {}), attribution },
+        metadata: {
+          ...(p.metadata ?? {}),
+          attribution,
+          audit_intake_id: audit.id,
+          buyer_journey_id: buyerJourneyId,
+        },
       }),
       safeRecordOutcome(supabase, {
         tenant_id: p.customerId ?? null,
         lead_id: leadKey,
+        buyer_key: buyerKey,
+        buyer_journey_id: buyerJourneyId,
+        audit_intake_id: audit.id,
+        lead_magnet_id: leadMagnetId,
+        offer_id: "free_audit",
+        offer_stage: offerStage,
+        campaign_id: campaignId,
+        adset_id: adsetId,
+        creative_id: creativeId,
+        audience_cluster_id: audienceClusterId,
+        audience_pool_id: audiencePoolId,
         subject_kind: "lead",
         subject_id: audit.id,
         actor_kind: "anonymous",
@@ -355,17 +755,29 @@ serve(async (req) => {
         projection_version: "lls-projection-v1:free-audit",
         intended_outcome: { readiness_level: p.readinessLevel, intent: p.intent },
         actual_outcome: { lead_captured: true, audit_id: audit.id },
-        metadata: { ...(p.metadata ?? {}), attribution, readiness_level: p.readinessLevel },
+        metadata: {
+          ...(p.metadata ?? {}),
+          attribution,
+          readiness_level: p.readinessLevel,
+          audit_intake_id: audit.id,
+          buyer_journey_id: buyerJourneyId,
+        },
       }),
       safeRequestAestheticScan(audit.id),
       safeRequestSocialResearch(audit.id),
-      safeNotifyNewAuditEmail({
+      safeNotifyNewAuditEmail(supabase, {
         contactName: audit.contact_name,
         businessName: audit.business_name,
       }),
     ]);
 
-    return new Response(JSON.stringify({ auditId: audit.id, leadKey, startedAt: audit.started_at }), {
+    return new Response(JSON.stringify({
+      auditId: audit.id,
+      auditIntakeId: audit.id,
+      leadKey,
+      buyerKey,
+      startedAt: audit.started_at,
+    }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

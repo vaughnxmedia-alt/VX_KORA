@@ -6,6 +6,7 @@ import { z } from "https://deno.land/x/zod/mod.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { buildFreeAuditReport, type FreeAuditReport } from "../_shared/free-audit-report.ts";
 import { logOutboundEmail } from "../_shared/outbound-email-log.ts";
+import { personalizePdfAuditReport } from "../_shared/personalizedPdfAuditSummary.ts";
 
 const bodySchema = z.object({
   auditId: z.string().uuid(),
@@ -544,7 +545,12 @@ serve(async (req) => {
       .eq("report_ready", true)
       .order("confidence_score", { ascending: false })
       .limit(40);
-    const report = buildFreeAuditReport(audit, aestheticSignal ?? null, approvedFindings ?? []);
+    const baseReport = buildFreeAuditReport(audit, aestheticSignal ?? null, approvedFindings ?? []);
+    const report = await personalizePdfAuditReport({
+      report: baseReport,
+      audit: audit as Record<string, unknown>,
+      approvedFindings: (approvedFindings ?? []) as Record<string, unknown>[],
+    });
     const reportAudio = reportAudioFromAudit(audit);
     const blockingWarning = report.warnings.find((warning) => warning.severity === "error");
     if (blockingWarning) {
@@ -601,10 +607,61 @@ serve(async (req) => {
       ],
     });
 
-    await supabase
-      .from("free_audits")
-      .update({ follow_up_status: "audit_sent" })
-      .eq("id", audit.id);
+    const auditRecord = audit as Record<string, unknown>;
+    const auditIntakeId = typeof auditRecord.audit_intake_id === "string"
+      ? auditRecord.audit_intake_id
+      : String(audit.id);
+    const generatedAt = new Date().toISOString();
+
+    await Promise.allSettled([
+      supabase
+        .from("free_audits")
+        .update({ follow_up_status: "audit_sent" })
+        .eq("id", audit.id),
+      supabase
+        .from("audit_intakes")
+        .update({
+          status: "audit_sent",
+          last_touch_at: generatedAt,
+        })
+        .eq("id", auditIntakeId),
+      supabase
+        .from("audit_pdf_deliverables")
+        .upsert({
+          // PDF deliverable content is persisted separately from intake answers/analysis.
+          audit_intake_id: auditIntakeId,
+          free_audit_id: String(audit.id),
+          delivery_status: "sent",
+          generated_at: generatedAt,
+          sent_at: generatedAt,
+          report_subject: report.subject,
+          report_filename: report.filename,
+          pdf_public_url: publicAuditUrl(report),
+          report_payload: {
+            audit_id: report.auditId,
+            business_name: report.businessName,
+            contact_name: report.contactName,
+            recipient: report.recipient,
+            executive_summary: report.executiveSummary,
+            generated_at: report.generatedAt,
+            intent_label: report.intentLabel,
+            readiness_level: report.readinessLevel,
+            audit_angle_label: report.auditAngleLabel,
+          },
+          ratings_payload: { scores: report.scores },
+          diagnosis_sections: report.sections,
+          recommendations: report.sections.map((section) => ({
+            id: section.id,
+            cta: section.cta,
+            next_move: section.nextMove,
+          })),
+          warnings: report.warnings,
+          metadata: {
+            email_provider_message_id: (sendResult as { data?: { id?: string } })?.data?.id ?? null,
+            include_audio: includeAudio,
+          },
+        }, { onConflict: "audit_intake_id" }),
+    ]);
 
     await logOutboundEmail(supabase, {
       messageType: "free_audit_report",

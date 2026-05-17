@@ -7,14 +7,21 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "https://deno.land/x/zod/mod.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
-import { safeRecordOutcome } from "../_shared/lls.ts";
+import { readAttributionFromPayload, safeRecordOutcome } from "../_shared/lls.ts";
 
 const STRATEGY_SESSION_AMOUNT_CENTS = 150_00;
+
+function textOrNull(value: unknown, max = 180): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed.slice(0, max) : null;
+}
 
 const bodySchema = z.object({
   sourceId: z.string().min(4, "Invalid payment source"),
   idempotencyKey: z.string().uuid("Invalid idempotency key"),
   buyerEmail: z.string().email().optional(),
+  leadSource: z.record(z.unknown()).optional(),
 });
 
 const SQUARE_VERSION = "2024-10-17";
@@ -64,6 +71,21 @@ serve(async (req) => {
     }
 
     const { sourceId, idempotencyKey, buyerEmail } = parsed.data;
+    const leadSource = readAttributionFromPayload(parsed.data as unknown as Record<string, unknown>);
+    const leadSourceMeta = leadSource.metadata as Record<string, unknown>;
+    const buyerEmailLower = buyerEmail?.trim().toLowerCase() || null;
+    const buyerKey = textOrNull(leadSourceMeta.buyer_key, 180) ?? buyerEmailLower ?? idempotencyKey;
+    const clientId = textOrNull(leadSourceMeta.client_id, 120) ?? "jahknowspr";
+    const leadMagnetId = textOrNull(leadSourceMeta.lead_magnet_id, 120) ?? "strategy_session";
+    const offerStage = textOrNull(leadSourceMeta.offer_stage, 80) ?? "paid_trust_builder";
+    const campaignId = textOrNull(leadSourceMeta.campaign_id, 120);
+    const adsetId = textOrNull(leadSourceMeta.adset_id, 120);
+    const creativeId = textOrNull(leadSourceMeta.creative_id, 120);
+    const audienceClusterId = textOrNull(leadSourceMeta.audience_cluster_id, 120);
+    const audiencePoolId = textOrNull(leadSourceMeta.audience_pool_id, 120);
+    const auditIntakeId = textOrNull(leadSourceMeta.audit_intake_id, 64);
+    const strategySessionId = textOrNull(leadSourceMeta.strategy_session_id, 64);
+    const journeyKey = `jahknowspr_web:jahknowspr:${clientId}:${buyerKey}`.slice(0, 300);
 
     const baseUrl = useSandbox
       ? "https://connect.squareupsandbox.com"
@@ -121,10 +143,12 @@ serve(async (req) => {
       idempotency_key: idempotencyKey,
       amount_cents: STRATEGY_SESSION_AMOUNT_CENTS,
       currency: "USD",
-      buyer_email: buyerEmail?.trim().toLowerCase() || null,
+      buyer_email: buyerEmailLower,
+      buyer_key: buyerKey,
       square_location_id: locationId,
       raw_status: payStatus,
       meeting_id: null,
+      buyer_journey_id: null,
     });
 
     if (insErr) {
@@ -152,35 +176,268 @@ serve(async (req) => {
       );
     }
 
-    await Promise.allSettled([
-      supabase.from("revenue_attribution").insert({
+    await supabase.from("buyer_identity_links").upsert([
+      {
+        canonical_buyer_key: buyerKey,
+        identity_type: "buyer_key",
+        identity_value: buyerKey,
         site_id: "jahknowspr_web",
-        client_id: "jahknowspr",
         brand_id: "jahknowspr",
-        offer_id: "strategy_session",
-        offer_name: "Strategy Session",
-        amount: STRATEGY_SESSION_AMOUNT_CENTS / 100,
-        currency: "USD",
+        client_id: clientId,
+        last_seen_at: new Date().toISOString(),
+        metadata: { source: "square_strategy_session_payment" },
+      },
+      ...(buyerEmailLower
+        ? [{
+          canonical_buyer_key: buyerKey,
+          identity_type: "email",
+          identity_value: buyerEmailLower,
+          site_id: "jahknowspr_web",
+          brand_id: "jahknowspr",
+          client_id: clientId,
+          last_seen_at: new Date().toISOString(),
+          metadata: { source: "square_strategy_session_payment" },
+        }]
+        : []),
+    ], { onConflict: "canonical_buyer_key,identity_type,identity_value" });
+
+    const { data: existingJourney } = await supabase
+      .from("buyer_journeys")
+      .select("purchase_count,total_revenue,first_event_at")
+      .eq("journey_key", journeyKey)
+      .maybeSingle();
+    const { data: buyerJourney, error: buyerJourneyError } = await supabase
+      .from("buyer_journeys")
+      .upsert({
+        journey_key: journeyKey,
+        site_id: "jahknowspr_web",
+        brand_id: "jahknowspr",
+        client_id: clientId,
+        canonical_buyer_key: buyerKey,
+        buyer_key: buyerKey,
+        lead_key: buyerEmailLower,
+        audit_intake_id: auditIntakeId,
+        strategy_session_id: strategySessionId,
+        payment_transaction_id: null,
+        first_event_at: existingJourney?.first_event_at ?? new Date().toISOString(),
+        last_event_at: new Date().toISOString(),
+        first_touch_utm_source: leadSource.utm_source ?? null,
+        first_touch_utm_medium: leadSource.utm_medium ?? null,
+        first_touch_utm_campaign: leadSource.utm_campaign ?? null,
+        first_touch_utm_content: leadSource.utm_content ?? null,
+        first_touch_utm_term: leadSource.utm_term ?? null,
+        last_touch_utm_source: leadSource.utm_source ?? null,
+        last_touch_utm_medium: leadSource.utm_medium ?? null,
+        last_touch_utm_campaign: leadSource.utm_campaign ?? null,
+        last_touch_utm_content: leadSource.utm_content ?? null,
+        last_touch_utm_term: leadSource.utm_term ?? null,
+        journey_status: "purchased",
+        is_buyer: true,
+        purchase_count: Number(existingJourney?.purchase_count ?? 0) + 1,
+        total_revenue: Number((Number(existingJourney?.total_revenue ?? 0) + (STRATEGY_SESSION_AMOUNT_CENTS / 100)).toFixed(2)),
+        latest_offer_id: "strategy_session",
+        latest_campaign_id: campaignId,
+        latest_lead_magnet_id: leadMagnetId,
+        metadata: {
+          source: "square_strategy_session_payment",
+          payment_id: paymentId,
+        },
+      }, { onConflict: "journey_key" })
+      .select("id")
+      .single();
+    if (buyerJourneyError) throw buyerJourneyError;
+    const buyerJourneyId = buyerJourney?.id as string;
+
+    await supabase
+      .from("payment_transactions")
+      .update({ buyer_journey_id: buyerJourneyId })
+      .eq("idempotency_key", idempotencyKey);
+
+    const { data: analyticsEvent, error: analyticsEventError } = await supabase
+      .from("analytics_events")
+      .insert({
+        event_name: "purchase_complete",
+        site_id: "jahknowspr_web",
+        client_id: clientId,
+        brand_id: "jahknowspr",
+        lead_magnet_id: leadMagnetId,
+        offer_stage: offerStage,
+        platform: "square",
         page_path: "/strategy-session/payment",
-        campaign_id: null,
-        utm_source: null,
-        utm_medium: null,
-        utm_campaign: null,
+        campaign_id: campaignId,
+        adset_id: adsetId,
+        creative_id: creativeId,
+        audience_cluster_id: audienceClusterId,
+        audience_pool_id: audiencePoolId,
+        offer_id: "strategy_session",
+        funnel_id: "strategy_session",
+        funnel_step: "purchase_complete",
+        revenue_value: STRATEGY_SESSION_AMOUNT_CENTS / 100,
+        currency: "USD",
         anonymous_visitor_id: `square_${paymentId}`,
         session_id: idempotencyKey,
         user_id: null,
-        payment_provider: "square",
-        order_id: paymentId,
+        buyer_key: buyerKey,
+        audit_intake_id: auditIntakeId,
+        strategy_session_id: strategySessionId,
+        buyer_journey_id: buyerJourneyId,
+        utm_source: leadSource.utm_source ?? null,
+        utm_medium: leadSource.utm_medium ?? null,
+        utm_campaign: leadSource.utm_campaign ?? null,
+        utm_content: leadSource.utm_content ?? null,
+        utm_term: leadSource.utm_term ?? null,
+        landing_page_url: leadSource.current_url ?? null,
+        message_angle: leadSource.messaging_angle ?? null,
         metadata: {
-          buyer_email: buyerEmail?.trim().toLowerCase() || null,
+          buyer_email: buyerEmailLower,
           square_location_id: locationId,
           square_status: payStatus,
           square_environment: envRaw,
           source: "square-strategy-session-payment",
         },
+      })
+      .select("id")
+      .single();
+    if (analyticsEventError) throw analyticsEventError;
+
+    const { data: revenueAttribution, error: revenueError } = await supabase
+      .from("revenue_attribution")
+      .insert({
+        site_id: "jahknowspr_web",
+        client_id: clientId,
+        brand_id: "jahknowspr",
+        lead_magnet_id: leadMagnetId,
+        offer_stage: offerStage,
+        offer_id: "strategy_session",
+        offer_name: "Strategy Session",
+        amount: STRATEGY_SESSION_AMOUNT_CENTS / 100,
+        currency: "USD",
+        page_path: "/strategy-session/payment",
+        campaign_id: campaignId,
+        adset_id: adsetId,
+        creative_id: creativeId,
+        audience_cluster_id: audienceClusterId,
+        audience_pool_id: audiencePoolId,
+        utm_source: leadSource.utm_source ?? null,
+        utm_medium: leadSource.utm_medium ?? null,
+        utm_campaign: leadSource.utm_campaign ?? null,
+        utm_content: leadSource.utm_content ?? null,
+        utm_term: leadSource.utm_term ?? null,
+        anonymous_visitor_id: `square_${paymentId}`,
+        session_id: idempotencyKey,
+        user_id: null,
+        buyer_key: buyerKey,
+        audit_intake_id: auditIntakeId,
+        strategy_session_id: strategySessionId,
+        buyer_journey_id: buyerJourneyId,
+        payment_provider: "square",
+        order_id: paymentId,
+        platform: "square",
+        message_angle: leadSource.messaging_angle ?? null,
+        content_angle: textOrNull(leadSourceMeta.content_angle, 160),
+        landing_page_url: leadSource.current_url ?? null,
+        metadata: {
+          buyer_email: buyerEmailLower,
+          square_location_id: locationId,
+          square_status: payStatus,
+          square_environment: envRaw,
+          source: "square-strategy-session-payment",
+        },
+      })
+      .select("id")
+      .single();
+    if (revenueError) throw revenueError;
+
+    await Promise.allSettled([
+      supabase.from("buyer_purchase_attribution").insert({
+        source_event_id: analyticsEvent?.id ?? null,
+        source_revenue_attribution_id: revenueAttribution?.id ?? null,
+        site_id: "jahknowspr_web",
+        client_id: clientId,
+        brand_id: "jahknowspr",
+        industry_key: textOrNull(leadSourceMeta.industry_key, 120),
+        audience_cluster_id: audienceClusterId,
+        audience_pool_id: audiencePoolId,
+        lead_magnet_id: leadMagnetId,
+        offer_stage: offerStage,
+        offer_id: "strategy_session",
+        offer_name: "Strategy Session",
+        platform: "square",
+        content_angle: textOrNull(leadSourceMeta.content_angle, 160),
+        message_angle: leadSource.messaging_angle ?? null,
+        landing_page_url: leadSource.current_url ?? null,
+        utm_source: leadSource.utm_source ?? null,
+        utm_medium: leadSource.utm_medium ?? null,
+        utm_campaign: leadSource.utm_campaign ?? null,
+        utm_content: leadSource.utm_content ?? null,
+        utm_term: leadSource.utm_term ?? null,
+        campaign_id: campaignId,
+        adset_id: adsetId,
+        creative_id: creativeId,
+        funnel_id: "strategy_session",
+        anonymous_visitor_id: `square_${paymentId}`,
+        session_id: idempotencyKey,
+        user_id: null,
+        audit_intake_id: auditIntakeId,
+        strategy_session_id: strategySessionId,
+        buyer_journey_id: buyerJourneyId,
+        buyer_key: buyerKey,
+        order_id: paymentId,
+        payment_provider: "square",
+        amount: STRATEGY_SESSION_AMOUNT_CENTS / 100,
+        currency: "USD",
+        metadata: {
+          buyer_email: buyerEmailLower,
+          square_location_id: locationId,
+          square_status: payStatus,
+          source: "square-strategy-session-payment",
+        },
+      }),
+      supabase.from("lead_magnet_interactions").insert({
+        lead_magnet_id: leadMagnetId,
+        interaction_kind: "purchase",
+        interaction_status: "success",
+        occurred_at: new Date().toISOString(),
+        site_id: "jahknowspr_web",
+        brand_id: "jahknowspr",
+        client_id: clientId,
+        buyer_journey_id: buyerJourneyId,
+        canonical_buyer_key: buyerKey,
+        buyer_key: buyerKey,
+        lead_key: buyerEmailLower,
+        audit_intake_id: auditIntakeId,
+        strategy_session_id: strategySessionId,
+        campaign_id: campaignId,
+        adset_id: adsetId,
+        creative_id: creativeId,
+        audience_cluster_id: audienceClusterId,
+        audience_pool_id: audiencePoolId,
+        offer_id: "strategy_session",
+        offer_stage: offerStage,
+        revenue_value: STRATEGY_SESSION_AMOUNT_CENTS / 100,
+        currency: "USD",
+        source_event_id: analyticsEvent?.id ?? null,
+        source_revenue_attribution_id: revenueAttribution?.id ?? null,
+        metadata: {
+          payment_id: paymentId,
+          source: "square-strategy-session-payment",
+        },
       }),
       safeRecordOutcome(supabase, {
-        lead_id: buyerEmail?.trim().toLowerCase() || null,
+        lead_id: buyerEmailLower,
+        buyer_key: buyerKey,
+        buyer_journey_id: buyerJourneyId,
+        audit_intake_id: auditIntakeId,
+        strategy_session_id: strategySessionId,
+        lead_magnet_id: leadMagnetId,
+        campaign_id: campaignId,
+        adset_id: adsetId,
+        creative_id: creativeId,
+        offer_id: "strategy_session",
+        offer_stage: offerStage,
+        audience_cluster_id: audienceClusterId,
+        audience_pool_id: audiencePoolId,
+        revenue_attribution_id: revenueAttribution?.id ?? null,
         subject_kind: "payment",
         subject_id: paymentId,
         actor_kind: "client",
@@ -200,14 +457,18 @@ serve(async (req) => {
         evidence_strength_component: 0.55,
         status: "success",
         business_goal: "revenue",
-        correlation_id: buyerEmail?.trim().toLowerCase() || idempotencyKey,
+        correlation_id: buyerEmailLower || idempotencyKey,
         strategy_id: "system:strategy-session-payment",
         messaging_angle: "strategy_session_payment",
         hook: "paid_strategy_session",
         projection_version: "lls-projection-v1:strategy-session",
         intended_outcome: { amount_cents: STRATEGY_SESSION_AMOUNT_CENTS, currency: "USD" },
         actual_outcome: { payment_id: paymentId, square_status: payStatus },
-        metadata: { idempotency_key: idempotencyKey, square_environment: envRaw },
+        metadata: {
+          idempotency_key: idempotencyKey,
+          square_environment: envRaw,
+          source_event_id: analyticsEvent?.id ?? null,
+        },
       }),
     ]);
 
@@ -215,6 +476,7 @@ serve(async (req) => {
       JSON.stringify({
         ok: true,
         squarePaymentId: paymentId,
+        buyerKey,
         status: payStatus,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },

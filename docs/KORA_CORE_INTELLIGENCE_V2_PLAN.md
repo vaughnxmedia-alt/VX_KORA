@@ -4,6 +4,55 @@
 
 KORA v2 transforms from a "generate and deliver" system into a **research-grade intelligence platform** for PR and marketing. The core principle: every claim must trace back to evidence, every output must pass quality gates, and the system must learn from outcomes without leaking tenant data.
 
+### Closed-loop scope correction
+
+KORA remains a **closed-loop intelligence system**. The loop does not operate only around audits; it operates around the larger business goal of helping JahKnowsPR and its clients identify, understand, reach, convert, and retain the right target audience.
+
+Closed-loop hierarchy:
+
+```text
+KORA Closed-Loop Intelligence System
+├── Audience Intelligence
+├── Buyer Intelligence
+├── Offer Intelligence
+├── Campaign Intelligence
+├── Lead Magnet Intelligence
+├── Revenue Intelligence
+└── Learning Log System
+```
+
+Core loop language:
+
+```text
+Audience hypothesis
+↓
+Campaign, content, or lead magnet
+↓
+Audience response
+↓
+Lead capture
+↓
+Nurture or strategy session
+↓
+Offer presented
+↓
+Purchase or no purchase
+↓
+Revenue attribution
+↓
+Learning log
+↓
+Improved audience, message, offer, and campaign strategy
+```
+
+Strategic framing notes:
+- Free audit is a lead magnet and diagnostic data source.
+- Strategy session is a paid trust builder and qualification step.
+- Long-term client contract is the main business conversion goal.
+- PDF audit reports and audio explanations are deliverables, not the center of the system.
+- KORA must compare original belief, analyzed diagnosis, campaign behavior, buyer behavior, and revenue outcomes.
+- KORA must learn from both buyers and non-buyers.
+
 ---
 
 ## 1. Phased Architecture Plan
@@ -16,6 +65,7 @@ KORA v2 transforms from a "generate and deliver" system into a **research-grade 
 - [ ] Build citation graph schema (claim → source → evidence chain)
 - [ ] Create prompt template system with versioning
 - [ ] Implement fact classification: user-provided vs researched vs inferred
+- [ ] Preserve original intake beliefs as immutable source data for later outcome comparison
 
 ### Phase 2: Research Engine (Weeks 4-6)
 **Goal: Multi-hop research with verification**
@@ -53,6 +103,7 @@ KORA v2 transforms from a "generate and deliver" system into a **research-grade 
 - [ ] Create failure pattern library
 - [ ] Add source quality signals from usage patterns
 - [ ] Build recommendation improvement loop
+- [ ] Learn from both buyers and non-buyers across lead magnets, campaigns, and offers
 
 ### Phase 6: Production Hardening (Weeks 16-18)
 **Goal: Scale, observability, and reliability**
@@ -1295,4 +1346,4 @@ KORA Core Intelligence v2 is designed as a **research system**, not a content ge
 5. **Isolated by tenant** with strict confidentiality
 6. **Improved over time** through anonymized learning
 
-The key mindset shift: KORA should be able to explain WHY it made every statement, WHAT evidence supports it, and HOW confident it is. If it cannot, it should research more or acknowledge the gap.
+The key mindset shift: KORA should be able to explain WHY it made every statement, WHAT evidence supports it, HOW confident it is, and WHICH audience/offer/campaign/lead-magnet paths actually created revenue or did not. If it cannot, it should research more or acknowledge the gap.

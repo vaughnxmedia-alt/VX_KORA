@@ -13,6 +13,12 @@ const completeSchema = z.object({
   metadata: z.record(z.unknown()).optional(),
 });
 
+function textOrNull(value: unknown, max = 180): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed.slice(0, max) : null;
+}
+
 function secondsInterval(fromIso: string | null | undefined): string | null {
   if (!fromIso) return null;
   const started = new Date(fromIso).getTime();
@@ -45,7 +51,7 @@ serve(async (req) => {
     const { data: existing, error: findError } = await supabase
       .from("free_audits")
       .select(
-        "id, lead_key, customer_id, audit_angle, intended_cta, started_at, predicted_conversion_probability, expected_baseline, metadata",
+        "id, audit_intake_id, buyer_key, lead_key, customer_id, audit_angle, intended_cta, started_at, predicted_conversion_probability, expected_baseline, metadata",
       )
       .eq("id", p.auditId)
       .maybeSingle();
@@ -84,13 +90,96 @@ serve(async (req) => {
     const completed = p.completionStatus === "completed";
     const existingMetadata = (existing.metadata ?? {}) as Record<string, unknown>;
     const attribution = (existingMetadata.attribution ?? {}) as Record<string, unknown>;
+    const attributionMeta = attribution as Record<string, unknown>;
     const correlationId = typeof attribution.correlation_id === "string" ? attribution.correlation_id : existing.lead_key;
     const messagingAngle = typeof attribution.messaging_angle === "string" ? attribution.messaging_angle : existing.audit_angle;
     const hook = typeof attribution.hook === "string" ? attribution.hook : existing.intended_cta ?? "complete_free_audit";
+    const buyerKey = existing.buyer_key ?? textOrNull(attributionMeta.buyer_key, 180) ?? existing.lead_key;
+    const auditIntakeId = existing.audit_intake_id ?? existing.id;
+    const leadMagnetId = textOrNull(attributionMeta.lead_magnet_id, 120) ?? "free_audit";
+    const offerStage = textOrNull(attributionMeta.offer_stage, 80) ?? "free";
+    const campaignId = textOrNull(attributionMeta.campaign_id, 120);
+    const adsetId = textOrNull(attributionMeta.adset_id, 120);
+    const creativeId = textOrNull(attributionMeta.creative_id, 120);
+    const audienceClusterId = textOrNull(attributionMeta.audience_cluster_id, 120);
+    const audiencePoolId = textOrNull(attributionMeta.audience_pool_id, 120);
+    const { data: buyerJourney } = await supabase
+      .from("buyer_journeys")
+      .select("id")
+      .eq("audit_intake_id", auditIntakeId)
+      .limit(1)
+      .maybeSingle();
     await Promise.allSettled([
+      supabase
+        .from("audit_intakes")
+        .update({
+          status: completed ? "completed" : "abandoned",
+          last_touch_at: new Date().toISOString(),
+        })
+        .eq("id", auditIntakeId),
+      supabase
+        .from("audit_intake_analysis")
+        .upsert({
+          // Completion updates only the analyzed layer; original answers remain immutable.
+          audit_intake_id: auditIntakeId,
+          completion_status: p.completionStatus,
+          score_summary: p.scoreSummary ?? {},
+          actual_outcome: actualOutcome,
+          interpreted_growth_goal: typeof actualOutcome.growth_goal === "string" ? actualOutcome.growth_goal : null,
+          interpreted_blocker: typeof actualOutcome.current_blocker === "string" ? actualOutcome.current_blocker : null,
+          interpreted_target_audience: typeof actualOutcome.target_audience_belief === "string"
+            ? actualOutcome.target_audience_belief
+            : null,
+          analysis_version: "v1-complete",
+          analyzed_at: new Date().toISOString(),
+          metadata: {
+            source: "free_audit_complete",
+            completion_status: p.completionStatus,
+            booked_strategy_session: p.bookedStrategySession ?? false,
+          },
+        }, { onConflict: "audit_intake_id" }),
+      supabase
+        .from("lead_magnet_interactions")
+        .insert({
+          lead_magnet_id: leadMagnetId,
+          interaction_kind: completed ? "qualified" : "no_purchase",
+          interaction_status: completed ? "success" : "abandoned",
+          occurred_at: updated.completed_at,
+          site_id: "jahknowspr_web",
+          brand_id: "jahknowspr",
+          client_id: existing.customer_id ?? "jahknowspr",
+          buyer_journey_id: buyerJourney?.id ?? null,
+          canonical_buyer_key: buyerKey,
+          buyer_key: buyerKey,
+          lead_key: existing.lead_key,
+          customer_id: existing.customer_id ?? null,
+          audit_intake_id: auditIntakeId,
+          campaign_id: campaignId,
+          adset_id: adsetId,
+          creative_id: creativeId,
+          audience_cluster_id: audienceClusterId,
+          audience_pool_id: audiencePoolId,
+          offer_id: "free_audit",
+          offer_stage: offerStage,
+          metadata: {
+            source: "free_audit_complete",
+            completion_status: p.completionStatus,
+          },
+        }),
       safeRecordOutcome(supabase, {
         tenant_id: existing.customer_id,
         lead_id: existing.lead_key,
+        buyer_key: buyerKey,
+        buyer_journey_id: buyerJourney?.id ?? null,
+        audit_intake_id: auditIntakeId,
+        lead_magnet_id: leadMagnetId,
+        offer_id: "free_audit",
+        offer_stage: offerStage,
+        campaign_id: campaignId,
+        adset_id: adsetId,
+        creative_id: creativeId,
+        audience_cluster_id: audienceClusterId,
+        audience_pool_id: audiencePoolId,
         subject_kind: "free_audit",
         subject_id: existing.id,
         actor_kind: "anonymous",
@@ -124,7 +213,12 @@ serve(async (req) => {
           audit_angle: existing.audit_angle,
         },
         actual_outcome: actualOutcome,
-        metadata: { ...(p.metadata ?? {}), attribution },
+        metadata: {
+          ...(p.metadata ?? {}),
+          attribution,
+          audit_intake_id: auditIntakeId,
+          buyer_journey_id: buyerJourney?.id ?? null,
+        },
       }),
     ]);
 

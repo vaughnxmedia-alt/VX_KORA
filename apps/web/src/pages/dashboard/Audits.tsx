@@ -34,7 +34,6 @@ import {
 } from "@/components/ui/dialog";
 import {
   AuditHeroVisual,
-  InsightVisual,
   ScoreBreakdownVisual,
 } from "@/features/audit-visuals/components";
 import { buildAuditVisualInput } from "@/features/audit-visuals/mapper";
@@ -1405,7 +1404,6 @@ export default function Audits() {
             <AuditHeroVisual data={selectedVisualInput} />
             <ScoreBreakdownVisual data={selectedVisualInput} />
           </div>
-          <InsightVisual data={selectedVisualInput} />
         </section>
       ) : null}
 

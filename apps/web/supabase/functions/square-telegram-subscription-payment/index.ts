@@ -16,12 +16,14 @@ import { z } from "https://deno.land/x/zod/mod.ts";
 import { Resend } from "npm:resend@2.0.0";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { logOutboundEmail } from "../_shared/outbound-email-log.ts";
+import { readAttributionFromPayload, safeRecordOutcome } from "../_shared/lls.ts";
 
 const bodySchema = z.object({
   sourceId: z.string().min(4, "Invalid payment source"),
   idempotencyKey: z.string().uuid("Invalid idempotency key"),
   email: z.string().email(),
   fullName: z.string().min(2).max(120),
+  leadSource: z.record(z.unknown()).optional(),
 });
 
 const FROM_NAME = "Jah Jah";
@@ -29,6 +31,12 @@ const DEFAULT_FROM_EMAIL = "welcome@jahknowspr.com";
 const TELEGRAM_BOT_LINK = "https://t.me/VX_kora_bot";
 const SQUARE_VERSION = "2024-10-17";
 const AMOUNT_CENTS = 1500;
+
+function textOrNull(value: unknown, max = 180): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed.slice(0, max) : null;
+}
 
 function randomToken(): string {
   const bytes = new Uint8Array(24);
@@ -102,6 +110,18 @@ serve(async (req) => {
     }
     const { sourceId, idempotencyKey, email, fullName } = parsed.data;
     const emailNorm = email.trim().toLowerCase();
+    const leadSource = readAttributionFromPayload(parsed.data as unknown as Record<string, unknown>);
+    const leadSourceMeta = leadSource.metadata as Record<string, unknown>;
+    const buyerKey = textOrNull(leadSourceMeta.buyer_key, 180) ?? emailNorm;
+    const clientId = textOrNull(leadSourceMeta.client_id, 120) ?? "jahknowspr";
+    const leadMagnetId = textOrNull(leadSourceMeta.lead_magnet_id, 120) ?? "the_brief";
+    const offerStage = textOrNull(leadSourceMeta.offer_stage, 80) ?? "subscription";
+    const campaignId = textOrNull(leadSourceMeta.campaign_id, 120);
+    const adsetId = textOrNull(leadSourceMeta.adset_id, 120);
+    const creativeId = textOrNull(leadSourceMeta.creative_id, 120);
+    const audienceClusterId = textOrNull(leadSourceMeta.audience_cluster_id, 120);
+    const audiencePoolId = textOrNull(leadSourceMeta.audience_pool_id, 120);
+    const journeyKey = `jahknowspr_web:jahknowspr:${clientId}:${buyerKey}`.slice(0, 300);
 
     const squareBaseUrl =
       SQUARE_ENVIRONMENT === "sandbox"
@@ -202,6 +222,270 @@ serve(async (req) => {
       });
     }
 
+    await supabaseAdmin.from("buyer_identity_links").upsert([
+      {
+        canonical_buyer_key: buyerKey,
+        identity_type: "buyer_key",
+        identity_value: buyerKey,
+        site_id: "jahknowspr_web",
+        brand_id: "jahknowspr",
+        client_id: clientId,
+        last_seen_at: new Date().toISOString(),
+        metadata: { source: "square_telegram_subscription_payment" },
+      },
+      {
+        canonical_buyer_key: buyerKey,
+        identity_type: "email",
+        identity_value: emailNorm,
+        site_id: "jahknowspr_web",
+        brand_id: "jahknowspr",
+        client_id: clientId,
+        last_seen_at: new Date().toISOString(),
+        metadata: { source: "square_telegram_subscription_payment" },
+      },
+    ], { onConflict: "canonical_buyer_key,identity_type,identity_value" });
+
+    const { data: existingJourney } = await supabaseAdmin
+      .from("buyer_journeys")
+      .select("purchase_count,total_revenue,first_event_at")
+      .eq("journey_key", journeyKey)
+      .maybeSingle();
+    const { data: buyerJourney, error: buyerJourneyError } = await supabaseAdmin
+      .from("buyer_journeys")
+      .upsert({
+        journey_key: journeyKey,
+        site_id: "jahknowspr_web",
+        brand_id: "jahknowspr",
+        client_id: clientId,
+        canonical_buyer_key: buyerKey,
+        buyer_key: buyerKey,
+        lead_key: emailNorm,
+        first_event_at: existingJourney?.first_event_at ?? new Date().toISOString(),
+        last_event_at: new Date().toISOString(),
+        first_touch_utm_source: leadSource.utm_source ?? null,
+        first_touch_utm_medium: leadSource.utm_medium ?? null,
+        first_touch_utm_campaign: leadSource.utm_campaign ?? null,
+        first_touch_utm_content: leadSource.utm_content ?? null,
+        first_touch_utm_term: leadSource.utm_term ?? null,
+        last_touch_utm_source: leadSource.utm_source ?? null,
+        last_touch_utm_medium: leadSource.utm_medium ?? null,
+        last_touch_utm_campaign: leadSource.utm_campaign ?? null,
+        last_touch_utm_content: leadSource.utm_content ?? null,
+        last_touch_utm_term: leadSource.utm_term ?? null,
+        journey_status: "purchased",
+        is_buyer: true,
+        purchase_count: Number(existingJourney?.purchase_count ?? 0) + 1,
+        total_revenue: Number((Number(existingJourney?.total_revenue ?? 0) + (AMOUNT_CENTS / 100)).toFixed(2)),
+        latest_offer_id: "telegram_subscription",
+        latest_campaign_id: campaignId,
+        latest_lead_magnet_id: leadMagnetId,
+        metadata: {
+          source: "square_telegram_subscription_payment",
+          subscription_id: squareSubscriptionId,
+        },
+      }, { onConflict: "journey_key" })
+      .select("id")
+      .single();
+    if (buyerJourneyError) {
+      console.error("buyer_journeys upsert error:", buyerJourneyError);
+    }
+    const buyerJourneyId = buyerJourney?.id as string | null;
+
+    const { data: analyticsEvent } = await supabaseAdmin
+      .from("analytics_events")
+      .insert({
+        event_name: "purchase_complete",
+        site_id: "jahknowspr_web",
+        client_id: clientId,
+        brand_id: "jahknowspr",
+        lead_magnet_id: leadMagnetId,
+        offer_stage: offerStage,
+        platform: "square",
+        page_path: "/telegram-subscription/payment",
+        campaign_id: campaignId,
+        adset_id: adsetId,
+        creative_id: creativeId,
+        audience_cluster_id: audienceClusterId,
+        audience_pool_id: audiencePoolId,
+        offer_id: "telegram_subscription",
+        funnel_id: "newsletter",
+        funnel_step: "purchase_complete",
+        revenue_value: AMOUNT_CENTS / 100,
+        currency: "USD",
+        anonymous_visitor_id: `square_${squareSubscriptionId}`,
+        session_id: idempotencyKey,
+        user_id: null,
+        buyer_key: buyerKey,
+        buyer_journey_id: buyerJourneyId,
+        utm_source: leadSource.utm_source ?? null,
+        utm_medium: leadSource.utm_medium ?? null,
+        utm_campaign: leadSource.utm_campaign ?? null,
+        utm_content: leadSource.utm_content ?? null,
+        utm_term: leadSource.utm_term ?? null,
+        landing_page_url: leadSource.current_url ?? null,
+        message_angle: leadSource.messaging_angle ?? null,
+        metadata: {
+          subscription_id: squareSubscriptionId,
+          source: "square-telegram-subscription-payment",
+        },
+      })
+      .select("id")
+      .single();
+
+    const { data: revenueAttribution } = await supabaseAdmin
+      .from("revenue_attribution")
+      .insert({
+        site_id: "jahknowspr_web",
+        client_id: clientId,
+        brand_id: "jahknowspr",
+        lead_magnet_id: leadMagnetId,
+        offer_stage: offerStage,
+        offer_id: "telegram_subscription",
+        offer_name: "Telegram Subscription",
+        amount: AMOUNT_CENTS / 100,
+        currency: "USD",
+        page_path: "/telegram-subscription/payment",
+        campaign_id: campaignId,
+        adset_id: adsetId,
+        creative_id: creativeId,
+        audience_cluster_id: audienceClusterId,
+        audience_pool_id: audiencePoolId,
+        utm_source: leadSource.utm_source ?? null,
+        utm_medium: leadSource.utm_medium ?? null,
+        utm_campaign: leadSource.utm_campaign ?? null,
+        utm_content: leadSource.utm_content ?? null,
+        utm_term: leadSource.utm_term ?? null,
+        anonymous_visitor_id: `square_${squareSubscriptionId}`,
+        session_id: idempotencyKey,
+        user_id: null,
+        buyer_key: buyerKey,
+        buyer_journey_id: buyerJourneyId,
+        payment_provider: "square",
+        order_id: squareSubscriptionId,
+        platform: "square",
+        message_angle: leadSource.messaging_angle ?? null,
+        content_angle: textOrNull(leadSourceMeta.content_angle, 160),
+        landing_page_url: leadSource.current_url ?? null,
+        metadata: {
+          email: emailNorm,
+          source: "square-telegram-subscription-payment",
+        },
+      })
+      .select("id")
+      .single();
+
+    await Promise.allSettled([
+      supabaseAdmin.from("buyer_purchase_attribution").insert({
+        source_event_id: analyticsEvent?.id ?? null,
+        source_revenue_attribution_id: revenueAttribution?.id ?? null,
+        site_id: "jahknowspr_web",
+        client_id: clientId,
+        brand_id: "jahknowspr",
+        industry_key: textOrNull(leadSourceMeta.industry_key, 120),
+        audience_cluster_id: audienceClusterId,
+        audience_pool_id: audiencePoolId,
+        lead_magnet_id: leadMagnetId,
+        offer_stage: offerStage,
+        offer_id: "telegram_subscription",
+        offer_name: "Telegram Subscription",
+        platform: "square",
+        content_angle: textOrNull(leadSourceMeta.content_angle, 160),
+        message_angle: leadSource.messaging_angle ?? null,
+        landing_page_url: leadSource.current_url ?? null,
+        utm_source: leadSource.utm_source ?? null,
+        utm_medium: leadSource.utm_medium ?? null,
+        utm_campaign: leadSource.utm_campaign ?? null,
+        utm_content: leadSource.utm_content ?? null,
+        utm_term: leadSource.utm_term ?? null,
+        campaign_id: campaignId,
+        adset_id: adsetId,
+        creative_id: creativeId,
+        funnel_id: "newsletter",
+        anonymous_visitor_id: `square_${squareSubscriptionId}`,
+        session_id: idempotencyKey,
+        user_id: null,
+        buyer_journey_id: buyerJourneyId,
+        buyer_key: buyerKey,
+        order_id: squareSubscriptionId,
+        payment_provider: "square",
+        amount: AMOUNT_CENTS / 100,
+        currency: "USD",
+        metadata: {
+          email: emailNorm,
+          source: "square-telegram-subscription-payment",
+        },
+      }),
+      supabaseAdmin.from("lead_magnet_interactions").insert({
+        lead_magnet_id: leadMagnetId,
+        interaction_kind: "purchase",
+        interaction_status: "success",
+        occurred_at: new Date().toISOString(),
+        site_id: "jahknowspr_web",
+        brand_id: "jahknowspr",
+        client_id: clientId,
+        buyer_journey_id: buyerJourneyId,
+        canonical_buyer_key: buyerKey,
+        buyer_key: buyerKey,
+        lead_key: emailNorm,
+        campaign_id: campaignId,
+        adset_id: adsetId,
+        creative_id: creativeId,
+        audience_cluster_id: audienceClusterId,
+        audience_pool_id: audiencePoolId,
+        offer_id: "telegram_subscription",
+        offer_stage: offerStage,
+        revenue_value: AMOUNT_CENTS / 100,
+        currency: "USD",
+        source_event_id: analyticsEvent?.id ?? null,
+        source_revenue_attribution_id: revenueAttribution?.id ?? null,
+        metadata: {
+          subscription_id: squareSubscriptionId,
+          source: "square-telegram-subscription-payment",
+        },
+      }),
+      safeRecordOutcome(supabaseAdmin, {
+        lead_id: emailNorm,
+        buyer_key: buyerKey,
+        buyer_journey_id: buyerJourneyId,
+        lead_magnet_id: leadMagnetId,
+        campaign_id: campaignId,
+        adset_id: adsetId,
+        creative_id: creativeId,
+        offer_id: "telegram_subscription",
+        offer_stage: offerStage,
+        audience_cluster_id: audienceClusterId,
+        audience_pool_id: audiencePoolId,
+        revenue_attribution_id: revenueAttribution?.id ?? null,
+        subject_kind: "payment",
+        subject_id: squareSubscriptionId,
+        actor_kind: "client",
+        action: "telegram_subscription_payment_succeeded",
+        strategy_origin: "human_defined",
+        learning_mode: "validated_learning",
+        intended_metric_type: "subscription_revenue",
+        actual_metric_type: "square_subscription_payment",
+        delta_value: AMOUNT_CENTS / 100,
+        success_flag: true,
+        revenue_impact: AMOUNT_CENTS / 100,
+        outcome_verified: true,
+        verification_source: "system",
+        verification_confidence_component: 0.98,
+        causal_method: "direct_attribution",
+        causal_confidence_component: 0.8,
+        evidence_strength_component: 0.5,
+        status: "success",
+        business_goal: "revenue",
+        correlation_id: leadSource.correlation_id ?? emailNorm,
+        strategy_id: "system:telegram-subscription-payment",
+        messaging_angle: leadSource.messaging_angle ?? "telegram_subscription",
+        hook: leadSource.hook ?? "telegram_subscription_checkout",
+        projection_version: "lls-projection-v1:telegram-subscription",
+        intended_outcome: { amount_cents: AMOUNT_CENTS, currency: "USD" },
+        actual_outcome: { subscription_id: squareSubscriptionId, square_status: squareStatus },
+        metadata: { idempotency_key: idempotencyKey, source: "square-telegram-subscription-payment" },
+      }),
+    ]);
+
     const token = randomToken();
     const inviteRow = await supabaseAdmin
       .from("telegram_access_invites")
@@ -265,6 +549,7 @@ serve(async (req) => {
       JSON.stringify({
         ok: true,
         squareSubscriptionId,
+        buyerKey,
         status: squareStatus,
         joinLink,
       }),

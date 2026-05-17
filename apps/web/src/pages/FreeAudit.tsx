@@ -370,6 +370,8 @@ export default function FreeAudit() {
       funnel_id: "free_audit",
       funnel_step: "landing",
       offer_id: "free_audit",
+      lead_magnet_id: "free_audit",
+      offer_stage: "free",
     });
   }, []);
 
@@ -423,6 +425,8 @@ export default function FreeAudit() {
       form_name: "Free Audit Diagnosis",
       funnel_id: "free_audit",
       funnel_step: `question_${currentStep + 1}`,
+      lead_magnet_id: "free_audit",
+      offer_stage: "free",
     });
     setCurrentStep((step) => Math.min(QUESTIONS.length - 1, step + 1));
   }
@@ -456,6 +460,9 @@ export default function FreeAudit() {
           metadata: {
             readiness_level: readiness,
             source_page: "free_audit",
+            lead_magnet_id: "free_audit",
+            offer_stage: "free",
+            buyer_key: nextAttribution.buyer_key,
             report_inputs: {
               business_entity_type: form.businessEntityType,
               public_business_name: form.publicBusinessName.trim(),
@@ -513,7 +520,13 @@ export default function FreeAudit() {
         funnel_id: "free_audit",
         funnel_step: "submit",
         offer_id: "free_audit",
-        metadata: { readiness_level: readiness },
+        lead_magnet_id: "free_audit",
+        offer_stage: "free",
+        buyer_key: nextAttribution.buyer_key,
+        metadata: {
+          readiness_level: readiness,
+          correlation_id: nextAttribution.correlation_id,
+        },
       });
 
       navigate("/free-audit/thank-you", {
