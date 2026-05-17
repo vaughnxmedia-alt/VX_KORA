@@ -912,6 +912,50 @@ function inferExportPlatform(example: string): string {
   return "Platform-specific"
 }
 
+function rowMatchesTerms(row: TableRow, terms: string[]): boolean {
+  const searchable = Object.values(row)
+    .filter((value): value is string => typeof value === "string")
+    .join(" ")
+    .toLowerCase()
+
+  return terms.some((term) => searchable.includes(term.toLowerCase()))
+}
+
+function getSubscriberSignalConfig(companyId: CompanyId): { label: string; poolLabel: string; terms: string[] } {
+  switch (companyId) {
+    case "jahknowspr":
+      return {
+        label: "Brief Subscriber Signals",
+        poolLabel: "Brief Subscriber Pools",
+        terms: ["brief", "newsletter", "email", "subscriber"],
+      }
+    case "mont_city_media_group":
+      return {
+        label: "Owned Audience Signals",
+        poolLabel: "Owned Audience Pools",
+        terms: ["subscriber", "sponsor", "engagement", "follow-up"],
+      }
+    case "mont_city_network":
+      return {
+        label: "Subscriber Signals",
+        poolLabel: "Subscriber Pools",
+        terms: ["subscriber", "subscription", "story", "distribution"],
+      }
+    case "vaughnx_technology":
+      return {
+        label: "Subscription Signals",
+        poolLabel: "Subscription Pools",
+        terms: ["subscription", "onboarding", "product user", "demo"],
+      }
+    default:
+      return {
+        label: "Audience Subscriber Signals",
+        poolLabel: "Audience Subscriber Pools",
+        terms: ["subscriber", "subscription", "audience"],
+      }
+  }
+}
+
 function getRowTextValue(row: TableRow, key: string): string {
   const value = row[key]
   return typeof value === "string" ? value : ""
@@ -1693,6 +1737,57 @@ function App() {
     }))
   }, [mode, selectedCompany.audienceBlueprint.exportExamples, selectedCompany.audienceBlueprint.poolExamples])
 
+  const clickSignalRows = useMemo(() => audienceSignalFeed.filter((row) => rowMatchesTerms(row, ["click"])), [audienceSignalFeed])
+
+  const seoSignalRows = useMemo(
+    () =>
+      [...commandCampaignRows, ...commandLeadRows].filter((row) =>
+        rowMatchesTerms(row, ["seo", "organic", "search", "google", "ranking", "query"]),
+      ),
+    [commandCampaignRows, commandLeadRows],
+  )
+
+  const subscriberSignalConfig = useMemo(() => getSubscriberSignalConfig(selectedCompany.id), [selectedCompany.id])
+
+  const subscriberSignalRows = useMemo(
+    () => audienceSignalFeed.filter((row) => rowMatchesTerms(row, subscriberSignalConfig.terms)),
+    [audienceSignalFeed, subscriberSignalConfig.terms],
+  )
+
+  const subscriberPoolRows = useMemo(
+    () => audiencePoolRows.filter((row) => rowMatchesTerms(row, subscriberSignalConfig.terms)),
+    [audiencePoolRows, subscriberSignalConfig.terms],
+  )
+
+  const seoSignalFeedRows = useMemo<TableRow[]>(
+    () =>
+      seoSignalRows
+        .map((row) => ({
+          signal: formatLabel(
+            getRowTextValue(row, "event_name") ||
+              getRowTextValue(row, "signal") ||
+              getRowTextValue(row, "interaction_kind") ||
+              "seo signal",
+          ),
+          source:
+            getRowTextValue(row, "campaign") ||
+            getRowTextValue(row, "campaign_id") ||
+            getRowTextValue(row, "source") ||
+            "Organic / Search",
+          stage:
+            getRowTextValue(row, "platform") ||
+            getRowTextValue(row, "interaction_status") ||
+            getRowTextValue(row, "status") ||
+            "Observed",
+          occurred_at:
+            getRowTextValue(row, "occurred_at") ||
+            getRowTextValue(row, "created_at") ||
+            getRowTextValue(row, "updated_at"),
+        }))
+        .slice(0, 20),
+    [seoSignalRows],
+  )
+
   const smokeChecks = useMemo(() => {
     const requiredLeadMagnets = ["free_audit", "strategy_session", "the_brief", "download", "webinar", "other"]
     const presentLeadMagnets = new Set(state.leadMagnets.map((row) => String(row.id)))
@@ -1919,19 +2014,27 @@ function App() {
 
         {activeTab === "audience" ? (
           <section className="grid gap-4">
-            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-              <h2 className="text-lg font-semibold text-gray-900">Audience Intelligence Model</h2>
-              <p className="mt-1 text-sm text-gray-600">
-                Signals are not the same as custom audiences. This view separates raw observations, pattern intelligence,
-                usable pools, and export-ready outputs for {selectedCompany.label}.
-              </p>
-              <p className="mt-3 text-sm font-medium text-gray-700">
-                Signals become intelligence when KORA groups them into audience pools and connects them to campaign,
-                offer, and revenue outcomes.
-              </p>
-              <p className="mt-2 text-xs text-gray-500">
-                Each platform has its own rules, required identifiers, match quality, and privacy requirements.
-              </p>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <KpiCard
+                label="Click Signals"
+                value={formatMetric(clickSignalRows.length)}
+                hint="Click-based behavior signals detected"
+              />
+              <KpiCard
+                label="SEO / Organic Signals"
+                value={formatMetric(seoSignalRows.length)}
+                hint="Search and organic discovery signals"
+              />
+              <KpiCard
+                label={subscriberSignalConfig.label}
+                value={formatMetric(subscriberSignalRows.length)}
+                hint="Subscriber-oriented audience signals"
+              />
+              <KpiCard
+                label={subscriberSignalConfig.poolLabel}
+                value={formatMetric(subscriberPoolRows.length)}
+                hint="Pools linked to subscriber signal patterns"
+              />
             </div>
 
             <div className="grid gap-4 lg:grid-cols-2">
@@ -1944,6 +2047,31 @@ function App() {
                 title={`${selectedCompany.label} Signal Feed`}
                 rows={audienceSignalFeed}
                 emptyLabel={selectedCompany.emptyStates.audience}
+                columns={[
+                  { key: "signal", label: "Signal" },
+                  { key: "source", label: "Source" },
+                  { key: "stage", label: "Status / Channel" },
+                  { key: "occurred_at", label: "Observed", formatter: formatDate },
+                ]}
+              />
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <DataTable
+                title={`${selectedCompany.label} SEO / Organic Signals`}
+                rows={seoSignalFeedRows}
+                emptyLabel="No SEO or organic signals detected in this range."
+                columns={[
+                  { key: "signal", label: "Signal" },
+                  { key: "source", label: "Source" },
+                  { key: "stage", label: "Channel / Status" },
+                  { key: "occurred_at", label: "Observed", formatter: formatDate },
+                ]}
+              />
+              <DataTable
+                title={`${selectedCompany.label} ${subscriberSignalConfig.label}`}
+                rows={subscriberSignalRows}
+                emptyLabel={`No ${subscriberSignalConfig.label.toLowerCase()} detected in this range.`}
                 columns={[
                   { key: "signal", label: "Signal" },
                   { key: "source", label: "Source" },

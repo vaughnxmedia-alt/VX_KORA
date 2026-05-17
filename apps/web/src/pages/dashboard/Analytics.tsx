@@ -5,6 +5,18 @@ import { useAuth } from "@/components/AuthProvider";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import {
+  type ClosedLoopDateRange,
+  getAudienceIntelligenceSummary,
+  getCampaignPerformanceSummary,
+  getClientAnalyticsSummary,
+  getClosedLoopSnapshot,
+  getFunnelOverview,
+  getKoraIntelligenceSummary,
+  getKoraRecommendations,
+  getLeadMagnetPerformance,
+  getRevenueAttributionSummary,
+} from "@/lib/kora-closed-loop-analytics";
 
 type RollupRow = {
   date: string;
@@ -100,6 +112,12 @@ const FIRM_CLIENT_OPTIONS = [
   { id: "eb-digital-magazine", label: "EB Digital Magazine" },
 ];
 
+const DATE_RANGE_OPTIONS: Array<{ id: ClosedLoopDateRange; label: string }> = [
+  { id: "7d", label: "Last 7 days" },
+  { id: "30d", label: "Last 30 days" },
+  { id: "90d", label: "Last 90 days" },
+];
+
 function fmt(n: number | null | undefined): string {
   if (n === null || n === undefined || Number.isNaN(n)) return "—";
   return Number(n).toLocaleString();
@@ -117,8 +135,10 @@ export default function Analytics() {
   const siteId = "jahknowspr_web";
   const brandId = "jahknowspr";
   const [selectedFirmClientId, setSelectedFirmClientId] = useState("all");
+  const [dateRange, setDateRange] = useState<ClosedLoopDateRange>("30d");
   const selectedFirmClient = FIRM_CLIENT_OPTIONS.find((client) => client.id === selectedFirmClientId);
   const isClientAnalyticsView = selectedFirmClientId !== "all";
+  const activeClientAccountId = isClientAnalyticsView ? selectedFirmClientId : null;
   const activeAnalyticsLabel = isClientAnalyticsView ? selectedFirmClient?.label || "Selected Client" : "JahKnowsPR";
   const activeAnalyticsScope = isClientAnalyticsView
     ? "Client campaign, funnel, and revenue analytics"
@@ -238,6 +258,60 @@ export default function Analytics() {
     enabled: isAdmin && isClientAnalyticsView,
   });
 
+  const intelligenceSummaryQuery = useQuery({
+    queryKey: ["kora-closed-loop-summary", brandId, selectedFirmClientId, dateRange],
+    queryFn: () => getKoraIntelligenceSummary(brandId, activeClientAccountId, dateRange),
+    enabled: isAdmin,
+  });
+
+  const closedLoopSnapshotQuery = useQuery({
+    queryKey: ["kora-closed-loop-snapshot", brandId, selectedFirmClientId, dateRange],
+    queryFn: () => getClosedLoopSnapshot(brandId, activeClientAccountId, dateRange),
+    enabled: isAdmin,
+  });
+
+  const funnelOverviewQuery = useQuery({
+    queryKey: ["kora-closed-loop-funnel", brandId, selectedFirmClientId, dateRange],
+    queryFn: () => getFunnelOverview(brandId, activeClientAccountId, dateRange),
+    enabled: isAdmin,
+  });
+
+  const audienceIntelligenceQuery = useQuery({
+    queryKey: ["kora-closed-loop-audience", brandId, selectedFirmClientId, dateRange],
+    queryFn: () => getAudienceIntelligenceSummary(brandId, activeClientAccountId, dateRange),
+    enabled: isAdmin,
+  });
+
+  const leadMagnetPerformanceQuery = useQuery({
+    queryKey: ["kora-closed-loop-lead-magnets", brandId, selectedFirmClientId, dateRange],
+    queryFn: () => getLeadMagnetPerformance(brandId, activeClientAccountId, dateRange),
+    enabled: isAdmin,
+  });
+
+  const campaignSummaryQuery = useQuery({
+    queryKey: ["kora-closed-loop-campaign-summary", brandId, selectedFirmClientId, dateRange],
+    queryFn: () => getCampaignPerformanceSummary(brandId, activeClientAccountId, dateRange),
+    enabled: isAdmin,
+  });
+
+  const revenueSummaryQuery = useQuery({
+    queryKey: ["kora-closed-loop-revenue-summary", brandId, selectedFirmClientId, dateRange],
+    queryFn: () => getRevenueAttributionSummary(brandId, activeClientAccountId, dateRange),
+    enabled: isAdmin,
+  });
+
+  const recommendationsQuery = useQuery({
+    queryKey: ["kora-closed-loop-recommendations", brandId, selectedFirmClientId, dateRange],
+    queryFn: () => getKoraRecommendations(brandId, activeClientAccountId, dateRange),
+    enabled: isAdmin,
+  });
+
+  const clientAnalyticsSummaryQuery = useQuery({
+    queryKey: ["kora-closed-loop-client-summary", brandId, dateRange],
+    queryFn: () => getClientAnalyticsSummary(brandId, dateRange),
+    enabled: isAdmin,
+  });
+
   const updateFindingStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const { error } = await (supabase as any)
@@ -246,7 +320,11 @@ export default function Analytics() {
         .eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["kora-analytics-findings"] }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["kora-analytics-findings"] });
+      void queryClient.invalidateQueries({ queryKey: ["kora-closed-loop-recommendations"] });
+      void queryClient.invalidateQueries({ queryKey: ["kora-closed-loop-summary"] });
+    },
   });
 
   const latestRollup = rollupsQuery.data?.[0];
@@ -270,21 +348,53 @@ export default function Analytics() {
     );
   }, [hasRealData, rollupsQuery.data]);
 
-  const conversionRate = executive.sessions > 0 ? executive.purchases / executive.sessions : 0;
-  const clickRate = executive.page_views > 0 ? executive.cta_clicks / executive.page_views : 0;
-  const topRevenueOffers = useMemo(
-    () =>
-      Object.entries(
-        (revenueQuery.data || []).reduce<Record<string, number>>((acc, r) => {
-          const k = r.offer_id || "unknown";
-          acc[k] = (acc[k] || 0) + Number(r.amount || 0);
-          return acc;
-        }, {}),
-      )
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3),
-    [revenueQuery.data],
-  );
+  const koraSummary = intelligenceSummaryQuery.data || {
+    audienceSignals: 0,
+    audiencePools: 0,
+    leadMagnetActivity: 0,
+    buyerJourneys: 0,
+    activeWorkflows: 0,
+    revenueInfluence: 0,
+    learningFindings: 0,
+    actionNeeded: 0,
+  };
+
+  const closedLoopSnapshot = closedLoopSnapshotQuery.data || {
+    pageViews: 0,
+    uniqueVisitors: 0,
+    sessions: 0,
+    ctaClicks: 0,
+    leadMagnetActions: 0,
+    formSubmissions: 0,
+    bookingClicks: 0,
+    checkoutStarts: 0,
+    purchases: 0,
+    revenue: 0,
+    conversionRate: 0,
+  };
+
+  const funnelOverview = funnelOverviewQuery.data || {
+    mode: isClientAnalyticsView ? "client" : "firm",
+    stages: [],
+    explanation: "Funnel will populate as closed-loop events accumulate.",
+  };
+
+  const audienceIntelligence = audienceIntelligenceQuery.data || {
+    signalCount: 0,
+    topAudienceClusters: [],
+    audiencePools: [],
+    exportReadyAudiences: [],
+    explanation:
+      "Signals are raw audience clues. KORA groups them into pools for follow-up, campaigns, and retargeting.",
+  };
+
+  const leadMagnetPerformance = leadMagnetPerformanceQuery.data?.rows || [];
+  const campaignPerformance = campaignSummaryQuery.data?.topCampaigns || [];
+  const revenueSummary = revenueSummaryQuery.data;
+  const koraRecommendations = recommendationsQuery.data || [];
+  const clientAnalyticsSummary = clientAnalyticsSummaryQuery.data;
+
+  const topRevenueOffers = (revenueSummary?.topOffers || []).map((row) => [row.offerId, row.amount] as const).slice(0, 3);
 
   const websiteTrafficRows = useMemo(() => {
     return (rollupsQuery.data || []).slice(0, 7).map((row) => ({
@@ -307,49 +417,28 @@ export default function Analytics() {
     return realPosts;
   }, [contentQuery.data]);
 
-  const revenueByClient = useMemo(() => {
-    const source = revenueQuery.data || [];
-
-    return Object.entries(
-      source.reduce<Record<string, { amount: number; transactions: number; funnels: Set<string> }>>((acc, row) => {
-        const key = row.client_id || "unknown";
-        if (!acc[key]) acc[key] = { amount: 0, transactions: 0, funnels: new Set<string>() };
-        acc[key].amount += Number(row.amount || 0);
-        acc[key].transactions += 1;
-        if (row.funnel_id || row.offer_name) acc[key].funnels.add(row.funnel_id || row.offer_name || "unknown");
-        return acc;
-      }, {}),
-    )
-      .map(([clientId, row]) => ({
-        clientId,
-        clientName: CLIENT_LABELS[clientId] || clientId,
+  const revenueByClient = useMemo(
+    () =>
+      (revenueSummary?.revenueByClient || []).map((row) => ({
+        clientId: row.clientId,
+        clientName: CLIENT_LABELS[row.clientId] || row.clientId,
         amount: row.amount,
         transactions: row.transactions,
-        funnels: Array.from(row.funnels),
-      }))
-      .sort((a, b) => b.amount - a.amount);
-  }, [revenueQuery.data]);
+        funnels: row.funnels,
+      })),
+    [revenueSummary?.revenueByClient],
+  );
 
-  const revenueByFunnel = useMemo(() => {
-    const source = revenueQuery.data || [];
-    return Object.entries(
-      source.reduce<Record<string, { amount: number; clients: Set<string>; transactions: number }>>((acc, row) => {
-        const key = row.funnel_id || row.offer_name || "unknown";
-        if (!acc[key]) acc[key] = { amount: 0, clients: new Set<string>(), transactions: 0 };
-        acc[key].amount += Number(row.amount || 0);
-        acc[key].transactions += 1;
-        acc[key].clients.add(row.client_id || "unknown");
-        return acc;
-      }, {}),
-    )
-      .map(([funnel, row]) => ({
-        funnel,
+  const revenueByFunnel = useMemo(
+    () =>
+      (revenueSummary?.revenueByFunnel || []).map((row) => ({
+        funnel: row.funnel,
         amount: row.amount,
-        clients: Array.from(row.clients).map((id) => CLIENT_LABELS[id] || id),
+        clients: row.clients.map((id) => CLIENT_LABELS[id] || id),
         transactions: row.transactions,
-      }))
-      .sort((a, b) => b.amount - a.amount);
-  }, [revenueQuery.data]);
+      })),
+    [revenueSummary?.revenueByFunnel],
+  );
 
   const selectedRevenueByClient = useMemo(
     () =>
@@ -434,6 +523,18 @@ export default function Analytics() {
               </option>
             ))}
           </select>
+          <select
+            value={dateRange}
+            onChange={(event) => setDateRange(event.target.value as ClosedLoopDateRange)}
+            className="h-10 rounded-md border border-input bg-white px-3 py-2 text-sm text-foreground shadow-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            aria-label="Select analytics date range"
+          >
+            {DATE_RANGE_OPTIONS.map((range) => (
+              <option key={range.id} value={range.id}>
+                {range.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -450,6 +551,30 @@ export default function Analytics() {
         <div className="mt-1 text-lg font-semibold">{activeAnalyticsLabel}</div>
         <p className="mt-1 text-sm text-muted-foreground">{activeAnalyticsScope}</p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>KORA Intelligence Summary</CardTitle>
+        </CardHeader>
+        <CardContent className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            ["Audience Signals", koraSummary.audienceSignals, "No audience signals yet."],
+            ["Audience Pools", koraSummary.audiencePools, "No audience pools yet."],
+            ["Lead Magnet Activity", koraSummary.leadMagnetActivity, "No lead magnet activity yet."],
+            ["Buyer Journeys", koraSummary.buyerJourneys, "No buyer journeys yet."],
+            ["Active Workflows", koraSummary.activeWorkflows, "No active workflows yet."],
+            ["Revenue Influence", `$${fmt(koraSummary.revenueInfluence)}`, "No revenue influence yet."],
+            ["Learning Findings", koraSummary.learningFindings, "No learning findings yet."],
+            ["Action Needed", koraSummary.actionNeeded, "No actions required right now."],
+          ].map(([label, value, empty]) => (
+            <div key={String(label)} className="rounded-md border p-3">
+              <div className="text-xs text-muted-foreground">{label}</div>
+              <div className="text-2xl font-semibold tabular-nums">{value}</div>
+              {String(value) === "0" && <div className="mt-1 text-xs text-muted-foreground">{empty}</div>}
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
       {isClientAnalyticsView && (
         <Card className="border-primary/30 bg-primary/5 shadow-md">
@@ -485,6 +610,21 @@ export default function Analytics() {
               <p className="mt-1 text-muted-foreground">
                 Campaigns, boosted content, funnels, CTAs, conversion events, revenue, and recommendations for {activeAnalyticsLabel} will appear here as analytics receives client_id-tagged data.
               </p>
+            </div>
+            <div className="rounded-md border bg-white p-3 md:col-span-5">
+              <div className="font-medium">Client Funnel Overview</div>
+              <p className="mt-1 text-xs text-muted-foreground">{funnelOverview.explanation}</p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {funnelOverview.stages.map((stage) => (
+                  <div key={stage.key} className="rounded border p-2">
+                    <div className="text-xs text-muted-foreground">{stage.label}</div>
+                    <div className="text-lg font-semibold">{fmt(stage.count)}</div>
+                  </div>
+                ))}
+              </div>
+              {!funnelOverview.stages.length && (
+                <div className="mt-2 text-xs text-muted-foreground">Client funnel stages will appear once campaign interactions are recorded.</div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -569,21 +709,21 @@ export default function Analytics() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Executive Snapshot</CardTitle>
+          <CardTitle>Closed-Loop Snapshot</CardTitle>
         </CardHeader>
         <CardContent className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
           {[
-            ["Total page views", executive.page_views],
-            ["Unique visitors", executive.unique_visitors],
-            ["Sessions", executive.sessions],
-            ["CTA clicks", executive.cta_clicks],
-            ["Click rate", pct(clickRate)],
-            ["Form submissions", executive.form_submits],
-            ["Booking clicks", executive.booking_clicks],
-            ["Checkout starts", executive.checkout_starts],
-            ["Purchases", executive.purchases],
-            ["Revenue", `$${fmt(executive.revenue)}`],
-            ["Conversion rate", pct(conversionRate)],
+            ["Total page views", closedLoopSnapshot.pageViews],
+            ["Unique visitors", closedLoopSnapshot.uniqueVisitors],
+            ["Sessions", closedLoopSnapshot.sessions],
+            ["CTA clicks", closedLoopSnapshot.ctaClicks],
+            ["Lead magnet actions", closedLoopSnapshot.leadMagnetActions],
+            ["Form submissions", closedLoopSnapshot.formSubmissions],
+            ["Booking clicks", closedLoopSnapshot.bookingClicks],
+            ["Checkout starts", closedLoopSnapshot.checkoutStarts],
+            ["Purchases", closedLoopSnapshot.purchases],
+            ["Revenue", `$${fmt(closedLoopSnapshot.revenue)}`],
+            ["Conversion rate", pct(closedLoopSnapshot.conversionRate)],
           ].map(([label, value]) => (
             <div key={label} className="rounded-md border p-3">
               <div className="text-xs text-muted-foreground">{label}</div>
@@ -599,7 +739,21 @@ export default function Analytics() {
             <CardTitle>Funnel Overview</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {(funnelQuery.data || []).slice(0, 8).map((funnel) => (
+            <div className="rounded-md border p-3">
+              <div className="text-sm text-muted-foreground">{funnelOverview.explanation}</div>
+              <div className="mt-3 grid gap-2 md:grid-cols-2">
+                {funnelOverview.stages.map((stage) => (
+                  <div key={stage.key} className="rounded border bg-muted/20 p-2 text-sm">
+                    <div className="font-medium">{stage.label}</div>
+                    <div className="text-muted-foreground">{fmt(stage.count)}</div>
+                  </div>
+                ))}
+              </div>
+              {!funnelOverview.stages.length && (
+                <p className="mt-2 text-sm text-muted-foreground">No funnel stage data yet.</p>
+              )}
+            </div>
+            {(funnelQuery.data || []).slice(0, 4).map((funnel) => (
               <div key={funnel.id} className="rounded-md border p-3">
                 <div className="font-medium">{funnel.funnel_name}</div>
                 <div className="text-sm text-muted-foreground">
@@ -608,10 +762,8 @@ export default function Analytics() {
                 <div className="text-xs text-muted-foreground mt-1">
                   Biggest drop-off: {funnel.largest_dropoff_step || "n/a"} ({pct(funnel.largest_dropoff_rate)})
                 </div>
-                <div className="text-xs mt-1">Recommended fix: tighten CTA and message around the drop-off step.</div>
               </div>
             ))}
-            {!funnelQuery.data?.length && <p className="text-sm text-muted-foreground">No funnel reports yet.</p>}
           </CardContent>
         </Card>
 
@@ -639,12 +791,78 @@ export default function Analytics() {
               {!revenueByFunnel.length && <p className="text-sm text-muted-foreground">No funnel revenue yet.</p>}
             </div>
             <div className="text-sm">
-              Checkout starts vs purchases: {fmt(executive.checkout_starts)} / {fmt(executive.purchases)}
+              Checkout starts vs purchases: {fmt(closedLoopSnapshot.checkoutStarts)} / {fmt(closedLoopSnapshot.purchases)}
             </div>
             <div className="text-sm">
               Average order value: $
-              {executive.purchases > 0 ? (executive.revenue / executive.purchases).toFixed(2) : "0.00"}
+              {revenueSummary?.averageOrderValue ? revenueSummary.averageOrderValue.toFixed(2) : "0.00"}
             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid xl:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Audience Intelligence</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div className="rounded-md border p-3">
+              <div className="text-xs text-muted-foreground">Signal count</div>
+              <div className="text-2xl font-semibold">{fmt(audienceIntelligence.signalCount)}</div>
+            </div>
+            <div className="rounded-md border p-3">
+              <div className="font-medium">Top audience clusters</div>
+              <div className="mt-2 space-y-1 text-muted-foreground">
+                {audienceIntelligence.topAudienceClusters.map((cluster) => (
+                  <div key={cluster.clusterId}>
+                    {cluster.clusterId.replaceAll("_", " ")}: {fmt(cluster.signals)} signals
+                  </div>
+                ))}
+                {!audienceIntelligence.topAudienceClusters.length && <div>No cluster signals yet.</div>}
+              </div>
+            </div>
+            <div className="rounded-md border p-3">
+              <div className="font-medium">Audience pools and export-ready audiences</div>
+              <div className="mt-2 space-y-1 text-muted-foreground">
+                {audienceIntelligence.audiencePools.map((pool) => (
+                  <div key={pool.poolId}>
+                    {pool.poolId.replaceAll("_", " ")}: {fmt(pool.signals)} signals
+                  </div>
+                ))}
+                {!audienceIntelligence.audiencePools.length && <div>No audience pools yet.</div>}
+                {audienceIntelligence.exportReadyAudiences.map((audience) => (
+                  <div key={`${audience.audience}-${audience.platform}`}>
+                    {audience.audience.replaceAll("_", " ")} ({audience.platform}): {audience.readiness}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">{audienceIntelligence.explanation}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Lead Magnet Performance</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {leadMagnetPerformance.map((row) => (
+              <div key={row.leadMagnet} className="rounded-md border p-3 text-sm">
+                <div className="font-medium">{row.leadMagnet}</div>
+                <div className="text-muted-foreground">
+                  Interactions {fmt(row.interactions)} · Leads {fmt(row.leads)} · Conversions {fmt(row.conversions)}
+                </div>
+                <div className="mt-1 text-muted-foreground">
+                  Revenue influence ${fmt(row.revenueInfluence)} · Follow-up needed {fmt(row.followUpNeeded)}
+                </div>
+              </div>
+            ))}
+            {!leadMagnetPerformance.length && (
+              <p className="text-sm text-muted-foreground">
+                Free Audit, Strategy Session, The Brief, and Telegram Add-On will populate after lead magnet interactions are tracked.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -696,39 +914,48 @@ export default function Analytics() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Findings</CardTitle>
+          <CardTitle>KORA Recommendations</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {(findingsQuery.data || []).slice(0, 12).map((finding) => (
-            <div key={finding.id} className="rounded-md border p-3">
+          {koraRecommendations.slice(0, 12).map((recommendation) => (
+            <div key={recommendation.id} className="rounded-md border p-3">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <div className="font-medium">{finding.title}</div>
+                  <div className="font-medium">{recommendation.whatKoraNoticed}</div>
                   <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                    {finding.priority} · {finding.finding_type} · {finding.status}
+                    {recommendation.priority} · Confidence {recommendation.confidenceLevel} · {recommendation.status}
                   </div>
                 </div>
-                {finding.status !== "reviewed" && (
+                {recommendation.status !== "reviewed" && (
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => updateFindingStatus.mutate({ id: finding.id, status: "reviewed" })}
+                    onClick={() => updateFindingStatus.mutate({ id: recommendation.id, status: "reviewed" })}
                   >
                     Mark reviewed
                   </Button>
                 )}
               </div>
-              <p className="text-sm mt-2">{finding.summary}</p>
-              <p className="text-sm mt-2 font-medium">Recommendation: {finding.recommendation}</p>
-              {(finding.related_page_path || finding.related_offer_id || finding.related_campaign_id) && (
+              <p className="text-sm mt-2">
+                <span className="font-medium">What it means:</span> {recommendation.whatItMeans}
+              </p>
+              <p className="text-sm mt-2 font-medium">Recommended next move: {recommendation.recommendedNextMove}</p>
+              {(recommendation.related.audiencePool ||
+                recommendation.related.campaign ||
+                recommendation.related.offer ||
+                recommendation.related.leadMagnet ||
+                recommendation.related.revenueSignal) && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Related: {finding.related_page_path || "—"} · Offer {finding.related_offer_id || "—"} · Campaign{" "}
-                  {finding.related_campaign_id || "—"}
+                  Related audience {recommendation.related.audiencePool || "—"} · Campaign {recommendation.related.campaign || "—"} · Offer{" "}
+                  {recommendation.related.offer || "—"} · Lead magnet {recommendation.related.leadMagnet || "—"} · Revenue signal{" "}
+                  {recommendation.related.revenueSignal || "—"}
                 </p>
               )}
             </div>
           ))}
-          {!findingsQuery.data?.length && <p className="text-sm text-muted-foreground">No findings yet.</p>}
+          {!koraRecommendations.length && (
+            <p className="text-sm text-muted-foreground">No recommendations yet. KORA will surface opportunities as new analytics signals arrive.</p>
+          )}
         </CardContent>
       </Card>
         </>
@@ -740,7 +967,11 @@ export default function Analytics() {
             <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Client Analytics</div>
             <div className="mt-1 text-lg font-semibold">Boosted content, client funnels, and revenue signals for JahKnowsPR client work</div>
             <p className="mt-1 text-sm text-muted-foreground">
-              This is separate from JahKnowsPR firm analytics. It tracks campaigns and funnel results for clients JahKnowsPR helps.
+              {clientAnalyticsSummary?.helperCopy ||
+                "Mission Control manages the full KORA intelligence system. This dashboard shows the business-facing analytics for JahKnowsPR and its client work."}
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              JahKnowsPR is the partner front door. Client accounts are brands served by JahKnowsPR. Client analytics include boosted content, client funnels, campaign performance, revenue signals, deliverables, and KORA recommendations.
             </p>
           </div>
 
@@ -754,17 +985,30 @@ export default function Analytics() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="rounded-md border p-3 text-sm">
-                  <div className="font-medium">No boosted content campaigns yet</div>
+                  <div className="font-medium">Campaign interactions</div>
                   <div className="mt-2 grid grid-cols-4 gap-2">
-                    <div className="rounded bg-muted/50 p-2">Spend <span className="font-semibold">$0</span></div>
-                    <div className="rounded bg-muted/50 p-2">Traffic <span className="font-semibold">0</span></div>
-                    <div className="rounded bg-muted/50 p-2">CTA <span className="font-semibold">0</span></div>
-                    <div className="rounded bg-muted/50 p-2">Conv. <span className="font-semibold">0</span></div>
+                    <div className="rounded bg-muted/50 p-2">Tracked campaigns <span className="font-semibold">{fmt(campaignPerformance.length)}</span></div>
+                    <div className="rounded bg-muted/50 p-2">Traffic <span className="font-semibold">{fmt(campaignPerformance.reduce((sum, row) => sum + row.interactions, 0))}</span></div>
+                    <div className="rounded bg-muted/50 p-2">CTA <span className="font-semibold">{fmt(campaignPerformance.reduce((sum, row) => sum + row.ctaClicks, 0))}</span></div>
+                    <div className="rounded bg-muted/50 p-2">Conv. <span className="font-semibold">{fmt(campaignPerformance.reduce((sum, row) => sum + row.conversions, 0))}</span></div>
                   </div>
                   <div className="mt-2 text-xs text-muted-foreground">
                     Boosted post stats will appear after campaigns send client_id, campaign_id, content_id, and funnel_id into analytics.
                   </div>
                 </div>
+                {campaignPerformance.slice(0, 6).map((campaign) => (
+                  <div key={campaign.campaignId} className="rounded-md border p-3 text-sm">
+                    <div className="font-medium">{campaign.campaignId.replaceAll("_", " ")}</div>
+                    <div className="text-muted-foreground">
+                      Interactions {fmt(campaign.interactions)} · CTA clicks {fmt(campaign.ctaClicks)} · Conversions {fmt(campaign.conversions)}
+                    </div>
+                  </div>
+                ))}
+                {!campaignPerformance.length && (
+                  <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+                    No campaign summaries yet.
+                  </div>
+                )}
               </CardContent>
             </Card>
 

@@ -113,6 +113,8 @@ const AUDIT_ANGLE_LABELS: Record<string, string> = {
   authority_structure: "Authority structure",
 };
 
+const CANONICAL_PRIMARY_CTA = "Join the Waitlist";
+
 function asObject(value: unknown): JsonRecord {
   return value && typeof value === "object" && !Array.isArray(value) ? value as JsonRecord : {};
 }
@@ -229,69 +231,10 @@ function presenceList(audit: FreeAuditRecord): string[] {
     .filter(Boolean);
 }
 
-function auditContextBlob(audit: FreeAuditRecord, businessName: string, industry = ""): string {
-  return [
-    businessName,
-    audit.growth_goal,
-    audit.current_blocker,
-    audit.target_audience_belief,
-    audit.website_link,
-    audit.instagram,
-    audit.facebook,
-    audit.tiktok,
-    audit.other_socials,
-    industry,
-  ].map((value) => String(value ?? "").toLowerCase()).join(" ");
-}
-
-function isJahKnowsPrAudit(audit: FreeAuditRecord, businessName: string): boolean {
-  return /jah\s*knows\s*pr|jahknowspr/.test(auditContextBlob(audit, businessName));
-}
-
-function inferPrimaryCta(audit: FreeAuditRecord, businessName: string, industry = ""): string {
-  const blob = auditContextBlob(audit, businessName, industry);
-  if (/podcast|episode|creator|youtube|channel|show|broadcast|stream/.test(blob)) {
-    if (/nonprofit|community|member|membership|donor|ministry|church|join/.test(blob)) return "Join the Community";
-    if (/sponsor|partnership|partner/.test(blob)) return "Sponsor a Series";
-    return "Submit a Story";
-  }
-  if (/photograph|photographer|photo shoot|photoshoot|portrait|headshot|wedding|pixieset|gallery/.test(blob)) {
-    return "Book a Photo Shoot";
-  }
-  if (/event coverage|live stream|video production|videograph|production/.test(blob)) {
-    return "Request Event Coverage";
-  }
-  if (/restaurant|catering|chef|food truck|bakery|bar|coffee|menu/.test(blob)) {
-    return /catering|event/.test(blob) ? "Request Catering" : "View Menu";
-  }
-  if (/course|class|training|workshop|school|academy|lesson|cohort/.test(blob)) {
-    return "Enroll Now";
-  }
-  if (/nonprofit|donor|fundraising|foundation|church|ministry|community program|501c/.test(blob)) {
-    if (/join|community|member|membership|volunteer|get involved|people/.test(blob)) return "Join the Community";
-    return /donor|fundraising|donate/.test(blob) ? "Donate" : "Join the Community";
-  }
-  if (/shop|product|store|ecommerce|e-commerce|merch/.test(blob)) {
-    return "Shop the Offer";
-  }
-  if (/beauty|salon|spa|skin|esthetic|makeup|hair|wellness|fitness|therapy|massage|book|appointment|availability|schedule/.test(blob)) {
-    return "Book an Appointment";
-  }
-  if (/consult|coach|advisor|strategy/.test(blob)) {
-    return "Book a Consultation";
-  }
-  if (/proposal|quote|project|service/.test(blob)) {
-    return "Request a Proposal";
-  }
-  return "Request Details";
-}
-
-function normalizePrimaryCta(value: unknown, audit: FreeAuditRecord, businessName: string, industry = ""): string {
+function normalizePrimaryCta(value: unknown): string {
   const submitted = originalText(value);
-  const inferred = inferPrimaryCta(audit, businessName, industry);
-  if (!submitted) return inferred;
-  if (/book a strategy session/i.test(submitted) && !isJahKnowsPrAudit(audit, businessName)) return inferred;
-  return submitted;
+  if (submitted) return submitted;
+  return CANONICAL_PRIMARY_CTA;
 }
 
 function actionResultLabel(primaryCta: string): string {
@@ -317,7 +260,10 @@ function nextStepInstruction(primaryCta: string): string {
 }
 
 function clientFacingCopy(value: unknown, fallback: string, primaryCta: string): string {
-  return originalText(value, fallback)
+  const normalized = originalText(value, fallback);
+  // Keep explicit CTA label lines verbatim so they always match canonical profile values.
+  if (/^(Current CTA:|Recommended next action:|Primary CTA:)/i.test(normalized)) return normalized;
+  return normalized
     .replace(/Book a Strategy Session/gi, primaryCta)
     .replace(/\bstrategy session\b/gi, "next step")
     .replace(/\bbooked action\b/gi, actionResultLabel(primaryCta));
@@ -531,7 +477,6 @@ export function buildFreeAuditReport(
   const audienceFinding = findingFor("audience_clarity_gap");
   const authorityFinding = findingFor("authority_gap");
   const messagingFinding = findingFor("messaging_gap");
-  const conversionFinding = findingFor("conversion_gap");
   const namingNotes = originalText(
     brandArchitectureProfile.brand_architecture_notes,
     "",
@@ -547,12 +492,8 @@ export function buildFreeAuditReport(
       .slice(0, 2)
     : [];
   const culturalSummary = originalText(culturalProfile.cultural_context_summary, "");
-  const recommendedPrimaryCta = normalizePrimaryCta(
-    conversionProfile.recommended_primary_cta,
-    audit,
-    businessName,
-    industry,
-  );
+  const recommendedPrimaryCta = normalizePrimaryCta(conversionProfile.recommended_primary_cta);
+  const currentCta = originalText(conversionProfile.current_cta);
   const actionResult = actionResultLabel(recommendedPrimaryCta);
   const secondaryCtas = Array.isArray(conversionProfile.recommended_secondary_ctas)
     ? (conversionProfile.recommended_secondary_ctas as unknown[])
@@ -636,12 +577,21 @@ export function buildFreeAuditReport(
       subtitle: "What needs to happen after attention is earned.",
       scoreLabel: SCORE_LABELS.conversion_score,
       score: scoreByKey.conversion_score,
-      diagnosis: clientFacingCopy(conversionFinding?.finding_summary, `${businessName} needs a more obvious next action after someone understands the message. The conversion path should make "${recommendedPrimaryCta}" feel like the natural next step.`, recommendedPrimaryCta),
+      diagnosis: `${businessName} needs a more obvious next action after someone understands the message. The conversion path should make "${recommendedPrimaryCta}" feel like the natural next step.`,
       evidence: readyFindings.length
-        ? [originalText(conversionFinding?.finding_title, "Approved conversion finding"), socialHighlights[0] ?? socialEvidenceLine]
-        : [`Lead intent: ${intentLabel(audit.intent)}`, `Recommended next action: ${recommendedPrimaryCta}`],
+        ? [
+          `Lead intent: ${intentLabel(audit.intent)}`,
+          currentCta ? `Current CTA: ${currentCta}` : "Current CTA: Not clearly defined",
+          `Recommended next action: ${recommendedPrimaryCta}`,
+          socialHighlights[0] ?? socialEvidenceLine,
+        ]
+        : [
+          `Lead intent: ${intentLabel(audit.intent)}`,
+          currentCta ? `Current CTA: ${currentCta}` : "Current CTA: Not clearly defined",
+          `Recommended next action: ${recommendedPrimaryCta}`,
+        ],
       whyItMatters: `Interest fades when the next step is unclear. A clean path turns attention into a ${actionResult} while the need is still active in the prospect's mind.`,
-      nextMove: clientFacingCopy(conversionFinding?.recommended_action, `Place one direct call to action near the clearest proof point. The CTA should explain ${nextStepInstruction(recommendedPrimaryCta)}.`, recommendedPrimaryCta),
+      nextMove: `Place one direct call to action near the clearest proof point. The CTA should explain ${nextStepInstruction(recommendedPrimaryCta)}.`,
       cta: secondaryCtas.length
         ? `Primary CTA: ${recommendedPrimaryCta}. Secondary CTAs: ${secondaryCtas.join(", ")}.`
         : `Primary CTA: ${recommendedPrimaryCta}.`,

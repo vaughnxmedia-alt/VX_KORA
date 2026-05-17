@@ -1,7 +1,7 @@
 import { type MouseEvent, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Eye, FileAudio, FileText, Headphones, Loader2, Palette, SearchCheck, Send, Trash2, Upload } from "lucide-react";
+import { Download, Eye, FileAudio, FileText, Headphones, Loader2, Palette, RefreshCcw, SearchCheck, Send, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
@@ -163,6 +163,8 @@ type AuditAudioBrief = {
   checks?: AudioBriefChecks | null;
   audio_brief_checks?: AudioBriefChecks | null;
 };
+
+const CANONICAL_PRIMARY_CTA = "Join the Waitlist";
 
 type GenerateAudioResponse = {
   ok?: boolean;
@@ -403,7 +405,8 @@ function buildLocalAuditReport(audit: AuditRow, signal: AestheticSignal | null):
     "Use a premium editorial strategy direction that makes the offer clearer, more trusted, and easier to act on.",
   );
   const socialSummary = socialResearchSummary(audit.metadata);
-  const recommendedPrimaryCta = cleanText(conversionProfile.recommended_primary_cta, "Request a Consultation");
+  const currentCta = cleanText(conversionProfile.current_cta, "");
+  const recommendedPrimaryCta = cleanText(conversionProfile.recommended_primary_cta, CANONICAL_PRIMARY_CTA);
   const secondaryCtas = Array.isArray(conversionProfile.recommended_secondary_ctas)
     ? conversionProfile.recommended_secondary_ctas.map((item) => cleanText(item, "")).filter(Boolean).slice(0, 4)
     : [];
@@ -515,7 +518,12 @@ function buildLocalAuditReport(audit: AuditRow, signal: AestheticSignal | null):
         scoreLabel: "Conversion",
         score: scoreByKey.conversion_score,
         diagnosis: `${businessName} needs a more obvious next action after someone understands the message. The conversion path should make "${recommendedPrimaryCta}" feel like the natural next step.`,
-        evidence: [`Lead intent: ${statusLabel(audit.intent)}`, `Recommended next action: ${recommendedPrimaryCta}`, presence[0] ? `Primary presence: ${presence[0]}` : "No primary conversion URL was submitted."],
+        evidence: [
+          `Lead intent: ${statusLabel(audit.intent)}`,
+          currentCta ? `Current CTA: ${currentCta}` : "Current CTA: Not clearly defined",
+          `Recommended next action: ${recommendedPrimaryCta}`,
+          presence[0] ? `Primary presence: ${presence[0]}` : "No primary conversion URL was submitted.",
+        ],
         whyItMatters: "Interest fades when the next step is unclear.",
         nextMove: "Place one direct call to action near the clearest proof point. The CTA should explain what the session solves and who it is for, then remove competing actions around it.",
         cta: secondaryCtas.length
@@ -761,16 +769,16 @@ export default function Audits() {
   });
 
   const previewReport = useMutation({
-    mutationFn: async (auditId: string) => {
+    mutationFn: async ({ auditId, regenerate = false }: { auditId: string; regenerate?: boolean }) => {
       const { data, error } = await supabase.functions.invoke("send-free-audit-report", {
-        body: { auditId, mode: "preview" },
+        body: { auditId, mode: "preview", regenerate },
       });
       if (error) {
         throw new Error(await functionErrorMessage(error));
       }
       return data as AuditReportFunctionResponse;
     },
-    onSuccess: (result) => {
+    onSuccess: (result, variables) => {
       if (!result.report || !result.pdfBase64) {
         toast.info(
           "Showing the local template preview. Deploy send-free-audit-report to enable the downloadable generated PDF.",
@@ -781,7 +789,11 @@ export default function Audits() {
       setAudioBrief(normalizeAudioBrief(result.audioBrief));
       setShowPdfPreview(Boolean(result.pdfBase64));
       setPreviewOpen(true);
-      toast.success(`Preview generated for ${result.report.recipient}`);
+      toast.success(
+        variables.regenerate
+          ? `PDF regenerated for ${result.report.recipient}`
+          : `Preview generated for ${result.report.recipient}`,
+      );
     },
     onError: (error: Error) => toast.error(error.message || "Could not generate audit preview"),
   });
@@ -998,7 +1010,7 @@ export default function Audits() {
       setEvidenceReview(result);
       queryClient.invalidateQueries({ queryKey: ["free-audit-submissions"] });
       if (previewPayload?.report?.auditId) {
-        previewReport.mutate(previewPayload.report.auditId);
+        previewReport.mutate({ auditId: previewPayload.report.auditId, regenerate: true });
       }
       toast.success("Findings approved for report use");
     },
@@ -1266,7 +1278,7 @@ export default function Audits() {
                   if (!loadEvidenceReview.isPending) {
                     loadEvidenceReview.mutate(selectedAudit.id);
                   }
-                  previewReport.mutate(selectedAudit.id);
+                  previewReport.mutate({ auditId: selectedAudit.id });
                 }}
                 disabled={previewReport.isPending}
               >
@@ -2019,6 +2031,20 @@ export default function Audits() {
           )}
 
           <DialogFooter className="gap-2 sm:space-x-0">
+            <Button
+              variant="outline"
+              onClick={() =>
+                previewPayload?.report?.auditId &&
+                previewReport.mutate({ auditId: previewPayload.report.auditId, regenerate: true })}
+              disabled={!previewPayload?.report?.auditId || previewReport.isPending}
+            >
+              {previewReport.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCcw className="mr-2 h-4 w-4" />
+              )}
+              {previewReport.isPending ? "Regenerating..." : "Regenerate PDF"}
+            </Button>
             <Button
               variant="outline"
               onClick={handleDownloadPreview}

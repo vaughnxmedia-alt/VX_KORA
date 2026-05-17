@@ -12,6 +12,7 @@ const bodySchema = z.object({
   auditId: z.string().uuid(),
   mode: z.enum(["preview", "send"]).default("send"),
   includeAudio: z.boolean().default(false),
+  regenerate: z.boolean().default(false),
 });
 
 const FROM_NAME = "Jah Jah";

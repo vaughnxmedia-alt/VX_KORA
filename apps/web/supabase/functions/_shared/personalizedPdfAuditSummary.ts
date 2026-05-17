@@ -79,6 +79,10 @@ function applyRewrite(report: FreeAuditReport, rewrite: RewritePayload | null): 
   if (!rewrite) return report;
   const sectionById = new Map((rewrite.sections ?? []).map((section) => [clean(section.id), section]));
   const sections = report.sections.map((section) => {
+    if (section.id === "conversion") {
+      // Keep conversion path copy deterministic and aligned with canonical CTA values.
+      return section;
+    }
     const next = sectionById.get(section.id);
     if (!next) return section;
     return {
