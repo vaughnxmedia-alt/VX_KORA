@@ -33,6 +33,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   AuditHeroVisual,
   ScoreBreakdownVisual,
 } from "@/features/audit-visuals/components";
@@ -671,7 +681,7 @@ function publicAuditUrl(report: FreeAuditReportPreviewData): string {
 
 function fallbackEmailPreview(report: FreeAuditReportPreviewData, audio: AuditAudioBrief | null): string {
   const audioBlock = audio?.audioUrl
-    ? `<div style="margin:20px 0;padding:18px;border:1px solid #E6C769;border-radius:18px;background:#F7F3EA;"><h2 style="font-family:Georgia,serif;margin:0 0 8px;color:#0A1A35;">Audio Strategy Brief</h2><p style="margin:0 0 12px;color:#0A1A35;">A personalized audio strategy brief is included with this diagnosis.</p><a href="${publicAuditUrl(report)}" style="display:inline-block;background:#0A1A35;color:#fff;padding:12px 18px;border-radius:999px;text-decoration:none;font-weight:bold;">Listen to Audio Brief</a><p style="font-size:12px;color:#666;margin:14px 0 0;">This audio is AI-generated and personalized from your audit data.</p></div>`
+    ? `<div style="margin:20px 0;padding:18px;border:1px solid #E6C769;border-radius:18px;background:#F7F3EA;"><h2 style="font-family:Georgia,serif;margin:0 0 8px;color:#0A1A35;">Audio Strategy Brief</h2><p style="margin:0 0 12px;color:#0A1A35;">A personalized audio strategy brief is included with this diagnosis.</p><a href="${publicAuditUrl(report)}" style="display:inline-block;background:#0A1A35;color:#fff;padding:12px 18px;border-radius:999px;text-decoration:none;font-weight:bold;">Listen to Audio Brief</a><p style="font-size:12px;color:#666;margin:14px 0 0;">This audio was created using your audit data plus JahKnowsPR KORA assistants.</p></div>`
     : "";
   return `<body style="margin:0;background:#F7F3EA;font-family:Arial,sans-serif;color:#0A1A35;"><div style="max-width:680px;margin:0 auto;background:#fff;padding:36px;border-radius:24px;"><p style="letter-spacing:.24em;text-transform:uppercase;color:#C59B3C;font-weight:bold;font-size:12px;">JahKnowsPR Firm</p><h1 style="font-family:Georgia,serif;font-size:36px;line-height:1.05;margin:12px 0;">Your Brand Diagnosis is ready</h1><p>Hi ${report.contactName || "there"},</p><p>Your diagnosis for <strong>${report.businessName}</strong> is attached. The report breaks down what is blocking clarity, trust, and conversion.</p><p>${report.executiveSummary}</p>${audioBlock}<a href="https://www.jahknowspr.com/brand-strategy-session" style="display:inline-block;background:#0A1A35;color:#fff;padding:12px 18px;border-radius:999px;text-decoration:none;font-weight:bold;">Book Strategy Session</a></div></body>`;
 }
@@ -680,6 +690,7 @@ export default function Audits() {
   const [search, setSearch] = useState("");
   const [readinessFilter, setReadinessFilter] = useState("all");
   const [selectedAuditId, setSelectedAuditId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AuditRow | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewPayload, setPreviewPayload] = useState<AuditReportFunctionResponse | null>(null);
   const [audioBrief, setAudioBrief] = useState<AuditAudioBrief | null>(null);
@@ -756,6 +767,7 @@ export default function Audits() {
     },
     onSuccess: (audit) => {
       setSelectedAuditId((current) => current === audit.id ? null : current);
+      setDeleteTarget(null);
       if (previewPayload?.report?.auditId === audit.id) {
         setPreviewPayload(null);
         setPreviewOpen(false);
@@ -1097,12 +1109,12 @@ export default function Audits() {
 
   function handleDeleteAudit(audit: AuditRow, event: MouseEvent<HTMLButtonElement>) {
     event.stopPropagation();
-    const label = audit.business_name || audit.contact_name || audit.lead_email_lower || audit.lead_key;
-    const confirmed = window.confirm(
-      `Delete the audit for ${label}? This removes it from the system and allows this email to submit a new audit.`,
-    );
-    if (!confirmed) return;
-    deleteAudit.mutate(audit);
+    setDeleteTarget(audit);
+  }
+
+  function confirmDeleteAudit() {
+    if (!deleteTarget) return;
+    deleteAudit.mutate(deleteTarget);
   }
 
   function openLocalPreview(audit: AuditRow) {
@@ -2070,6 +2082,35 @@ export default function Audits() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm audit deletion</AlertDialogTitle>
+            <AlertDialogDescription>
+              You are deleting this audit permanently:
+              {" "}
+              <span className="font-medium text-foreground">
+                {deleteTarget?.business_name || deleteTarget?.contact_name || deleteTarget?.lead_email_lower || deleteTarget?.lead_key}
+              </span>
+              .
+              <br />
+              <br />
+              This cannot be undone. Please confirm to avoid accidental deletion.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteAudit.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleteAudit.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={confirmDeleteAudit}
+            >
+              {deleteAudit.isPending ? "Deleting..." : "Yes, delete audit"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

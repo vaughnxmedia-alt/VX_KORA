@@ -449,7 +449,7 @@ function buildEmailHtml(report: FreeAuditReport, reportAudio: ReportAudio | null
       <h2 style="font-family: Georgia, serif;margin:0 0 10px;color:#0A1A35;font-size:24px;line-height:1.15;">Audio Strategy Brief</h2>
       <p style="margin:0 0 16px;color:#0A1A35;">I also included a personalized audio strategy brief that explains the diagnosis like a private strategist voice note.</p>
       <p style="margin:0 0 14px;"><a href="${publicAuditUrl(report)}" style="display:inline-block;background:#0A1A35;color:#fff;padding:12px 18px;border-radius:999px;text-decoration:none;font-weight:700;">Listen to Audio Brief</a></p>
-      <p style="font-size:12px;color:#666;margin:0;">Note: this audio is AI-generated and personalized from your submitted audit data and JahKnowsPR's report structure.</p>
+      <p style="font-size:12px;color:#666;margin:0;">Note: this audio was created using your submitted audit data plus JahKnowsPR KORA assistants.</p>
     </div>`
     : "";
   return `

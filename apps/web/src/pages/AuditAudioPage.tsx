@@ -98,11 +98,8 @@ export default function AuditAudioPage() {
 
               <div className="rounded-2xl bg-[#F7F3EA] p-5 text-sm text-[#0A1A35]/75">
                 <p>
-                  This audio is AI-generated and personalized from your audit data and JahKnowsPR's report structure.
+                  This audio was created using your audit data plus JahKnowsPR KORA assistants.
                 </p>
-                {data.estimatedMinutes ? (
-                  <p className="mt-2">Estimated length: {data.estimatedMinutes} minutes.</p>
-                ) : null}
               </div>
             </div>
           )}
