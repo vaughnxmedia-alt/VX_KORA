@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "https://deno.land/x/zod/mod.ts";
 import { Resend } from "npm:resend@2.0.0";
+import QRCode from "npm:qrcode@1.5.4";
 import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
 import { getCorsHeaders } from "../_shared/cors.ts";
 
@@ -9,6 +10,30 @@ const FROM_NAME = "Jah Jah";
 const FROM_EMAIL = "welcome@jahknowspr.com";
 const SITE_URL = (Deno.env.get("PUBLIC_SITE_URL")?.trim() || "https://www.jahknowspr.com").replace(/\/$/, "");
 const GUIDE_HUB_URL = `${SITE_URL}/the-brief/before-you-build-the-brand-starter-guide`;
+const GUIDE_PATHS = [
+  "/the-brief/before-you-build-the-brand-starter-guide",
+  "/the-brief/before-you-build-the-brand/start-here",
+  "/the-brief/before-you-build-the-brand/what-is-a-brand-foundation",
+  "/the-brief/before-you-build-the-brand/why-brand-clarity-matters-before-building-online",
+  "/the-brief/before-you-build-the-brand/brand-name-check",
+  "/the-brief/before-you-build-the-brand/mission-vision-values",
+  "/the-brief/before-you-build-the-brand/know-your-target-audience",
+  "/the-brief/before-you-build-the-brand/brand-positioning",
+  "/the-brief/before-you-build-the-brand/brand-messaging",
+  "/the-brief/before-you-build-the-brand/offer-clarity",
+  "/the-brief/before-you-build-the-brand/digital-presence",
+  "/the-brief/before-you-build-the-brand/website-basics",
+  "/the-brief/before-you-build-the-brand/homepage-checklist",
+  "/the-brief/before-you-build-the-brand/social-media-basics",
+  "/the-brief/before-you-build-the-brand/social-media-bio-formula",
+  "/the-brief/before-you-build-the-brand/first-three-pinned-posts",
+  "/the-brief/before-you-build-the-brand/no-website-yet",
+  "/the-brief/before-you-build-the-brand/no-social-media-yet",
+  "/the-brief/before-you-build-the-brand/trust-signals",
+  "/the-brief/before-you-build-the-brand/common-brand-mistakes",
+  "/the-brief/before-you-build-the-brand/brand-foundation-checklist",
+  "/the-brief/before-you-build-the-brand/your-next-step",
+];
 
 const payloadSchema = z.object({
   auditId: z.string().uuid().optional(),
@@ -225,14 +250,60 @@ function wrapPdfText(text: string, font: Awaited<ReturnType<PDFDocument["embedFo
   return lines;
 }
 
+function drawWrappedPdfText(
+  page: ReturnType<PDFDocument["addPage"]>,
+  text: string,
+  options: {
+    x: number;
+    y: number;
+    maxWidth: number;
+    size: number;
+    lineHeight: number;
+    font: Awaited<ReturnType<PDFDocument["embedFont"]>>;
+    color: ReturnType<typeof rgb>;
+  },
+): number {
+  const lines = wrapPdfText(text, options.font, options.size, options.maxWidth);
+  lines.forEach((line, index) => {
+    page.drawText(line, {
+      x: options.x,
+      y: options.y - index * options.lineHeight,
+      size: options.size,
+      font: options.font,
+      color: options.color,
+    });
+  });
+  return options.y - lines.length * options.lineHeight;
+}
+
+async function createQrPngData(url: string): Promise<Uint8Array | null> {
+  try {
+    const dataUrl = await QRCode.toDataURL(url, {
+      errorCorrectionLevel: "M",
+      margin: 1,
+      width: 360,
+      color: {
+        dark: "#0A1A35",
+        light: "#FFFFFF",
+      },
+    });
+    const base64 = dataUrl.split(",")[1];
+    if (!base64) return null;
+    return Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+  } catch (error) {
+    console.error("Could not generate starter guide QR code", error);
+    return null;
+  }
+}
+
 async function buildStarterGuidePdf(recipientName: string): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   const titleFont = await pdf.embedFont(StandardFonts.TimesRomanBold);
   const bodyFont = await pdf.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdf.embedFont(StandardFonts.HelveticaBold);
-  const pageWidth = 612;
-  const pageHeight = 792;
-  const margin = 56;
+  const pageWidth = 1920;
+  const pageHeight = 1080;
+  const margin = 150;
   const navy = rgb(0.039, 0.102, 0.208);
   const gold = rgb(0.773, 0.608, 0.235);
   const offWhite = rgb(0.969, 0.953, 0.918);
@@ -240,56 +311,106 @@ async function buildStarterGuidePdf(recipientName: string): Promise<Uint8Array> 
   for (const [index, slide] of GUIDE_SLIDES.entries()) {
     const page = pdf.addPage([pageWidth, pageHeight]);
     page.drawRectangle({ x: 0, y: 0, width: pageWidth, height: pageHeight, color: offWhite });
-    page.drawRectangle({ x: 0, y: 0, width: pageWidth, height: 10, color: navy });
-    page.drawText("JAHKNOWSPR", { x: margin, y: 744, size: 16, font: titleFont, color: navy });
+    page.drawRectangle({ x: 0, y: 0, width: pageWidth, height: 18, color: navy });
+    page.drawRectangle({ x: pageWidth - 390, y: pageHeight - 210, width: 420, height: 210, color: rgb(0.925, 0.875, 0.69) });
+    page.drawText("JAHKNOWSPR", { x: margin, y: 982, size: 36, font: titleFont, color: navy });
     page.drawText("STARTER GUIDE", {
       x: margin,
-      y: 726,
-      size: 8,
+      y: 944,
+      size: 14,
       font: boldFont,
       color: gold,
-      characterSpacing: 2.2,
+      characterSpacing: 4,
     });
     page.drawText(`PAGE ${String(index + 1).padStart(2, "0")} / ${GUIDE_SLIDES.length}`, {
-      x: pageWidth - margin - 96,
-      y: 726,
-      size: 7.5,
+      x: pageWidth - margin - 220,
+      y: 944,
+      size: 13,
       font: boldFont,
       color: navy,
-      characterSpacing: 1.8,
+      characterSpacing: 3,
     });
 
-    let cursor = 654;
-    const titleSize = index === 0 ? 34 : 28;
-    wrapPdfText(slide.title, titleFont, titleSize, pageWidth - margin * 2).slice(0, 3).forEach((line) => {
+    let cursor = 806;
+    const titleSize = index === 0 ? 88 : 72;
+    const titleLineHeight = index === 0 ? 96 : 82;
+    wrapPdfText(slide.title, titleFont, titleSize, 1250).slice(0, 3).forEach((line) => {
       page.drawText(line, { x: margin, y: cursor, size: titleSize, font: titleFont, color: navy });
-      cursor -= index === 0 ? 38 : 32;
+      cursor -= titleLineHeight;
     });
-    cursor -= 24;
+    cursor -= 34;
+
+    page.drawRectangle({
+      x: margin,
+      y: 295,
+      width: 1280,
+      height: Math.max(350, cursor - 295),
+      color: rgb(1, 0.992, 0.965),
+      borderColor: rgb(0.86, 0.82, 0.72),
+      borderWidth: 1.2,
+    });
+
+    cursor -= 8;
 
     slide.paragraphs.forEach((paragraph) => {
-      wrapPdfText(paragraph, bodyFont, 11, pageWidth - margin * 2).forEach((line) => {
-        page.drawText(line, { x: margin, y: cursor, size: 11, font: bodyFont, color: navy });
-        cursor -= 16;
+      if (cursor < 345) return;
+      wrapPdfText(paragraph, bodyFont, 38, 1180).forEach((line) => {
+        page.drawText(line, { x: margin + 42, y: cursor, size: 38, font: bodyFont, color: navy });
+        cursor -= 52;
       });
-      cursor -= 12;
+      cursor -= 24;
     });
 
     if (index === 0) {
       page.drawText(`Prepared for ${recipientName}`, {
-        x: margin,
-        y: 252,
-        size: 11,
+        x: margin + 42,
+        y: 388,
+        size: 32,
         font: boldFont,
         color: navy,
       });
       page.drawText(`Read more at ${GUIDE_HUB_URL.replace(/^https?:\/\//, "")}`, {
-        x: margin,
-        y: 232,
-        size: 10,
+        x: margin + 42,
+        y: 340,
+        size: 26,
         font: bodyFont,
         color: navy,
       });
+    }
+
+    const readMorePath = GUIDE_PATHS[index] ?? GUIDE_PATHS[0];
+    const readMoreUrl = `${SITE_URL}${readMorePath}`;
+    page.drawRectangle({
+      x: margin,
+      y: 66,
+      width: pageWidth - margin * 2,
+      height: 154,
+      color: rgb(1, 1, 1),
+      borderColor: rgb(0.86, 0.82, 0.72),
+      borderWidth: 1.4,
+    });
+    const footerLabel = index === 0 ? "OPEN THE GUIDE HUB" : "READ THE FULL BREAKDOWN";
+    page.drawText(footerLabel, {
+      x: margin + 42,
+      y: 172,
+      size: 18,
+      font: boldFont,
+      color: gold,
+      characterSpacing: 3.2,
+    });
+    drawWrappedPdfText(page, `Read more: jahknowspr.com${readMorePath}`, {
+      x: margin + 42,
+      y: 132,
+      maxWidth: 1320,
+      size: 22,
+      lineHeight: 30,
+      font: boldFont,
+      color: navy,
+    });
+    const qrPng = await createQrPngData(readMoreUrl);
+    if (qrPng) {
+      const qrImage = await pdf.embedPng(qrPng);
+      page.drawImage(qrImage, { x: pageWidth - margin - 126, y: 88, width: 110, height: 110 });
     }
   }
 
@@ -351,18 +472,31 @@ serve(async (req) => {
     const pdfBase64 = bytesToBase64(pdfBytes);
     const subject = "Before You Build the Brand - Starter Guide for New Businesses";
     const emailHtml = `
-      <div style="font-family:Arial,sans-serif;line-height:1.5;color:#0A1A35;">
-        <h1 style="font-size:22px;margin:0 0 12px;">Before You Build the Brand</h1>
-        <p style="margin:0 0 12px;">Hi ${recipientName},</p>
-        <p style="margin:0 0 12px;">
-          Your 22-page JahKnowsPR starter guide is attached. Use it to complete your foundation steps before submitting a new audit request.
-        </p>
-        <p style="margin:0 0 12px;">
-          Read the companion articles here:
-          <a href="${GUIDE_HUB_URL}" style="color:#8C6C27;">${GUIDE_HUB_URL}</a>
-        </p>
-        <p style="margin:0;">- JahKnowsPR</p>
-      </div>
+      <body style="margin:0;background:#F7F3EA;padding:28px 12px;font-family:Arial,sans-serif;color:#0A1A35;line-height:1.6;">
+        <div style="max-width:680px;margin:0 auto;background:#fff;border:1px solid #E8DFC8;border-radius:24px;overflow:hidden;">
+          <div style="height:8px;background:#0A1A35;"></div>
+          <div style="padding:34px 32px 28px;">
+            <p style="margin:0 0 14px;font-size:11px;letter-spacing:0.28em;text-transform:uppercase;color:#8C6C27;font-weight:700;">JahKnowsPR Firm / Starter Guide</p>
+            <h1 style="font-family:Georgia,serif;margin:0 0 18px;font-size:38px;line-height:1.05;color:#0A1A35;">Before You Build the Brand</h1>
+            <p style="margin:0 0 14px;">Hi ${recipientName},</p>
+            <p style="margin:0 0 14px;">
+              Your 22-page JahKnowsPR starter guide is attached as a presentation-style PDF.
+            </p>
+            <div style="margin:20px 0;padding:18px;border-left:4px solid #C59B3C;background:#F7F3EA;border-radius:0 16px 16px 0;">
+              <p style="margin:0;color:#0A1A35;">
+                Use this guide to complete your brand foundation steps before submitting a new audit request. Each slide includes a QR code that opens the deeper Brief article for that topic.
+              </p>
+            </div>
+            <p style="margin:0 0 16px;">Read the companion guide hub here:</p>
+            <p style="margin:0 0 18px;">
+              <a href="${GUIDE_HUB_URL}" style="display:inline-block;background:#0A1A35;color:#fff;padding:13px 20px;border-radius:999px;text-decoration:none;font-weight:700;">
+                Open the Guide Hub
+              </a>
+            </p>
+            <p style="margin:24px 0 0;font-size:12px;color:#666;">JahKnowsPR Firm</p>
+          </div>
+        </div>
+      </body>
     `;
 
     await resend.emails.send({
@@ -372,7 +506,7 @@ serve(async (req) => {
       html: emailHtml,
       attachments: [
         {
-          filename: "before-you-build-the-brand-starter-guide.pdf",
+          filename: "jahknowspr-before-you-build-the-brand-starter-guide.pdf",
           content: pdfBase64,
         },
       ],

@@ -49,6 +49,9 @@ verify_jwt = true
 [functions.new-subscriber]
 verify_jwt = false
 
+[functions.starter-guide-download]
+verify_jwt = false
+
 [functions.check-brief-access]
 verify_jwt = false
 

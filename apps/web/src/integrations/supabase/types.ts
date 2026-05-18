@@ -1465,6 +1465,39 @@ export type Database = {
         }
         Relationships: []
       }
+      link_clicks: {
+        Row: {
+          id: string
+          link_id: string
+          link_label: string
+          destination_url: string
+          source_page: string
+          referrer: string | null
+          user_agent: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          link_id: string
+          link_label: string
+          destination_url: string
+          source_page?: string
+          referrer?: string | null
+          user_agent?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          link_id?: string
+          link_label?: string
+          destination_url?: string
+          source_page?: string
+          referrer?: string | null
+          user_agent?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       subscribers: {
         Row: {
           access_token: string | null

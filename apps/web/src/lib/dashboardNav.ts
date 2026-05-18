@@ -16,6 +16,7 @@ import {
   Mail,
   BarChart3,
   FileBarChart,
+  Link2,
   Settings,
   Shield,
   Megaphone,
@@ -98,6 +99,7 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
       { key: "sources", title: "Intelligence Sources", url: "/dashboard/sources", icon: Globe, adminOnly: true },
       { key: "analytics", title: "Analytics", url: "/dashboard/analytics", icon: BarChart3 },
       { key: "reports", title: "Reports", url: "/dashboard/reports", icon: FileBarChart },
+      { key: "links", title: "Links", url: "/links", icon: Link2 },
     ],
   },
   {

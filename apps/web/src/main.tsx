@@ -41,6 +41,7 @@ const BrandStrategySessionLanding = React.lazy(() => import('./pages/BrandStrate
 const FreeAudit = React.lazy(() => import('./pages/FreeAudit'));
 const FreeAuditThankYou = React.lazy(() => import('./pages/FreeAuditThankYou'));
 const BrandFoundationStarterGuide = React.lazy(() => import('./pages/BrandFoundationStarterGuide'));
+const Links = React.lazy(() => import('./pages/Links'));
 const AuditAudioPage = React.lazy(() => import('./pages/AuditAudioPage'));
 const StrategySessionBooking = React.lazy(() => import('./pages/StrategySessionBooking'));
 const StrategySessionPayment = React.lazy(() => import('./pages/StrategySessionPayment'));
@@ -153,6 +154,7 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="/free-audit" element={<FreeAudit />} />
                 <Route path="/free-audit/thank-you" element={<FreeAuditThankYou />} />
                 <Route path="/brand-foundation" element={<BrandFoundationStarterGuide />} />
+                <Route path="/links" element={<Links />} />
                 <Route path="/audit/:businessSlug" element={<AuditAudioPage />} />
                 <Route path="/strategy-session" element={<StrategySessionBooking />} />
                 <Route path="/strategy-session/payment" element={<StrategySessionPayment />} />
