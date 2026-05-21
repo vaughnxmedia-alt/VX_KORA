@@ -116,6 +116,17 @@ export default function Subscribers() {
     },
   });
 
+  const { data: pdfDownloadCount = 0 } = useQuery({
+    queryKey: ["making-of-a-brand-pdf-downloads-count"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("making_of_a_brand_pdf_downloads")
+        .select("id", { count: "exact", head: true });
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
   const deleteSubscriberMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("subscribers").delete().eq("id", id);
@@ -188,16 +199,6 @@ export default function Subscribers() {
 
   const total = subscribers?.length || 0;
   const welcomedCount = subscribers?.filter((s) => s.email_sent).length || 0;
-  const { data: pdfDownloadCount = 0 } = useQuery({
-    queryKey: ["making-of-a-brand-pdf-downloads-count"],
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from("making_of_a_brand_pdf_downloads")
-        .select("id", { count: "exact", head: true });
-      if (error) throw error;
-      return count ?? 0;
-    },
-  });
 
   return (
     <div className="space-y-6">
