@@ -241,4 +241,56 @@ All colors MUST be HSL.
     content: '◆';
     @apply block text-muted-foreground/40 text-lg mb-8;
   }
+
+  /* /links — full-card hover bounce on the entire bubble */
+  @keyframes link-bubble-pop {
+    0% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    40% {
+      transform: translate3d(0, -14px, 0) scale(1.09);
+    }
+    62% {
+      transform: translate3d(0, -6px, 0) scale(1.04);
+    }
+    78% {
+      transform: translate3d(0, -10px, 0) scale(1.07);
+    }
+    100% {
+      transform: translate3d(0, -8px, 0) scale(1.06);
+    }
+  }
+
+  @keyframes link-bubble-chill {
+    0%,
+    100% {
+      transform: translate3d(0, -8px, 0) scale(1.06);
+    }
+    50% {
+      transform: translate3d(0, -11px, 0) scale(1.07);
+    }
+  }
+
+  .tracked-link-bubble {
+    @apply block w-full transform-gpu origin-center;
+    transition:
+      transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
+      box-shadow 0.3s ease,
+      border-color 0.3s ease,
+      background-color 0.3s ease;
+  }
+
+  .tracked-link-bubble:hover {
+    animation: link-bubble-pop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) forwards,
+      link-bubble-chill 2.4s ease-in-out 0.7s infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tracked-link-bubble,
+    .tracked-link-bubble:hover {
+      animation: none !important;
+      transform: none !important;
+      transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+    }
+  }
 }

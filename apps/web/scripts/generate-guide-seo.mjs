@@ -119,20 +119,21 @@ function renderGuideHtml({
   <style>
     :root{--navy:#001f4f;--ink:#0a1a35;--muted:rgba(10,26,53,.68);--line:rgba(10,26,53,.12);--paper:#fbfaf7;--gold:#c8a24a}
     *{box-sizing:border-box}
-    body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,Arial,sans-serif;line-height:1.72}
-    a{color:var(--navy);font-weight:700;text-decoration:none}
-    .topbar{position:sticky;top:0;z-index:10;background:rgba(251,250,247,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+    body{margin:0;background:var(--navy);color:#fff;font-family:Inter,Arial,sans-serif;line-height:1.72}
+    a{color:var(--gold);font-weight:700;text-decoration:none}
+    .topbar{position:sticky;top:0;z-index:10;background:var(--paper);border-bottom:1px solid var(--line)}
+    .topbar nav a{color:var(--navy)}
     .topbar-inner{max-width:960px;margin:0 auto;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
-    .brand{display:flex;align-items:center;gap:10px;color:var(--navy);font-weight:800}
+    .brand{display:flex;align-items:center;gap:10px;color:var(--navy);font-weight:800;background:var(--paper)}
     nav{display:flex;gap:14px;flex-wrap:wrap;font-size:14px}
     .hero{background:var(--navy);color:#fff;padding:56px 20px}
     .hero-inner{max-width:960px;margin:0 auto}
     .eyebrow{display:inline-block;border:1px solid rgba(200,162,74,.45);border-radius:999px;padding:8px 14px;font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--gold)}
     h1{font-family:Georgia,'Times New Roman',serif;font-size:clamp(34px,8vw,58px);line-height:1.02;margin:18px 0 0}
     .lede{max-width:760px;font-size:18px;color:rgba(255,255,255,.84);margin-top:18px}
-    main{max-width:760px;margin:0 auto;padding:40px 20px 56px}
-    main h2{font-family:Georgia,'Times New Roman',serif;color:var(--navy);font-size:30px;margin:40px 0 16px}
-    main p{font-size:18px;margin:0 0 22px}
+    main{max-width:760px;margin:0 auto;padding:40px 20px 56px;color:rgba(255,255,255,.92)}
+    main h2{font-family:Georgia,'Times New Roman',serif;color:#fff;font-size:30px;margin:40px 0 16px}
+    main p{font-size:18px;margin:0 0 22px;color:rgba(255,255,255,.88)}
     main ul{padding-left:1.3rem;margin:0 0 24px}
     main li{margin-bottom:10px}
     .cta{display:flex;gap:12px;flex-wrap:wrap;margin:36px 0}
@@ -141,18 +142,18 @@ function renderGuideHtml({
     .button.gold{background:var(--gold);color:var(--navy);border-color:var(--gold)}
     .toc{max-width:960px;margin:0 auto;padding:0 20px 56px}
     .toc-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
-    .toc-card{border:1px solid var(--line);border-radius:18px;padding:18px;background:#fff}
-    .toc-card h3{margin:8px 0 0;font-size:17px;line-height:1.25;color:var(--navy)}
-    .toc-card p{margin:8px 0 0;color:var(--muted);font-size:14px;line-height:1.45}
+    .toc-card{border:1px solid rgba(200,162,74,.35);border-radius:18px;padding:18px;background:rgba(255,255,255,.06)}
+    .toc-card h3{margin:8px 0 0;font-size:17px;line-height:1.25;color:#fff}
+    .toc-card p{margin:8px 0 0;color:rgba(255,255,255,.75);font-size:14px;line-height:1.45}
     .slide{font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--gold)}
-    footer{max-width:760px;margin:0 auto;padding:0 20px 48px;color:var(--muted);text-align:center}
+    footer{max-width:760px;margin:0 auto;padding:0 20px 48px;color:rgba(255,255,255,.65);text-align:center}
     @media (max-width:720px){.toc-grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
   <div class="topbar">
     <div class="topbar-inner">
-      <a class="brand" href="${SITE_ORIGIN}/"><span>JK</span><span>JahKnowsPR</span></a>
+      <a class="brand" href="${SITE_ORIGIN}/" aria-label="JahKnowsPR home"><span>JK</span><span>JahKnowsPR</span></a>
       <nav>
         <a href="${SITE_ORIGIN}/the-brief">The Brief</a>
         <a href="${canonical}">This Guide</a>
@@ -206,7 +207,7 @@ function renderHubHtml({ hubTitle, hubPath, guideTitle, articles }) {
     )
     .join("\n");
 
-  const relatedLinks = `<section class="toc"><h2 style="font-family:Georgia,serif;color:var(--navy);text-align:center;margin:0 0 24px">Full Table of Contents</h2><div class="toc-grid">${toc}</div></section>`;
+  const relatedLinks = `<section class="toc"><h2 style="font-family:Georgia,serif;color:#fff;text-align:center;margin:0 0 24px">Full Table of Contents</h2><div class="toc-grid">${toc}</div></section>`;
 
   return renderGuideHtml({
     title: hubTitle,

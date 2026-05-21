@@ -1,44 +1,105 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { format, addDays, startOfWeek, endOfWeek, startOfMonth, isWithinInterval } from "date-fns";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  format,
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  startOfQuarter,
+  endOfQuarter,
+  startOfYear,
+  endOfYear,
+  isWithinInterval,
+} from "date-fns";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/components/AuthProvider";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  LayoutDashboard,
-  Megaphone,
-  Calendar,
-  Clock,
-  CheckCircle,
-  AlertCircle,
-  TrendingUp,
-  FileText,
-  ChevronRight,
-  AlertTriangle,
-} from "lucide-react";
+import { LayoutDashboard, Megaphone, AlertCircle, TrendingUp, FileText } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
-import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
-import { KoraStatusCard } from "@/components/dashboard/KoraStatusCard";
 
 type PostSlotRow = Tables<"post_slots">;
 type CampaignRow = Tables<"campaigns">;
 
-const canApprove = (role: string) => role === "admin" || role === "author";
+type PerformancePeriod = "weekly" | "monthly" | "quarterly" | "yearly";
+type PerformanceChannel = "website" | "social";
+
+type RollupRow = {
+  date: string;
+  page_views: number;
+  unique_visitors: number;
+  sessions: number;
+  cta_clicks: number;
+  form_submits: number;
+  booking_clicks: number;
+  conversion_rate: number;
+  top_page_path: string | null;
+};
+
+type ContentPerformanceRow = {
+  title: string | null;
+  views: number | null;
+  clicks: number | null;
+  click_rate: number | null;
+  category: string | null;
+  updated_at: string;
+};
+
+const SITE_ID = "jahknowspr_web";
+const BRAND_ID = "jahknowspr";
+
+function getPeriodInterval(period: PerformancePeriod): { start: Date; end: Date } {
+  const now = new Date();
+  switch (period) {
+    case "weekly":
+      return { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) };
+    case "monthly":
+      return { start: startOfMonth(now), end: endOfMonth(now) };
+    case "quarterly":
+      return { start: startOfQuarter(now), end: endOfQuarter(now) };
+    case "yearly":
+      return { start: startOfYear(now), end: endOfYear(now) };
+  }
+}
+
+function sumRollups(rows: RollupRow[]) {
+  return rows.reduce(
+    (acc, row) => ({
+      page_views: acc.page_views + (row.page_views ?? 0),
+      unique_visitors: acc.unique_visitors + (row.unique_visitors ?? 0),
+      sessions: acc.sessions + (row.sessions ?? 0),
+      cta_clicks: acc.cta_clicks + (row.cta_clicks ?? 0),
+      form_submits: acc.form_submits + (row.form_submits ?? 0),
+      booking_clicks: acc.booking_clicks + (row.booking_clicks ?? 0),
+    }),
+    {
+      page_views: 0,
+      unique_visitors: 0,
+      sessions: 0,
+      cta_clicks: 0,
+      form_submits: 0,
+      booking_clicks: 0,
+    },
+  );
+}
 
 export default function Overview() {
-  const { user, role } = useAuth();
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
+  const { role } = useAuth();
+  const [performancePeriod, setPerformancePeriod] = useState<PerformancePeriod>("weekly");
+  const [performanceChannel, setPerformanceChannel] = useState<PerformanceChannel>("website");
 
-  const today = format(new Date(), "yyyy-MM-dd");
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
-  const weekStartStr = format(weekStart, "yyyy-MM-dd");
-  const weekEndStr = format(weekEnd, "yyyy-MM-dd");
-  const next7End = format(addDays(new Date(), 7), "yyyy-MM-dd");
+  const weekLabel = `Week of ${format(weekStart, "MM/dd")}–${format(weekEnd, "MM/dd")}`;
   const monthStartStr = format(startOfMonth(new Date()), "yyyy-MM-dd");
 
   const { data: allPostSlots = [], isLoading: slotsLoading } = useQuery({
@@ -60,23 +121,9 @@ export default function Overview() {
       const { data, error } = await supabase
         .from("campaigns")
         .select("*")
-        .order("window_end", { ascending: true });
+        .order("updated_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as CampaignRow[];
-    },
-  });
-
-  const { data: meetings = [] } = useQuery({
-    queryKey: ["dashboard-meetings-next7"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("meetings")
-        .select("id, title, meeting_date, customer_id, status")
-        .gte("meeting_date", new Date().toISOString())
-        .lte("meeting_date", addDays(new Date(), 7).toISOString())
-        .order("meeting_date", { ascending: true });
-      if (error) throw error;
-      return data ?? [];
     },
   });
 
@@ -92,30 +139,83 @@ export default function Overview() {
     },
   });
 
-  const approveSlotMutation = useMutation({
-    mutationFn: async (slotId: string) => {
-      const { error } = await supabase
-        .from("post_slots")
-        .update({ status: "Approved", updated_at: new Date().toISOString() })
-        .eq("id", slotId);
+  const { data: downloadsThisWeek = 0, isLoading: downloadsLoading } = useQuery({
+    queryKey: ["dashboard-downloads-week", weekStart.toISOString(), weekEnd.toISOString()],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("making_of_a_brand_pdf_downloads")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", weekStart.toISOString())
+        .lte("created_at", weekEnd.toISOString());
       if (error) throw error;
+      return count ?? 0;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["dashboard-post-slots"] });
-      toast.success("Post approved");
+  });
+
+  const { data: clicksThisWeek = 0, isLoading: clicksLoading } = useQuery({
+    queryKey: ["dashboard-link-clicks-week", weekStart.toISOString(), weekEnd.toISOString()],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("link_clicks")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", weekStart.toISOString())
+        .lte("created_at", weekEnd.toISOString());
+      if (error) throw error;
+      return count ?? 0;
     },
-    onError: (e) => toast.error(e.message || "Failed to approve"),
+  });
+
+  const periodBounds = useMemo(() => getPeriodInterval(performancePeriod), [performancePeriod]);
+  const periodStartStr = format(periodBounds.start, "yyyy-MM-dd");
+  const periodEndStr = format(periodBounds.end, "yyyy-MM-dd");
+
+  const { data: rollups = [], isLoading: rollupsLoading } = useQuery({
+    queryKey: ["dashboard-performance-rollups", SITE_ID, BRAND_ID, periodStartStr, periodEndStr],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("analytics_daily_rollups")
+        .select("date, page_views, unique_visitors, sessions, cta_clicks, form_submits, booking_clicks, conversion_rate, top_page_path")
+        .eq("site_id", SITE_ID)
+        .eq("brand_id", BRAND_ID)
+        .gte("date", periodStartStr)
+        .lte("date", periodEndStr)
+        .order("date", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as RollupRow[];
+    },
+    enabled: performanceChannel === "website",
+  });
+
+  const { data: socialContent = [], isLoading: socialLoading } = useQuery({
+    queryKey: ["dashboard-performance-social", SITE_ID, BRAND_ID, periodStartStr, periodEndStr],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("content_performance")
+        .select("title, views, clicks, click_rate, category, updated_at")
+        .eq("site_id", SITE_ID)
+        .eq("brand_id", BRAND_ID)
+        .gte("updated_at", periodBounds.start.toISOString())
+        .lte("updated_at", periodBounds.end.toISOString())
+        .order("views", { ascending: false })
+        .limit(25);
+      if (error) throw error;
+      const rows = (data ?? []) as ContentPerformanceRow[];
+      return rows.filter((row) => {
+        const category = (row.category ?? "").toLowerCase();
+        return category.includes("social") || category.includes("instagram") || category.includes("tiktok");
+      });
+    },
+    enabled: performanceChannel === "social",
   });
 
   const activeCampaignCount = campaigns.length;
-  const postsThisWeek = allPostSlots.filter(
-    (s) => s.date >= weekStartStr && s.date <= weekEndStr && ["Scheduled", "Live"].includes(s.status)
-  ).length;
-  const postsAwaitingApproval = allPostSlots.filter((s) => s.status === "In Review").length;
   const leadsThisMonth = customersPipeline.filter((c) => {
     if (!c.created_at) return false;
     const created = new Date(c.created_at);
-    return isWithinInterval(created, { start: new Date(monthStartStr), end: new Date() }) && c.client_status === "lead_captured";
+    return (
+      isWithinInterval(created, { start: new Date(monthStartStr), end: new Date() }) &&
+      c.client_status === "lead_captured"
+    );
   }).length;
   const activeClientsCount = customersPipeline.filter((c) => c.client_status === "active_client").length;
   const conversionRate =
@@ -123,35 +223,26 @@ export default function Overview() {
       ? Math.round((activeClientsCount / customersPipeline.length) * 100)
       : null;
 
-  const postsDueNext7 = allPostSlots.filter(
-    (s) => s.date >= today && s.date <= next7End && !["Live"].includes(s.status)
-  ).slice(0, 10);
-  const campaignsEndingSoon = campaigns.filter(
-    (c) => c.window_end >= today && c.window_end <= next7End
-  ).slice(0, 5);
-  const inReviewSlots = allPostSlots.filter((s) => s.status === "In Review").slice(0, 10);
-
-  const recentActivity = [
-    ...allPostSlots.map((s) => ({ type: "post" as const, at: s.updated_at || s.created_at, slot: s })),
-  ]
+  const recentActivity = [...allPostSlots.map((s) => ({ type: "post" as const, at: s.updated_at || s.created_at, slot: s }))]
     .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
     .slice(0, 15);
 
-  const koraByCampaign = campaigns.map((c) => {
-    const slots = allPostSlots.filter((s) => s.campaign_id === c.id);
-    const withKora = slots.filter((s) => s.kora_report_version);
-    const lastUpdated = slots.reduce<string | null>((acc, s) => {
-      const u = s.updated_at || s.created_at;
-      if (!u) return acc;
-      if (!acc) return u;
-      return new Date(u) > new Date(acc) ? u : acc;
-    }, null);
-    const version = withKora[0]?.kora_report_version ?? "—";
-    const isStale = lastUpdated && (new Date().getTime() - new Date(lastUpdated).getTime()) / (1000 * 60 * 60 * 24) > 30;
-    return { campaign: c, version, lastUpdated, isStale };
-  });
+  const websiteTotals = sumRollups(rollups);
+  const topPage = rollups.find((r) => r.top_page_path)?.top_page_path ?? "—";
+  const socialTotals = socialContent.reduce(
+    (acc, row) => ({
+      views: acc.views + (row.views ?? 0),
+      clicks: acc.clicks + (row.clicks ?? 0),
+    }),
+    { views: 0, clicks: 0 },
+  );
+  const topSocialPost = socialContent[0]?.title ?? "—";
+  const publishedPosts = campaigns.reduce((sum, c) => sum + (c.published_post_count ?? 0), 0);
 
-  const isLoading = slotsLoading || campaignsLoading;
+  const isLoading =
+    slotsLoading || campaignsLoading || downloadsLoading || clicksLoading;
+  const performanceLoading =
+    performanceChannel === "website" ? rollupsLoading : socialLoading;
 
   if (isLoading) {
     return (
@@ -170,11 +261,11 @@ export default function Overview() {
         </p>
       </div>
 
-      {/* 1) Top Metrics */}
+      {/* Top Metrics */}
       <section>
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <LayoutDashboard className="w-5 h-5" />
-          Top Metrics
+          {weekLabel}
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <Card className="shadow-sm">
@@ -185,14 +276,14 @@ export default function Overview() {
           </Card>
           <Card className="shadow-sm">
             <CardContent className="pt-6">
-              <p className="text-sm text-muted-foreground">Posts This Week</p>
-              <p className="text-2xl font-bold">{postsThisWeek}</p>
+              <p className="text-sm text-muted-foreground">Downloads this week</p>
+              <p className="text-2xl font-bold">{downloadsThisWeek}</p>
             </CardContent>
           </Card>
           <Card className="shadow-sm">
             <CardContent className="pt-6">
-              <p className="text-sm text-muted-foreground">Awaiting Approval</p>
-              <p className="text-2xl font-bold">{postsAwaitingApproval}</p>
+              <p className="text-sm text-muted-foreground">Clicks this week</p>
+              <p className="text-2xl font-bold">{clicksThisWeek}</p>
             </CardContent>
           </Card>
           <Card className="shadow-sm">
@@ -210,132 +301,45 @@ export default function Overview() {
         </div>
       </section>
 
-      {/* 2) KORA AI Status + Upcoming Deadlines */}
+      {/* Ads Campaigns */}
       <section>
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <Clock className="w-5 h-5" />
-          Upcoming Deadlines
+          <Megaphone className="w-5 h-5" />
+          Ads Campaigns
         </h2>
-        <div className="grid md:grid-cols-4 gap-4">
-          <KoraStatusCard />
-          <Card className="shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Posts (next 7 days)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {postsDueNext7.length === 0 ? (
-                <p className="text-sm text-muted-foreground">None</p>
-              ) : (
-                <ul className="space-y-2">
-                  {postsDueNext7.slice(0, 5).map((s) => (
-                    <li key={s.id} className="text-sm flex justify-between">
-                      <span>{s.platform} · {s.deliverable_tag}</span>
-                      <span className="text-muted-foreground">{s.date}</span>
-                    </li>
-                  ))}
-                  {postsDueNext7.length > 5 && (
-                    <li>
-                      <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate("/dashboard/calendar")}>
-                        +{postsDueNext7.length - 5} more
-                      </Button>
-                    </li>
-                  )}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-          <Card className="shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Campaigns ending soon</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {campaignsEndingSoon.length === 0 ? (
-                <p className="text-sm text-muted-foreground">None</p>
-              ) : (
-                <ul className="space-y-2">
-                  {campaignsEndingSoon.map((c) => (
-                    <li key={c.id} className="text-sm flex justify-between">
-                      <span className="truncate">{c.name}</span>
-                      <span className="text-muted-foreground shrink-0 ml-2">{c.window_end}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-          <Card className="shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Meetings (next 7 days)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {meetings.length === 0 ? (
-                <p className="text-sm text-muted-foreground">None</p>
-              ) : (
-                <ul className="space-y-2">
-                  {meetings.slice(0, 5).map((m) => (
-                    <li key={m.id} className="text-sm flex justify-between">
-                      <span className="truncate">{m.title}</span>
-                      <span className="text-muted-foreground">{format(new Date(m.meeting_date), "MMM d")}</span>
-                    </li>
-                  ))}
-                  {meetings.length > 5 && (
-                    <li>
-                      <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate("/dashboard/meetings")}>
-                        +{meetings.length - 5} more
-                      </Button>
-                    </li>
-                  )}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+        <Card className="shadow-sm">
+          <CardContent className="pt-6">
+            {campaigns.length === 0 ? (
+              <p className="text-muted-foreground text-sm">No campaigns yet.</p>
+            ) : (
+              <ul className="space-y-3">
+                {campaigns.slice(0, 12).map((campaign) => (
+                  <li
+                    key={campaign.id}
+                    className="flex flex-wrap items-center justify-between gap-2 py-2 border-b last:border-0"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{campaign.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {campaign.primary_platform ?? "Multi-platform"}
+                        {campaign.objective ? ` · ${campaign.objective}` : ""}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge variant="secondary">{campaign.status}</Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {campaign.published_post_count ?? 0} published · {campaign.scheduled_post_count ?? 0} scheduled
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
       </section>
 
-      {/* 3) Approval Queue */}
-      {role !== "client" && (
-        <section>
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <CheckCircle className="w-5 h-5" />
-            Approval Queue
-          </h2>
-          <Card className="shadow-sm">
-            <CardContent className="pt-6">
-              {inReviewSlots.length === 0 ? (
-                <p className="text-muted-foreground text-sm">No posts in review.</p>
-              ) : (
-                <ul className="space-y-3">
-                  {inReviewSlots.map((s) => (
-                    <li
-                      key={s.id}
-                      className="flex items-center justify-between py-2 border-b last:border-0"
-                    >
-                      <div>
-                        <span className="font-medium">{s.deliverable_tag}</span>
-                        <span className="text-muted-foreground text-sm ml-2">{s.platform} · {s.date}</span>
-                      </div>
-                      {canApprove(role) && (
-                        <Button
-                          size="sm"
-                          onClick={() => approveSlotMutation.mutate(s.id)}
-                          disabled={approveSlotMutation.isPending}
-                        >
-                          {approveSlotMutation.isPending ? <Spinner className="w-4 h-4" /> : "Approve"}
-                        </Button>
-                      )}
-                      {role === "intern" && (
-                        <Badge variant="secondary">View only</Badge>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-        </section>
-      )}
-
-      {/* 4) Recent Activity */}
+      {/* Recent Activity */}
       <section>
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <AlertCircle className="w-5 h-5" />
@@ -352,7 +356,10 @@ export default function Overview() {
                     <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
                     <span>
                       {item.type === "post" && (
-                        <>Post {item.slot.deliverable_tag} · {item.slot.status} · {format(new Date(item.at), "MMM d, HH:mm")}</>
+                        <>
+                          Post {item.slot.deliverable_tag} · {item.slot.status} ·{" "}
+                          {format(new Date(item.at), "MMM d, HH:mm")}
+                        </>
                       )}
                     </span>
                   </li>
@@ -363,78 +370,106 @@ export default function Overview() {
         </Card>
       </section>
 
-      {/* 5) Performance Snapshot */}
+      {/* Performance Snapshot */}
       <section>
-        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <TrendingUp className="w-5 h-5" />
-          Performance Snapshot
-        </h2>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <TrendingUp className="w-5 h-5" />
+            Performance Snapshot
+          </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select
+              value={performancePeriod}
+              onValueChange={(value) => setPerformancePeriod(value as PerformancePeriod)}
+            >
+              <SelectTrigger className="w-[140px] h-9">
+                <SelectValue placeholder="Period" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+                <SelectItem value="quarterly">Quarterly</SelectItem>
+                <SelectItem value="yearly">Yearly</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={performanceChannel}
+              onValueChange={(value) => setPerformanceChannel(value as PerformanceChannel)}
+            >
+              <SelectTrigger className="w-[200px] h-9">
+                <SelectValue placeholder="Channel" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="website">Website Performance</SelectItem>
+                <SelectItem value="social">Social Media</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
         <Card className="shadow-sm">
           <CardContent className="pt-6">
-            <div className="grid md:grid-cols-3 gap-4 text-sm">
-              <div>
-                <p className="text-muted-foreground">Last 30 days reach</p>
-                <p className="font-medium">—</p>
-                <p className="text-xs text-muted-foreground">Connect analytics for data</p>
+            {performanceLoading ? (
+              <div className="flex justify-center py-8">
+                <Spinner className="w-6 h-6" />
               </div>
-              <div>
-                <p className="text-muted-foreground">Top performing post</p>
-                <p className="font-medium">—</p>
-                <p className="text-xs text-muted-foreground">Connect analytics for data</p>
+            ) : performanceChannel === "website" ? (
+              <div className="grid md:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Page views</p>
+                  <p className="text-2xl font-bold">{websiteTotals.page_views.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {periodStartStr} – {periodEndStr}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Unique visitors</p>
+                  <p className="text-2xl font-bold">{websiteTotals.unique_visitors.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Top page: {topPage}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">CTA & form actions</p>
+                  <p className="text-2xl font-bold">
+                    {(websiteTotals.cta_clicks + websiteTotals.form_submits).toLocaleString()}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {websiteTotals.cta_clicks} clicks · {websiteTotals.form_submits} submits ·{" "}
+                    {websiteTotals.booking_clicks} bookings
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-muted-foreground">Underperforming campaigns</p>
-                <p className="font-medium">—</p>
-                <p className="text-xs text-muted-foreground">Threshold-based flags when available</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* 6) KORA Version Status */}
-      <section>
-        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <Megaphone className="w-5 h-5" />
-          KORA Version Status
-        </h2>
-        <Card className="shadow-sm">
-          <CardContent className="pt-6">
-            {koraByCampaign.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No campaigns.</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-2 font-medium">Campaign</th>
-                      <th className="text-left py-2 font-medium">Active KORA version</th>
-                      <th className="text-left py-2 font-medium">Last updated</th>
-                      <th className="text-left py-2 w-20"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {koraByCampaign.map(({ campaign, version, lastUpdated, isStale }) => (
-                      <tr key={campaign.id} className="border-b last:border-0">
-                        <td className="py-2">{campaign.name}</td>
-                        <td className="py-2">{version}</td>
-                        <td className="py-2 text-muted-foreground">
-                          {lastUpdated ? format(new Date(lastUpdated), "MMM d, yyyy") : "—"}
-                        </td>
-                        <td className="py-2">
-                          {isStale && (
-                            <Badge variant="outline" className="text-amber-600 border-amber-300 gap-1">
-                              <AlertTriangle className="w-3 h-3" />
-                              &gt;30 days
-                            </Badge>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="grid md:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Content views</p>
+                  <p className="text-2xl font-bold">{socialTotals.views.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Social-tagged content in period</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Content clicks</p>
+                  <p className="text-2xl font-bold">{socialTotals.clicks.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Top post: {topSocialPost}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Published posts (campaigns)</p>
+                  <p className="text-2xl font-bold">{publishedPosts.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Across {campaigns.length} active campaign{campaigns.length === 1 ? "" : "s"}
+                  </p>
+                </div>
               </div>
             )}
+            {!performanceLoading &&
+              performanceChannel === "website" &&
+              rollups.length === 0 && (
+                <p className="text-xs text-muted-foreground mt-4">No website rollup data for this period yet.</p>
+              )}
+            {!performanceLoading &&
+              performanceChannel === "social" &&
+              socialContent.length === 0 && (
+                <p className="text-xs text-muted-foreground mt-4">
+                  No social performance rows for this period yet. Connect analytics or tag content as social.
+                </p>
+              )}
           </CardContent>
         </Card>
       </section>

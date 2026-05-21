@@ -1,4 +1,4 @@
-import { getPublicSiteOrigin } from "@/lib/publicSite";
+import { getMarketingSiteOrigin, PRODUCTION_SITE_ORIGIN } from "@/lib/publicSite";
 import { GUIDE_HUB_PATH } from "@/content/guides/beforeYouBuildTheBrand";
 
 export type MarketingLinkOption = {
@@ -9,7 +9,50 @@ export type MarketingLinkOption = {
   group: "brief" | "cta_pages" | "pdf_guides";
 };
 
-const SITE = () => getPublicSiteOrigin() || "https://www.jahknowspr.com";
+export const STARTER_GUIDE_HUB_URL = `${PRODUCTION_SITE_ORIGIN}${GUIDE_HUB_PATH}`;
+
+const SITE = () => getMarketingSiteOrigin();
+
+function isLocalHost(hostname: string): boolean {
+  const h = hostname.toLowerCase();
+  return h === "localhost" || h === "127.0.0.1" || h === "[::1]";
+}
+
+/** Rewrite dev origins to www.jahknowspr.com for email campaigns. */
+export function normalizeMarketingUrl(url: string, fallback = STARTER_GUIDE_HUB_URL): string {
+  const trimmed = url.trim();
+  if (!trimmed) return fallback;
+  try {
+    const parsed = new URL(trimmed, PRODUCTION_SITE_ORIGIN);
+    const path = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    const safePath = path.startsWith("/") ? path : `/${path}`;
+    if (isLocalHost(parsed.hostname) || parsed.hostname.toLowerCase() === "jahknowspr.com") {
+      return `${PRODUCTION_SITE_ORIGIN}${safePath}`;
+    }
+    if (parsed.hostname.toLowerCase() !== "www.jahknowspr.com") {
+      return `${PRODUCTION_SITE_ORIGIN}${safePath}`;
+    }
+    return `${PRODUCTION_SITE_ORIGIN}${safePath}`;
+  } catch {
+    if (trimmed.startsWith("/")) return `${PRODUCTION_SITE_ORIGIN}${trimmed}`;
+    return fallback;
+  }
+}
+
+export function resolveCampaignCtaUrl(storedUrl: string, campaignName?: string): string {
+  const normalized = normalizeMarketingUrl(storedUrl, STARTER_GUIDE_HUB_URL);
+  const name = (campaignName ?? "").toLowerCase();
+  let pathname = "/";
+  try {
+    pathname = new URL(normalized).pathname.replace(/\/$/, "") || "/";
+  } catch {
+    /* ignore */
+  }
+  if (name.includes("before you build") && pathname === "/the-brief") {
+    return STARTER_GUIDE_HUB_URL;
+  }
+  return normalized;
+}
 
 /** Official CTA / landing pages on the live site */
 export const CTA_PAGE_LINKS: MarketingLinkOption[] = [
@@ -94,7 +137,7 @@ export function briefPostLink(slug: string, title: string): MarketingLinkOption 
 }
 
 export function findMarketingLinkByUrl(url: string): MarketingLinkOption | undefined {
-  const normalized = url.trim().replace(/\/$/, "");
+  const normalized = normalizeMarketingUrl(url).replace(/\/$/, "");
   return [...CTA_PAGE_LINKS, ...PDF_GUIDE_LINKS].find(
     (opt) => opt.url.replace(/\/$/, "") === normalized,
   );

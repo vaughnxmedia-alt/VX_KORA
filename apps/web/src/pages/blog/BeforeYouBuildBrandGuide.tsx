@@ -137,7 +137,7 @@ function GuideCtaBlock({
   isDownloading: boolean;
 }) {
   return (
-    <Card id="download-guide" className="border-gold/30 bg-primary text-primary-foreground shadow-xl">
+    <Card id="download-guide" className="border-gold/40 bg-primary-foreground/10 text-primary-foreground shadow-xl">
       <CardContent className="p-6 md:p-8">
         <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div>
@@ -288,16 +288,16 @@ function HubPage() {
   };
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <section className="border-b border-gold/40 bg-gold px-4 py-3 text-primary sm:px-6">
+    <main className="min-h-screen bg-primary text-primary-foreground">
+      <section className="border-b border-gold/40 px-4 py-3 sm:px-6">
         <div className="mx-auto max-w-5xl">
-          <div className="inline-flex items-center rounded-full border border-primary/25 bg-primary px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-gold shadow-sm">
+          <div className="inline-flex items-center rounded-full border border-primary/25 bg-gold px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-primary shadow-sm">
             The Making of a Brand
           </div>
         </div>
       </section>
 
-      <section className="border-b bg-primary px-4 py-16 text-primary-foreground sm:px-6 md:py-24">
+      <section className="border-b border-gold/20 px-4 py-16 sm:px-6 md:py-24">
         <div className="mx-auto max-w-5xl">
           <h1 className="max-w-4xl text-4xl font-bold tracking-tight sm:text-6xl">{GUIDE_HUB_TITLE}</h1>
           <p className="mt-6 max-w-3xl text-lg leading-relaxed text-primary-foreground/80">
@@ -315,7 +315,7 @@ function HubPage() {
       </section>
 
       <section className="mx-auto max-w-5xl space-y-12 px-4 py-12 sm:px-6 md:py-16">
-        <article className="prose prose-slate max-w-none dark:prose-invert">
+        <article className="prose prose-invert max-w-none prose-headings:text-primary-foreground prose-p:text-primary-foreground/90 prose-strong:text-primary-foreground prose-blockquote:border-gold prose-blockquote:text-primary-foreground/90">
           <h2>What this guide is</h2>
           <p>
             <strong>{GUIDE_TITLE}</strong> is a beginner-friendly brand foundation guide for new business owners, founders, creators, and professionals who are building from the beginning.
@@ -345,26 +345,26 @@ function HubPage() {
         <section>
           <div className="mb-6 flex items-center gap-3">
             <BookOpen className="h-5 w-5 text-gold" />
-            <h2 className="text-2xl font-bold text-primary">Full Table of Contents</h2>
+            <h2 className="text-2xl font-bold text-primary-foreground">Full Table of Contents</h2>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             {beforeYouBuildTheBrandArticles.map((article) => (
               <Link
                 key={article.slug}
                 to={`${article.path}${guideContext.query}`}
-                className="group rounded-2xl border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-gold/50 hover:shadow-md"
+                className="group rounded-2xl border border-gold/30 bg-primary-foreground/5 p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-gold/50 hover:bg-primary-foreground/10 hover:shadow-md"
               >
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gold">
                   Slide {article.slideNumber}
                 </p>
-                <h3 className="mt-2 font-bold leading-snug text-primary group-hover:text-gold-dark">{article.blogTitle}</h3>
-                <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">{article.excerpt}</p>
+                <h3 className="mt-2 font-bold leading-snug text-primary-foreground group-hover:text-gold">{article.blogTitle}</h3>
+                <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-primary-foreground/75">{article.excerpt}</p>
               </Link>
             ))}
           </div>
         </section>
 
-        <section id="audit-cta" className="rounded-3xl border bg-primary p-6 text-primary-foreground shadow-sm md:p-8">
+        <section id="audit-cta" className="rounded-3xl border border-gold/30 bg-primary-foreground/10 p-6 text-primary-foreground shadow-sm md:p-8">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">Next Step</p>
           <h2 className="mt-3 text-2xl font-bold md:text-3xl">Ready to submit your Free Brand Audit?</h2>
           <p className="mt-3 max-w-3xl text-sm leading-relaxed text-primary-foreground/80">
@@ -447,20 +447,23 @@ function GuideArticlePage({ slug }: { slug: string }) {
   const { previous, next } = getGuideArticleNeighbors(article.slug);
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="min-h-screen bg-primary text-primary-foreground">
       <article className="mx-auto max-w-4xl px-4 py-10 sm:px-6 md:py-16">
-        <Link to={GUIDE_HUB_PATH} className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:text-gold-dark">
+        <Link
+          to={GUIDE_HUB_PATH}
+          className="inline-flex items-center gap-2 text-sm font-semibold text-gold hover:text-gold/80"
+        >
           <ArrowLeft className="h-4 w-4" />
           Back to Guide Hub
         </Link>
 
-        <header className="mt-8 border-b pb-8">
-          <Badge variant="outline" className="border-gold/40 text-gold-dark">{GUIDE_CATEGORY}</Badge>
-          <p className="mt-5 text-sm font-semibold uppercase tracking-[0.25em] text-muted-foreground">
+        <header className="mt-8 border-b border-gold/30 pb-8">
+          <Badge variant="outline" className="border-gold/50 text-gold">{GUIDE_CATEGORY}</Badge>
+          <p className="mt-5 text-sm font-semibold uppercase tracking-[0.25em] text-primary-foreground/70">
             {GUIDE_TITLE} / Slide {article.slideNumber}
           </p>
-          <h1 className="mt-4 text-4xl font-bold tracking-tight text-primary sm:text-5xl">{article.blogTitle}</h1>
-          <p className="mt-5 text-lg leading-relaxed text-muted-foreground">{article.excerpt}</p>
+          <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">{article.blogTitle}</h1>
+          <p className="mt-5 text-lg leading-relaxed text-primary-foreground/80">{article.excerpt}</p>
           <div className="mt-6">
             <Suspense fallback={<div className="text-xs text-muted-foreground">Loading QR...</div>}>
               <GuideQRCode url={`${origin}${article.path}`} label={article.qrLabel} size={104} showText />
@@ -468,7 +471,7 @@ function GuideArticlePage({ slug }: { slug: string }) {
           </div>
         </header>
 
-        <div className="prose prose-slate mt-10 max-w-none dark:prose-invert">
+        <div className="prose prose-invert mt-10 max-w-none prose-headings:text-primary-foreground prose-p:text-primary-foreground/90 prose-strong:text-primary-foreground prose-li:text-primary-foreground/90">
           <p>
             This article expands on the <strong>{article.slideTitle}</strong> slide from <em>{GUIDE_SUBTITLE}</em>. Use it when you want the deeper teaching behind the PDF.
           </p>

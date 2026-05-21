@@ -29,18 +29,23 @@ export function TrackedLinkButton({
 
   const content = (
     <span className="flex w-full flex-col items-center text-center">
-      <span className="text-base font-semibold leading-snug">{label}</span>
+      <span className="text-base font-semibold leading-snug transition-colors group-hover:text-gold-dark">
+        {label}
+      </span>
       {description ? (
-        <span className="mt-1 text-sm font-normal leading-snug text-primary/70">{description}</span>
+        <span className="mt-1 text-sm font-normal leading-snug text-primary/70 transition-colors group-hover:text-primary/80">
+          {description}
+        </span>
       ) : null}
     </span>
   );
 
   const buttonClass = cn(
-    "flex w-full items-center justify-center rounded-2xl border border-gold/40 bg-card px-5 py-4",
-    "text-primary shadow-sm transition-colors",
-    "hover:border-gold hover:bg-gold/10 active:scale-[0.99]",
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2",
+    "tracked-link-bubble group flex w-full items-center justify-center rounded-2xl border border-gold/40 bg-card px-5 py-4",
+    "text-primary shadow-sm will-change-transform",
+    "hover:border-gold hover:bg-white hover:shadow-xl",
+    "active:scale-[1.03]",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-primary",
     className,
   );
 

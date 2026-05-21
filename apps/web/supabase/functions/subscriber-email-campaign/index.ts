@@ -8,11 +8,16 @@ import {
   buildCampaignBlastAdminNotificationHtml,
   buildCampaignBlastAdminNotificationSubject,
 } from "../_shared/campaign-blast-admin-notification-email.ts";
+import {
+  normalizeMarketingUrl,
+  PRODUCTION_SITE_ORIGIN,
+  resolveCampaignCtaUrl,
+  THE_BRIEF_URL,
+} from "../_shared/marketing-url.ts";
 
 const FROM_NAME = "Jah Jah";
 const FROM_EMAIL = "welcome@jahknowspr.com";
-const SITE_URL = "https://www.jahknowspr.com";
-const THE_BRIEF_URL = `${SITE_URL}/the-brief`;
+const SITE_URL = PRODUCTION_SITE_ORIGIN;
 const DASHBOARD_SUBSCRIBERS_URL = `${SITE_URL}/dashboard/subscribers`;
 const DEFAULT_CAMPAIGN_TIMEZONE = "America/Chicago";
 
@@ -165,11 +170,12 @@ type AdminRecipient = { email: string; name: string; timezone: string };
 
 async function loadAdminNotificationRecipients(
   supabase: ReturnType<typeof createClient>,
+  actor?: { sentByName: string; sentByEmail: string },
 ): Promise<AdminRecipient[]> {
   const { data: roles, error } = await supabase
     .from("user_roles")
     .select("user_id")
-    .eq("role", "admin");
+    .in("role", ["admin", "author"]);
   if (error) throw error;
 
   const seen = new Set<string>();
@@ -206,6 +212,15 @@ async function loadAdminNotificationRecipients(
     });
   }
 
+  const actorEmail = actor?.sentByEmail?.trim().toLowerCase() ?? "";
+  if (actorEmail && actorEmail.includes("@") && !seen.has(actorEmail)) {
+    recipients.unshift({
+      email: actorEmail,
+      name: actor?.sentByName?.trim() || actorEmail.split("@")[0] || "You",
+      timezone: DEFAULT_CAMPAIGN_TIMEZONE,
+    });
+  }
+
   return recipients;
 }
 
@@ -224,12 +239,16 @@ async function notifyAdminsCampaignBlast(
     nextSendAt?: string | null;
   },
 ) {
-  const admins = await loadAdminNotificationRecipients(supabase);
-  if (!admins.length) return { notified: 0 };
+  const admins = await loadAdminNotificationRecipients(supabase, {
+    sentByName: opts.sentByName,
+    sentByEmail: opts.sentByEmail,
+  });
+  if (!admins.length) return { notified: 0, failed: 0 };
 
   const sentAtIso = new Date().toISOString();
   const emailSubject = buildCampaignBlastAdminNotificationSubject(opts.campaignLabel);
   let notified = 0;
+  let failed = 0;
 
   for (const admin of admins) {
     const nextSendLabel = opts.nextSendAt
@@ -281,6 +300,7 @@ async function notifyAdminsCampaignBlast(
         bodyText: toPlainText(html),
       });
     } catch (err) {
+      failed += 1;
       const msg = err instanceof Error ? err.message : "Admin notification failed";
       await logOutboundEmail(supabase, {
         messageType: "subscriber_campaign_admin_confirmation",
@@ -298,7 +318,7 @@ async function notifyAdminsCampaignBlast(
     }
   }
 
-  return { notified };
+  return { notified, failed };
 }
 
 function actorFromUser(user: { email?: string; user_metadata?: Record<string, unknown> }) {
@@ -455,7 +475,13 @@ async function executeCampaignSend(
   }
 
   const ctaLabel = campaign.custom_cta_label?.trim() || "Read The Brief";
-  const ctaUrl = campaign.custom_cta_url?.trim() || THE_BRIEF_URL;
+  const ctaUrl = resolveCampaignCtaUrl(campaign.custom_cta_url, campaign.name);
+  if (ctaUrl !== String(campaign.custom_cta_url ?? "").trim()) {
+    await supabase
+      .from("subscriber_email_campaigns")
+      .update({ custom_cta_url: ctaUrl })
+      .eq("id", campaign.id);
+  }
   const subject =
     campaign.subject?.trim() ||
     (post ? `The Brief: ${post.title}` : "Updates from JahKnowsPR");
@@ -502,8 +528,10 @@ async function executeCampaignSend(
     })
     .eq("id", campaign.id);
 
-  if (!result.testMode && result.total > 0) {
-    await notifyAdminsCampaignBlast(supabase, resend, {
+  let adminNotified = 0;
+  let adminNotificationFailed = 0;
+  if (!result.testMode) {
+    const adminNotify = await notifyAdminsCampaignBlast(supabase, resend, {
       campaignLabel: campaign.name,
       subject,
       sent: result.sent,
@@ -514,9 +542,11 @@ async function executeCampaignSend(
       sentByEmail: actor.sentByEmail,
       nextSendAt: nextSend,
     });
+    adminNotified = adminNotify.notified;
+    adminNotificationFailed = adminNotify.failed;
   }
 
-  return result;
+  return { ...result, adminNotified, adminNotificationFailed };
 }
 
 serve(async (req) => {
@@ -557,6 +587,7 @@ serve(async (req) => {
     authHeader === `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`;
 
   let actor = { sentByName: "Automated scheduler", sentByEmail: "scheduler@jahknowspr.com" };
+  let dashboardUser: { email?: string; user_metadata?: Record<string, unknown> } | null = null;
 
   if (!isServiceCron) {
     const auth = await requireDashboardUser(req, supabase);
@@ -566,7 +597,8 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    actor = actorFromUser(auth.user!);
+    dashboardUser = auth.user!;
+    actor = actorFromUser(dashboardUser);
   }
 
   const resend = new Resend(RESEND_API_KEY);
@@ -587,10 +619,10 @@ serve(async (req) => {
       const slug = post.slug?.trim() || post.id;
       const defaultUrl = `${SITE_URL}/the-brief/${encodeURIComponent(slug)}`;
       const ctaLabel = parsed.data.ctaLabel?.trim() || "Read this edition";
-      const ctaUrl = parsed.data.ctaUrl?.trim() || defaultUrl;
+      const ctaUrl = normalizeMarketingUrl(parsed.data.ctaUrl?.trim() || defaultUrl);
       const subject = parsed.data.subject?.trim() || `New on The Brief: ${post.title}`;
       const recipients = parsed.data.testEmail
-        ? [{ id: null, name: testRecipientFromUser(auth.user!).name, email: parsed.data.testEmail.trim().toLowerCase() }]
+        ? [{ id: null, name: testRecipientFromUser(dashboardUser!).name, email: parsed.data.testEmail.trim().toLowerCase() }]
         : await loadAllSubscribers(supabase);
       const result = await sendToRecipients(
         supabase,
@@ -604,8 +636,10 @@ serve(async (req) => {
         post.id,
         "blog_posts",
       );
-      if (!parsed.data.testEmail && result.total > 0) {
-        await notifyAdminsCampaignBlast(supabase, resend, {
+      let adminNotified = 0;
+      let adminNotificationFailed = 0;
+      if (!parsed.data.testEmail) {
+        const adminNotify = await notifyAdminsCampaignBlast(supabase, resend, {
           campaignLabel: `Blog blast: ${post.title}`,
           subject,
           sent: result.sent,
@@ -615,8 +649,10 @@ serve(async (req) => {
           sentByName: actor.sentByName,
           sentByEmail: actor.sentByEmail,
         });
+        adminNotified = adminNotify.notified;
+        adminNotificationFailed = adminNotify.failed;
       }
-      return new Response(JSON.stringify({ ok: true, ...result }), {
+      return new Response(JSON.stringify({ ok: true, ...result, adminNotified, adminNotificationFailed }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -642,13 +678,13 @@ serve(async (req) => {
         post = data as BlogPostRow | null;
       }
       const ctaLabel = parsed.data.ctaLabel?.trim() || "Read The Brief";
-      const ctaUrl = parsed.data.ctaUrl?.trim() || THE_BRIEF_URL;
+      const ctaUrl = normalizeMarketingUrl(parsed.data.ctaUrl?.trim() || THE_BRIEF_URL);
       const campaignName = parsed.data.campaignName?.trim() || "Updates from JahKnowsPR";
       const subject =
         parsed.data.subject?.trim() ||
         (post ? `The Brief: ${post.title}` : campaignName);
       const recipients = parsed.data.testEmail
-        ? [{ id: null, name: testRecipientFromUser(auth.user!).name, email: parsed.data.testEmail.trim().toLowerCase() }]
+        ? [{ id: null, name: testRecipientFromUser(dashboardUser!).name, email: parsed.data.testEmail.trim().toLowerCase() }]
         : await loadAllSubscribers(supabase);
       const isTest = Boolean(parsed.data.testEmail);
       const result = await sendToRecipients(
@@ -675,8 +711,10 @@ serve(async (req) => {
         post?.id ?? null,
         "subscriber_email_campaigns",
       );
-      if (!isTest && result.total > 0) {
-        await notifyAdminsCampaignBlast(supabase, resend, {
+      let adminNotified = 0;
+      let adminNotificationFailed = 0;
+      if (!isTest) {
+        const adminNotify = await notifyAdminsCampaignBlast(supabase, resend, {
           campaignLabel: campaignName,
           subject,
           sent: result.sent,
@@ -686,8 +724,10 @@ serve(async (req) => {
           sentByName: actor.sentByName,
           sentByEmail: actor.sentByEmail,
         });
+        adminNotified = adminNotify.notified;
+        adminNotificationFailed = adminNotify.failed;
       }
-      return new Response(JSON.stringify({ ok: true, ...result }), {
+      return new Response(JSON.stringify({ ok: true, ...result, adminNotified, adminNotificationFailed }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -696,14 +736,14 @@ serve(async (req) => {
     if (parsed.data.action === "send_test_welcome") {
       const testEmail =
         parsed.data.testEmail?.trim().toLowerCase() ||
-        String(auth.user?.email ?? "").trim().toLowerCase();
+        String(dashboardUser?.email ?? "").trim().toLowerCase();
       if (!testEmail) {
         return new Response(JSON.stringify({ error: "No email on your account for test send." }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const recipient = testRecipientFromUser(auth.user!);
+      const recipient = testRecipientFromUser(dashboardUser!);
       recipient.email = testEmail;
       const subject = "Thank you for subscribing";
       const result = await sendToRecipients(

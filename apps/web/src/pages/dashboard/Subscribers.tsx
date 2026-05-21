@@ -239,10 +239,10 @@ export default function Subscribers() {
         </Card>
       </div>
 
-      <Tabs defaultValue="marketing" className="space-y-4">
+      <Tabs defaultValue="subscribers" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="marketing">Email marketing</TabsTrigger>
           <TabsTrigger value="subscribers">Subscriber list</TabsTrigger>
+          <TabsTrigger value="marketing">Email marketing</TabsTrigger>
           <TabsTrigger value="downloads">Downloads</TabsTrigger>
         </TabsList>
 

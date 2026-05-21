@@ -1,9 +1,5 @@
 import { useEffect } from "react";
-import { Logo } from "@/components/Logo";
 import { TrackedLinkButton } from "@/components/links/TrackedLinkButton";
-
-const TAGLINE =
-  "Brand intelligence, public relations, and strategy for people building with purpose.";
 
 const LINK_ITEMS = [
   {
@@ -48,17 +44,9 @@ export default function Links() {
   }, []);
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-b from-primary/5 via-background to-background px-4 py-10 sm:py-14">
+    <div className="min-h-[calc(100vh-4rem)] bg-primary px-4 py-10 sm:py-14">
       <div className="mx-auto flex w-full max-w-md flex-col items-center">
-        <header className="flex flex-col items-center text-center">
-          <Logo className="mb-5" />
-          <p className="max-w-sm text-sm leading-relaxed text-muted-foreground sm:text-base">{TAGLINE}</p>
-        </header>
-
-        <nav
-          className="mt-8 flex w-full flex-col gap-3 sm:mt-10 sm:gap-3.5"
-          aria-label="JahKnowsPR links"
-        >
+        <nav className="flex w-full flex-col gap-4 py-2 sm:gap-5" aria-label="JahKnowsPR links">
           {LINK_ITEMS.map((item) => (
             <TrackedLinkButton
               key={item.linkId}
@@ -70,7 +58,7 @@ export default function Links() {
           ))}
         </nav>
 
-        <p className="mt-10 text-center text-xs text-muted-foreground">
+        <p className="mt-10 text-center text-xs text-primary-foreground/70">
           JahKnowsPR · Brand intelligence &amp; public relations
         </p>
       </div>

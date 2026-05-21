@@ -1,7 +1,7 @@
-import { getPublicSiteOrigin } from "@/lib/publicSite";
+import { getMarketingSiteOrigin } from "@/lib/publicSite";
+import { normalizeMarketingUrl } from "@/lib/subscriberMarketingLinks";
 
-const SITE = () => getPublicSiteOrigin() || "https://www.jahknowspr.com";
-const THE_BRIEF_URL = `${SITE()}/the-brief`;
+const THE_BRIEF_URL = `${getMarketingSiteOrigin()}/the-brief`;
 
 export type BlogPreviewPost = {
   title: string;
@@ -64,7 +64,9 @@ export function buildBlogCampaignEmailHtml(
   ctaUrl: string,
 ) {
   const slug = post.slug?.trim() || "post";
-  const postUrl = ctaUrl || `${SITE()}/the-brief/${encodeURIComponent(slug)}`;
+  const postUrl = normalizeMarketingUrl(
+    ctaUrl || `${getMarketingSiteOrigin()}/the-brief/${encodeURIComponent(slug)}`,
+  );
   const excerpt = (post.excerpt || post.description || "").trim();
   const cover = post.cover_image_url?.trim()
     ? `<p style="margin:0 0 16px;"><img src="${post.cover_image_url}" alt="" style="max-width:100%;border-radius:12px;" /></p>`
@@ -75,7 +77,7 @@ export function buildBlogCampaignEmailHtml(
     previewLine: excerpt || null,
     bodyHtml: `${cover}<p style="margin:0 0 14px;">A new edition of <strong>The Brief</strong> is ready for you.</p>`,
     ctaLabel,
-    ctaUrl: postUrl,
+    ctaUrl: normalizeMarketingUrl(postUrl),
   });
 }
 
@@ -96,7 +98,7 @@ export function buildScheduledCampaignEmailHtml(
     previewLine,
     bodyHtml: `<p style="margin:0 0 14px;">${previewLine || "Your latest strategic update from JahKnowsPR."}</p>`,
     ctaLabel,
-    ctaUrl,
+    ctaUrl: normalizeMarketingUrl(ctaUrl),
   });
 }
 

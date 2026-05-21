@@ -20,7 +20,12 @@ import { CalendarClock, Eye, Mail, Plus, Rocket, Send, Trash2 } from "lucide-rea
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { CtaLinkSelect } from "@/components/dashboard/CtaLinkSelect";
-import { getPublicSiteOrigin } from "@/lib/publicSite";
+import { getMarketingSiteOrigin } from "@/lib/publicSite";
+import {
+  normalizeMarketingUrl,
+  resolveCampaignCtaUrl,
+  STARTER_GUIDE_HUB_URL,
+} from "@/lib/subscriberMarketingLinks";
 import {
   CAMPAIGN_TIMEZONE_OPTIONS,
   computeNextCampaignSendIso,
@@ -84,7 +89,7 @@ const WEEKDAYS = [
   "sunday",
 ] as const;
 
-const DEFAULT_BRIEF_URL = () => `${getPublicSiteOrigin() || "https://www.jahknowspr.com"}/the-brief`;
+const DEFAULT_CAMPAIGN_CTA_URL = STARTER_GUIDE_HUB_URL;
 
 async function invokeCampaign(body: Record<string, unknown>) {
   const { data: session } = await supabase.auth.getSession();
@@ -97,7 +102,37 @@ async function invokeCampaign(body: Record<string, unknown>) {
   });
   if (error) throw error;
   if (data?.error) throw new Error(String(data.error));
-  return data as { ok?: boolean; sent?: number; failed?: number; total?: number; testMode?: boolean };
+  return data as {
+    ok?: boolean;
+    sent?: number;
+    failed?: number;
+    total?: number;
+    testMode?: boolean;
+    adminNotified?: number;
+    adminNotificationFailed?: number;
+  };
+}
+
+function toastAfterBlast(
+  data: { sent?: number; failed?: number; adminNotified?: number; adminNotificationFailed?: number },
+  label: string,
+) {
+  const sent = data.sent ?? 0;
+  const failed = data.failed ?? 0;
+  const adminOk = data.adminNotified ?? 0;
+  const adminFail = data.adminNotificationFailed ?? 0;
+
+  toast.success(`${label}: ${sent} subscriber email${sent === 1 ? "" : "s"} sent.${failed > 0 ? ` ${failed} failed.` : ""}`);
+
+  if (adminOk > 0) {
+    toast.message(`Confirmation email sent to ${adminOk} dashboard address${adminOk === 1 ? "" : "es"}.`);
+  } else if (adminFail > 0) {
+    toast.error("Campaign sent, but the confirmation email could not be delivered. Check Sent emails in the dashboard.");
+  } else {
+    toast.warning(
+      "Campaign sent, but no confirmation email was sent. Confirm your account email and that RESEND_API_KEY is set on Supabase.",
+    );
+  }
 }
 
 type Props = {
@@ -121,7 +156,7 @@ export function SubscriberEmailMarketingPanel({ subscriberCount, subscribers }: 
   const [draftName, setDraftName] = useState("");
   const [draftCadence, setDraftCadence] = useState<EmailCampaign["cadence"]>("weekly");
   const [draftCtaLabel, setDraftCtaLabel] = useState("Read The Brief");
-  const [draftCtaUrl, setDraftCtaUrl] = useState(DEFAULT_BRIEF_URL());
+  const [draftCtaUrl, setDraftCtaUrl] = useState(DEFAULT_CAMPAIGN_CTA_URL);
   const [draftSubject, setDraftSubject] = useState("");
   const [draftPreview, setDraftPreview] = useState("");
   const [draftBlogId, setDraftBlogId] = useState("");
@@ -200,7 +235,7 @@ export function SubscriberEmailMarketingPanel({ subscriberCount, subscribers }: 
       const slug = selectedBlogPost.slug ?? selectedBlogPost.id;
       const url =
         blogCtaUrl.trim() ||
-        `${getPublicSiteOrigin() || "https://www.jahknowspr.com"}/the-brief/${encodeURIComponent(slug)}`;
+        `${getMarketingSiteOrigin()}/the-brief/${encodeURIComponent(slug)}`;
       return buildBlogCampaignEmailHtml(name, selectedBlogPost, blogCtaLabel, url);
     }
     if (previewTemplate === "scheduled") {
@@ -210,7 +245,7 @@ export function SubscriberEmailMarketingPanel({ subscriberCount, subscribers }: 
         draftName.trim() || "Campaign preview",
         draftPreview,
         draftCtaLabel,
-        draftCtaUrl,
+        resolveCampaignCtaUrl(draftCtaUrl, draftName),
         post ?? null,
       );
     }
@@ -278,7 +313,7 @@ export function SubscriberEmailMarketingPanel({ subscriberCount, subscribers }: 
       throw new Error("Welcome emails cannot be published from here.");
     },
     onSuccess: (data) => {
-      toast.success(`Published — sent to ${data.sent ?? 0} of ${data.total ?? subscriberCount} subscribers.`);
+      toastAfterBlast(data, "Published");
       queryClient.invalidateQueries({ queryKey: ["outbound-email-logs"] });
     },
     onError: (err: Error) => toast.error(err.message),
@@ -337,7 +372,7 @@ export function SubscriberEmailMarketingPanel({ subscriberCount, subscribers }: 
         subject: draftSubject.trim() || null,
         preview_line: draftPreview.trim() || null,
         custom_cta_label: draftCtaLabel.trim() || "Read The Brief",
-        custom_cta_url: draftCtaUrl.trim() || DEFAULT_BRIEF_URL(),
+        custom_cta_url: normalizeMarketingUrl(draftCtaUrl.trim() || DEFAULT_CAMPAIGN_CTA_URL),
         use_latest_blog: draftUseLatest,
         send_time: draftSendTime.length === 5 ? `${draftSendTime}:00` : draftSendTime,
         send_day_of_week: draftCadence === "weekly" ? draftWeekday : null,
@@ -377,7 +412,7 @@ export function SubscriberEmailMarketingPanel({ subscriberCount, subscribers }: 
     mutationFn: async (campaignId: string) =>
       invokeCampaign({ action: "send_campaign", campaignId }),
     onSuccess: (data) => {
-      toast.success(`Sent to ${data.sent ?? 0} subscribers.`);
+      toastAfterBlast(data, "Send now");
       queryClient.invalidateQueries({ queryKey: ["subscriber-email-campaigns"] });
       queryClient.invalidateQueries({ queryKey: ["outbound-email-logs"] });
     },
@@ -401,7 +436,7 @@ export function SubscriberEmailMarketingPanel({ subscriberCount, subscribers }: 
     setPreviewTemplate("blog");
     const post = blogPosts.find((p) => p.id === postId);
     if (post?.slug) {
-      const url = `${getPublicSiteOrigin() || "https://www.jahknowspr.com"}/the-brief/${encodeURIComponent(post.slug)}`;
+      const url = `${getMarketingSiteOrigin()}/the-brief/${encodeURIComponent(post.slug)}`;
       setBlogCtaUrl(url);
     }
   };
@@ -623,7 +658,8 @@ export function SubscriberEmailMarketingPanel({ subscriberCount, subscribers }: 
                       {campaign.is_active ? <Badge>Active</Badge> : <Badge variant="secondary">Paused</Badge>}
                     </div>
                     <p className="text-xs text-muted-foreground truncate">
-                      CTA: {campaign.custom_cta_label} → {campaign.custom_cta_url}
+                      CTA: {campaign.custom_cta_label} →{" "}
+                      {resolveCampaignCtaUrl(campaign.custom_cta_url, campaign.name)}
                     </p>
                     {campaign.next_send_at && campaign.is_active ? (
                       <p className="text-xs text-muted-foreground">
