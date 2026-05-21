@@ -4,8 +4,10 @@ const allowedOrigins = [
   "https://www.jahknowspr.com",
   "http://localhost:5173",
   "http://localhost:8095",
+  "http://localhost:8096",
   "http://127.0.0.1:5173",
   "http://127.0.0.1:8095",
+  "http://127.0.0.1:8096",
 ];
 
 /**

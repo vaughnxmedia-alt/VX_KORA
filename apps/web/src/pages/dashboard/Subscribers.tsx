@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { SentEmailsPanel } from "@/components/dashboard/SentEmailsPanel";
+import { SubscriberDownloadsPanel } from "@/components/dashboard/SubscriberDownloadsPanel";
+import { SubscriberEmailMarketingPanel } from "@/components/dashboard/SubscriberEmailMarketingPanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Download, Mail, Send, Trash2, Users } from "lucide-react";
+import { BookOpen, Mail, Send, Trash2, Users } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -28,6 +29,7 @@ type Subscriber = {
   email: string;
   created_at: string;
   email_sent: boolean;
+  lead_source: { source?: string } | null;
 };
 
 type SubscriberEmailPreview = {
@@ -46,27 +48,21 @@ const THE_BRIEF_URL = "https://www.jahknowspr.com/the-brief";
 
 function buildDefaultSubscriberTemplate(name: string, email: string): SubscriberEmailPreview {
   const normalizedName = name.trim() || "there";
-  const subject = "Access Requested — You're on the list ✨";
+  const subject = "Thank you for subscribing";
   const bodyHtml = `
     <body style="margin:0;background:#F7F3EA;padding:28px 12px;font-family:Arial,sans-serif;color:#0A1A35;line-height:1.6;">
       <div style="max-width:680px;margin:0 auto;background:#fff;border:1px solid #E8DFC8;border-radius:24px;overflow:hidden;">
         <div style="height:8px;background:#0A1A35;"></div>
         <div style="padding:34px 32px 28px;">
-          <p style="margin:0 0 14px;font-size:11px;letter-spacing:0.28em;text-transform:uppercase;color:#8C6C27;font-weight:700;">JahKnowsPR Firm / The Brief</p>
-          <h1 style="font-family:Georgia,serif;margin:0 0 18px;font-size:38px;line-height:1.05;color:#0A1A35;">You're in.</h1>
+          <p style="margin:0 0 14px;font-size:11px;letter-spacing:0.28em;text-transform:uppercase;color:#8C6C27;font-weight:700;">JahKnowsPR Firm</p>
+          <h1 style="font-family:Georgia,serif;margin:0 0 18px;font-size:36px;line-height:1.05;color:#0A1A35;">Thank you for subscribing.</h1>
           <p style="margin:0 0 14px;">Hi ${normalizedName},</p>
           <p style="margin:0 0 14px;">
-            Thank you for requesting access to <strong>The Brief</strong>. You now have immediate access to JahKnowsPR strategic articles.
+            You're on our list. <strong>The Brief</strong> is live — we'll email you when new strategic editions are ready.
           </p>
-          <div style="margin:20px 0;padding:18px;border-left:4px solid #C59B3C;background:#F7F3EA;border-radius:0 16px 16px 0;">
-            <p style="margin:0;color:#0A1A35;">
-              Use The Brief to strengthen your positioning, audience clarity, messaging, and conversion decisions before your next campaign move.
-            </p>
-          </div>
-          <p style="margin:0 0 16px;">Start reading here:</p>
           <p style="margin:0 0 18px;">
             <a href="${THE_BRIEF_URL}" style="display:inline-block;background:#0A1A35;color:#fff;padding:13px 20px;border-radius:999px;text-decoration:none;font-weight:700;">
-              Explore The Brief Now
+              Explore The Brief
             </a>
           </p>
           <p style="margin:24px 0 0;font-size:12px;color:#666;">JahKnowsPR Firm</p>
@@ -94,6 +90,12 @@ function buildDefaultSubscriberTemplate(name: string, email: string): Subscriber
   };
 }
 
+function isBrandFoundationLead(leadSource: Subscriber["lead_source"]): boolean {
+  if (!leadSource || typeof leadSource !== "object") return false;
+  const source = String(leadSource.source ?? "").toLowerCase();
+  return source.includes("before_you_build") || source.includes("brand_foundation");
+}
+
 export default function Subscribers() {
   const queryClient = useQueryClient();
   const [deleteTarget, setDeleteTarget] = useState<Subscriber | null>(null);
@@ -106,7 +108,7 @@ export default function Subscribers() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("subscribers")
-        .select("id, name, email, created_at, email_sent")
+        .select("id, name, email, created_at, email_sent, lead_source")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -128,27 +130,6 @@ export default function Subscribers() {
     onError: (err: Error) => toast.error(err.message || "Could not delete subscriber"),
   });
 
-  const handleExportCSV = () => {
-    if (!subscribers?.length) return;
-
-    const headers = ["Name", "Email", "Subscribed Date", "Email Sent"];
-    const rows = subscribers.map((sub) => [
-      sub.name,
-      sub.email,
-      format(new Date(sub.created_at), "yyyy-MM-dd HH:mm"),
-      sub.email_sent ? "Yes" : "No",
-    ]);
-
-    const csvContent = [headers, ...rows].map((row) => row.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `subscribers-${format(new Date(), "yyyy-MM-dd")}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   const openSubscriberPreview = async (subscriber: Subscriber) => {
     setPreviewTarget(subscriber);
     setPreviewLoading(true);
@@ -167,7 +148,7 @@ export default function Subscribers() {
       if (data) {
         const template = buildDefaultSubscriberTemplate(subscriber.name, subscriber.email);
         setPreviewEmail({
-          subject: template.subject,
+          subject: data.subject || template.subject,
           bodyHtml: template.bodyHtml,
           bodyText: template.bodyText,
           fromEmail: data.from_email || template.fromEmail,
@@ -205,22 +186,26 @@ export default function Subscribers() {
     );
   }
 
-  const emailSentCount = subscribers?.filter((s) => s.email_sent).length || 0;
-  const pendingCount = (subscribers?.length || 0) - emailSentCount;
+  const total = subscribers?.length || 0;
+  const welcomedCount = subscribers?.filter((s) => s.email_sent).length || 0;
+  const { data: pdfDownloadCount = 0 } = useQuery({
+    queryKey: ["making-of-a-brand-pdf-downloads-count"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("making_of_a_brand_pdf_downloads")
+        .select("id", { count: "exact", head: true });
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-primary">Subscribers</h1>
-          <p className="text-muted-foreground">
-            Manage your email subscriber list
-          </p>
-        </div>
-        <Button onClick={handleExportCSV} disabled={!subscribers?.length}>
-          <Download className="w-4 h-4 mr-2" />
-          Export CSV
-        </Button>
+      <div>
+        <h1 className="text-3xl font-bold text-primary">Subscribers</h1>
+        <p className="text-muted-foreground">
+          Email marketing for The Brief — welcome sends, blog blasts, and scheduled campaigns
+        </p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -230,48 +215,56 @@ export default function Subscribers() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{subscribers?.length || 0}</div>
+            <div className="text-2xl font-bold">{total}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Emails Sent</CardTitle>
+            <CardTitle className="text-sm font-medium">Welcome emails sent</CardTitle>
             <Mail className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {emailSentCount}
-            </div>
+            <div className="text-2xl font-bold">{welcomedCount}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Pending</CardTitle>
-            <Mail className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Making of a Brand PDFs</CardTitle>
+            <BookOpen className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {pendingCount}
-            </div>
+            <div className="text-2xl font-bold">{pdfDownloadCount}</div>
           </CardContent>
         </Card>
       </div>
 
-      <Tabs defaultValue="subscribers" className="space-y-4">
+      <Tabs defaultValue="marketing" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="subscribers">Subscribers</TabsTrigger>
-          <TabsTrigger value="sent-emails">Sent emails</TabsTrigger>
+          <TabsTrigger value="marketing">Email marketing</TabsTrigger>
+          <TabsTrigger value="subscribers">Subscriber list</TabsTrigger>
+          <TabsTrigger value="downloads">Downloads</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="marketing">
+          <SubscriberEmailMarketingPanel
+            subscriberCount={total}
+            subscribers={(subscribers ?? []).map((s) => ({
+              id: s.id,
+              name: s.name,
+              email: s.email,
+            }))}
+          />
+        </TabsContent>
 
         <TabsContent value="subscribers">
           <Card>
             <CardHeader>
-              <CardTitle>All Subscribers</CardTitle>
+              <CardTitle>All subscribers</CardTitle>
             </CardHeader>
             <CardContent>
               {subscribers?.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
-                  No subscribers yet. The popup will start collecting emails.
+                  No subscribers yet. Stay Informed on the site will collect emails.
                 </div>
               ) : (
                 <Table>
@@ -280,7 +273,7 @@ export default function Subscribers() {
                       <TableHead>Name</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Subscribed</TableHead>
-                      <TableHead className="min-w-[8rem]">Status</TableHead>
+                      <TableHead>Source</TableHead>
                       <TableHead className="w-12 pr-2 text-right">
                         <span className="sr-only">Remove</span>
                       </TableHead>
@@ -297,8 +290,10 @@ export default function Subscribers() {
                         <TableCell>{subscriber.email}</TableCell>
                         <TableCell>{format(new Date(subscriber.created_at), "MMM d, yyyy")}</TableCell>
                         <TableCell>
-                          <Badge variant={subscriber.email_sent ? "default" : "secondary"}>
-                            {subscriber.email_sent ? "Email Sent" : "Pending"}
+                          <Badge variant="secondary">
+                            {isBrandFoundationLead(subscriber.lead_source)
+                              ? "Making of a Brand"
+                              : "The Brief"}
                           </Badge>
                         </TableCell>
                         <TableCell className="p-2 text-right">
@@ -325,8 +320,8 @@ export default function Subscribers() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="sent-emails">
-          <SentEmailsPanel messageTypesIn={["subscriber_verification"]} />
+        <TabsContent value="downloads">
+          <SubscriberDownloadsPanel />
         </TabsContent>
       </Tabs>
 
@@ -341,7 +336,7 @@ export default function Subscribers() {
       >
         <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Subscriber Email Preview</DialogTitle>
+            <DialogTitle>Welcome email preview</DialogTitle>
           </DialogHeader>
           {previewLoading ? (
             <p className="text-sm text-muted-foreground">Loading email preview...</p>
@@ -354,12 +349,10 @@ export default function Subscribers() {
                   </Badge>
                   <span className="text-xs text-muted-foreground">
                     To {previewEmail.toEmail}
-                    {previewEmail.createdAt ? ` · Last sent ${format(new Date(previewEmail.createdAt), "MMM d, yyyy h:mm a")}` : ""}
+                    {previewEmail.createdAt
+                      ? ` · Last sent ${format(new Date(previewEmail.createdAt), "MMM d, yyyy h:mm a")}`
+                      : ""}
                   </span>
-                </div>
-                <div className="mb-3 flex items-center gap-2 font-semibold">
-                  <Send className="h-4 w-4 text-gold" />
-                  Next: Email Preview
                 </div>
                 <iframe
                   title="Subscriber email preview"
@@ -367,9 +360,7 @@ export default function Subscribers() {
                   sandbox=""
                   srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><base target="_blank"></head><body style="margin:0;font-family:system-ui,sans-serif;font-size:14px;">${previewEmail.bodyHtml}</body></html>`}
                 />
-                <p className="mt-3 text-xs text-muted-foreground">
-                  Subject: {previewEmail.subject}
-                </p>
+                <p className="mt-3 text-xs text-muted-foreground">Subject: {previewEmail.subject}</p>
                 {previewEmail.errorMessage ? (
                   <p className="mt-1 text-xs text-destructive">{previewEmail.errorMessage}</p>
                 ) : null}

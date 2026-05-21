@@ -98,7 +98,7 @@ serve(async (req) => {
       console.error("Error inserting subscriber:", insertError);
       throw insertError;
     }
-    const emailSubject = "Access Requested — You're on the list ✨";
+    const emailSubject = "Thank you for subscribing";
     const emailHtml = createEmailHtml(name);
 
     try {
@@ -217,26 +217,22 @@ serve(async (req) => {
   }
 });
 
-const createEmailHtml = (name: string) => `
+const createEmailHtml = (name: string) => {
+  const greeting = name.trim() || "there";
+  return `
   <body style="margin:0;background:#F7F3EA;padding:28px 12px;font-family:Arial,sans-serif;color:#0A1A35;line-height:1.6;">
     <div style="max-width:680px;margin:0 auto;background:#fff;border:1px solid #E8DFC8;border-radius:24px;overflow:hidden;">
       <div style="height:8px;background:#0A1A35;"></div>
       <div style="padding:34px 32px 28px;">
-        <p style="margin:0 0 14px;font-size:11px;letter-spacing:0.28em;text-transform:uppercase;color:#8C6C27;font-weight:700;">JahKnowsPR Firm / The Brief</p>
-        <h1 style="font-family:Georgia,serif;margin:0 0 18px;font-size:38px;line-height:1.05;color:#0A1A35;">You're in.</h1>
-        <p style="margin:0 0 14px;">Hi ${name},</p>
+        <p style="margin:0 0 14px;font-size:11px;letter-spacing:0.28em;text-transform:uppercase;color:#8C6C27;font-weight:700;">JahKnowsPR Firm</p>
+        <h1 style="font-family:Georgia,serif;margin:0 0 18px;font-size:36px;line-height:1.05;color:#0A1A35;">Thank you for subscribing.</h1>
+        <p style="margin:0 0 14px;">Hi ${greeting},</p>
         <p style="margin:0 0 14px;">
-          Thank you for requesting access to <strong>The Brief</strong>. You now have immediate access to JahKnowsPR strategic articles.
+          You're on our list. <strong>The Brief</strong> is live — we'll email you when new strategic editions are ready.
         </p>
-        <div style="margin:20px 0;padding:18px;border-left:4px solid #C59B3C;background:#F7F3EA;border-radius:0 16px 16px 0;">
-          <p style="margin:0;color:#0A1A35;">
-            Use The Brief to strengthen your positioning, audience clarity, messaging, and conversion decisions before your next campaign move.
-          </p>
-        </div>
-        <p style="margin:0 0 16px;">Start reading here:</p>
         <p style="margin:0 0 18px;">
           <a href="${THE_BRIEF_URL}" style="display:inline-block;background:#0A1A35;color:#fff;padding:13px 20px;border-radius:999px;text-decoration:none;font-weight:700;">
-            Explore The Brief Now
+            Explore The Brief
           </a>
         </p>
         <p style="margin:24px 0 0;font-size:12px;color:#666;">JahKnowsPR Firm</p>
@@ -244,6 +240,7 @@ const createEmailHtml = (name: string) => `
     </div>
   </body>
   `;
+};
 const subscriberSchema = z.object({
   name: z.string().min(2, "Name is too short").max(50, "Name is too long"),
   email: z.string().email("Invalid email format"),

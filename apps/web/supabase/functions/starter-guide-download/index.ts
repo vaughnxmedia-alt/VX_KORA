@@ -5,6 +5,7 @@ import { Resend } from "npm:resend@2.0.0";
 import QRCode from "npm:qrcode@1.5.4";
 import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { logOutboundEmail } from "../_shared/outbound-email-log.ts";
 
 const FROM_NAME = "Jah Jah";
 const FROM_EMAIL = "welcome@jahknowspr.com";
@@ -499,7 +500,7 @@ serve(async (req) => {
       </body>
     `;
 
-    await resend.emails.send({
+    const sendResult = await resend.emails.send({
       from: `${FROM_NAME} <${FROM_EMAIL}>`,
       to: recipientEmail,
       subject,
@@ -512,6 +513,29 @@ serve(async (req) => {
       ],
     });
 
+    let subscriberId: string | null = null;
+
+    await supabaseAdmin.from("making_of_a_brand_pdf_downloads").insert({
+      name: recipientName,
+      email: recipientEmail,
+      phone: recipientPhone || null,
+      subscribed: payload.subscribe,
+      source_path: payload.sourcePath,
+      audit_id: payload.auditId ?? null,
+    });
+
+    await logOutboundEmail(supabaseAdmin, {
+      messageType: "making_of_a_brand_pdf",
+      fromEmail: FROM_EMAIL,
+      toEmail: recipientEmail,
+      subject,
+      status: "sent",
+      providerMessageId: (sendResult as { data?: { id?: string } })?.data?.id ?? null,
+      relatedTable: "making_of_a_brand_pdf_downloads",
+      generatedBy: "system",
+      bodyHtml: emailHtml,
+    });
+
     if (payload.subscribe) {
       const email = recipientEmail;
       const { data: existing } = await supabaseAdmin
@@ -521,7 +545,7 @@ serve(async (req) => {
         .maybeSingle();
 
       if (!existing) {
-        await supabaseAdmin
+        const { data: inserted } = await supabaseAdmin
           .from("subscribers")
           .insert({
             name: recipientName,
@@ -531,14 +555,20 @@ serve(async (req) => {
               source: "before_you_build_brand_guide",
               source_path: payload.sourcePath,
               phone: recipientPhone || null,
+              series: "The Making of a Brand",
             },
-          });
+          })
+          .select("id")
+          .single();
+        subscriberId = inserted?.id ?? null;
       } else {
+        subscriberId = existing.id;
         const mergedLeadSource = {
           ...(existing.lead_source && typeof existing.lead_source === "object" ? existing.lead_source : {}),
           source: "before_you_build_brand_guide",
           source_path: payload.sourcePath,
           phone: recipientPhone || null,
+          series: "The Making of a Brand",
         };
         await supabaseAdmin
           .from("subscribers")

@@ -24,6 +24,7 @@ const subscriberSchema = z.object({
 
 export function SubscriberPopup() {
   const [open, setOpen] = useState(false);
+  const [thankYou, setThankYou] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -128,15 +129,13 @@ export function SubscriberPopup() {
           title: "Already subscribed",
           description: "This email is already on our list.",
         });
+        suppressSubscriberPopupAsSignedUp();
+        setOpen(false);
       } else {
-        toast({
-          title: "Welcome to The Brief",
-          description: "You've been added to our list and we'll send updates by email.",
-        });
+        suppressSubscriberPopupAsSignedUp();
+        setThankYou(true);
       }
 
-      suppressSubscriberPopupAsSignedUp();
-      setOpen(false);
       setName("");
       setEmail("");
     } catch (error) {
@@ -162,53 +161,75 @@ export function SubscriberPopup() {
 
   const handleClose = () => {
     setOpen(false);
+    setThankYou(false);
+  };
+
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (!next) setThankYou(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md bg-background border-border">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-serif text-primary">
-            Stay Informed<span className="text-gold">.</span>
-          </DialogTitle>
-          <DialogDescription className="text-muted-foreground">
-            Join our curated list for strategic insights on brand intelligence and public relations — and occasional
-            updates you can use for your brand.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-          <div className="space-y-2">
-            <Label htmlFor="popup-name">Name</Label>
-            <Input
-              id="popup-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Your name"
-              className={errors.name ? "border-destructive" : ""}
-            />
-            {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="popup-email">Email</Label>
-            <Input
-              id="popup-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              className={errors.email ? "border-destructive" : ""}
-            />
-            {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
-          </div>
-          <div className="flex gap-3 pt-2">
-            <Button type="button" variant="outline" onClick={handleClose} className="flex-1">
-              Not Now
-            </Button>
-            <Button type="submit" disabled={isSubmitting} className="flex-1">
-              {isSubmitting ? "Subscribing..." : "Subscribe"}
+        {thankYou ? (
+          <div className="py-6 text-center space-y-3">
+            <p className="text-2xl font-serif text-primary">
+              Thank you for subscribing<span className="text-gold">.</span>
+            </p>
+            <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+              Check your inbox for a welcome note from JahKnowsPR. The Brief is live whenever you are ready.
+            </p>
+            <Button type="button" className="mt-4" onClick={handleClose}>
+              Close
             </Button>
           </div>
-        </form>
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-serif text-primary">
+                Stay Informed<span className="text-gold">.</span>
+              </DialogTitle>
+              <DialogDescription className="text-muted-foreground">
+                Join our curated list for strategic insights on brand intelligence and public relations — and occasional
+                updates you can use for your brand.
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label htmlFor="popup-name">Name</Label>
+                <Input
+                  id="popup-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your name"
+                  className={errors.name ? "border-destructive" : ""}
+                />
+                {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="popup-email">Email</Label>
+                <Input
+                  id="popup-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className={errors.email ? "border-destructive" : ""}
+                />
+                {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
+              </div>
+              <div className="flex gap-3 pt-2">
+                <Button type="button" variant="outline" onClick={handleClose} className="flex-1">
+                  Not Now
+                </Button>
+                <Button type="submit" disabled={isSubmitting} className="flex-1">
+                  {isSubmitting ? "Subscribing..." : "Subscribe"}
+                </Button>
+              </div>
+            </form>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

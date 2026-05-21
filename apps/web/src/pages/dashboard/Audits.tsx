@@ -1052,7 +1052,24 @@ export default function Audits() {
     });
   }, [audits, readinessFilter, search]);
 
-  const selectedAudit = filteredAudits.find((audit) => audit.id === selectedAuditId) ?? filteredAudits[0] ?? null;
+  const selectedAudit = selectedAuditId
+    ? filteredAudits.find((audit) => audit.id === selectedAuditId) ?? null
+    : null;
+
+  useEffect(() => {
+    if (selectedAuditId || filteredAudits.length === 0) return;
+    if (window.matchMedia("(min-width: 1024px)").matches) {
+      setSelectedAuditId(filteredAudits[0].id);
+    }
+  }, [filteredAudits, selectedAuditId]);
+
+  useEffect(() => {
+    if (!selectedAuditId) return;
+    if (!window.matchMedia("(max-width: 1023px)").matches) return;
+    requestAnimationFrame(() => {
+      document.getElementById("audit-detail-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [selectedAuditId]);
   const selectedAestheticSignal = selectedAudit
     ? (aestheticSignals ?? []).find((signal) => signal.audit_id === selectedAudit.id) ?? null
     : null;
@@ -1135,7 +1152,7 @@ export default function Audits() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="min-w-0 space-y-4 md:space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-sm font-medium uppercase tracking-[0.25em] text-muted-foreground">Growth</p>
@@ -1150,7 +1167,7 @@ export default function Audits() {
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {[
           ["Total", stats.total],
           ["Hot", stats.hot],
@@ -1165,8 +1182,8 @@ export default function Audits() {
         ))}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.35fr_0.9fr]">
-        <div className="rounded-2xl border bg-card">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,0.9fr)] lg:gap-6 lg:items-start">
+        <div className="min-w-0 rounded-2xl border bg-card">
           <div className="flex flex-col gap-3 border-b p-4 md:flex-row md:items-center">
             <Input
               placeholder="Search audits..."
@@ -1187,14 +1204,15 @@ export default function Audits() {
             </Select>
           </div>
 
-          <Table>
+          <div className="overflow-x-auto">
+            <Table className="min-w-[36rem]">
             <TableHeader>
               <TableRow>
                 <TableHead>Lead</TableHead>
                 <TableHead>Readiness</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Source</TableHead>
-                <TableHead>Submitted</TableHead>
+                <TableHead className="hidden sm:table-cell">Source</TableHead>
+                <TableHead className="hidden md:table-cell">Submitted</TableHead>
                 <TableHead className="w-12 text-right">
                   <span className="sr-only">Delete</span>
                 </TableHead>
@@ -1213,7 +1231,7 @@ export default function Audits() {
                 filteredAudits.map((audit) => (
                   <TableRow
                     key={audit.id}
-                    className="cursor-pointer"
+                    className={`cursor-pointer ${selectedAuditId === audit.id ? "bg-muted/60" : ""}`}
                     onClick={() => setSelectedAuditId(audit.id)}
                   >
                     <TableCell>
@@ -1226,8 +1244,8 @@ export default function Audits() {
                       </Badge>
                     </TableCell>
                     <TableCell>{statusLabel(audit.follow_up_status)}</TableCell>
-                    <TableCell>{audit.lead_source ?? "direct"}</TableCell>
-                    <TableCell>{formatDate(audit.created_at)}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{audit.lead_source ?? "direct"}</TableCell>
+                    <TableCell className="hidden md:table-cell whitespace-nowrap">{formatDate(audit.created_at)}</TableCell>
                     <TableCell className="text-right">
                       <Button
                         type="button"
@@ -1246,9 +1264,15 @@ export default function Audits() {
               )}
             </TableBody>
           </Table>
+          </div>
         </div>
 
-        <aside className="rounded-2xl border bg-card p-5">
+        <aside
+          id="audit-detail-panel"
+          className={`min-w-0 rounded-2xl border bg-card p-4 md:p-5 ${
+            selectedAudit ? "" : "hidden lg:block"
+          } lg:sticky lg:top-24 lg:max-h-[calc(100svh-7rem)] lg:overflow-y-auto`}
+        >
           {selectedAudit ? (
             <div className="space-y-5">
               <div className="flex items-start justify-between gap-4">
@@ -1424,7 +1448,7 @@ export default function Audits() {
               Data-to-visual translation engine for premium, client-specific audit artifacts.
             </p>
           </div>
-          <div className="grid gap-4 xl:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <AuditHeroVisual data={selectedVisualInput} />
             <ScoreBreakdownVisual data={selectedVisualInput} />
           </div>
@@ -1432,7 +1456,7 @@ export default function Audits() {
       ) : null}
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-h-[92vh] max-w-6xl overflow-y-auto">
+        <DialogContent className="max-h-[92vh] w-[calc(100vw-2rem)] max-w-6xl overflow-y-auto sm:w-full">
           <DialogHeader>
             <DialogTitle>Audit PDF Preview</DialogTitle>
             <DialogDescription>

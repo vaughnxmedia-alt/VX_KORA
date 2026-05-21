@@ -49,6 +49,9 @@ verify_jwt = true
 [functions.new-subscriber]
 verify_jwt = false
 
+[functions.subscriber-email-campaign]
+verify_jwt = true
+
 [functions.starter-guide-download]
 verify_jwt = false
 
