@@ -25,7 +25,11 @@ import {
   GUIDE_TAGS,
   GUIDE_TITLE,
 } from "@/content/guides/beforeYouBuildTheBrand";
-import { getDefaultOgImageAbsoluteUrl, getPublicSiteOrigin } from "@/lib/blog-share";
+import {
+  getDefaultOgImageAbsoluteUrl,
+  getGuideHubOgImageAbsoluteUrl,
+  getPublicSiteOrigin,
+} from "@/lib/blog-share";
 import { supabase } from "@/integrations/supabase/client";
 
 const GuideQRCode = lazy(() =>
@@ -39,13 +43,20 @@ function setGuideSeo({
   title,
   description,
   path,
+  ogImage,
 }: {
   title: string;
   description: string;
   path: string;
+  ogImage?: string;
 }) {
   document.title = title;
   const canonicalUrl = `${siteUrl()}${path}`;
+  const shareImage =
+    ogImage ??
+    (path === GUIDE_HUB_PATH
+      ? getGuideHubOgImageAbsoluteUrl()
+      : `${getDefaultOgImageAbsoluteUrl()}?guide=${encodeURIComponent(path.split("/").pop() || "guide")}`);
   const head = document.head;
   document
     .querySelectorAll('meta[property^="og:"], meta[name^="twitter:"], link[rel="canonical"], script[data-seo="before-build-brand"]')
@@ -75,7 +86,8 @@ function setGuideSeo({
     ["og:type", "article"],
     ["og:url", canonicalUrl],
     ["og:site_name", "JahKnowsPR"],
-    ["og:image", getDefaultOgImageAbsoluteUrl()],
+    ["og:image", shareImage],
+    ["og:updated_time", new Date().toISOString()],
     ["article:section", GUIDE_CATEGORY],
     ["article:tag", GUIDE_TAGS.join(", ")],
   ].forEach(([property, content]) => {
@@ -89,7 +101,7 @@ function setGuideSeo({
     ["twitter:card", "summary_large_image"],
     ["twitter:title", title],
     ["twitter:description", description],
-    ["twitter:image", getDefaultOgImageAbsoluteUrl()],
+    ["twitter:image", shareImage],
   ].forEach(([name, content]) => {
     const meta = document.createElement("meta");
     meta.setAttribute("name", name);

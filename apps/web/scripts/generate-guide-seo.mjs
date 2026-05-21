@@ -8,6 +8,10 @@ const SITE_ORIGIN = (process.env.VITE_PUBLIC_SITE_URL || "https://www.jahknowspr
   .replace(/\/$/, "")
   .replace("https://jahknowspr.com", "https://www.jahknowspr.com");
 const DEFAULT_OG_IMAGE = `${SITE_ORIGIN}/og-share-jk-pr.png`;
+const GUIDE_HUB_OG_IMAGE = `${SITE_ORIGIN}/og-before-you-build-brand-starter-guide.png`;
+const OG_IMAGE_WIDTH = 500;
+const OG_IMAGE_HEIGHT = 500;
+const OG_UPDATED_TIME = new Date().toISOString();
 const GUIDE_CATEGORY = "Brand Foundation";
 const HUB_DESCRIPTION =
   "Download the free JahKnowsPR starter guide and learn the brand foundation steps to complete before your website, social media, content, or visuals.";
@@ -51,6 +55,12 @@ function parseGuideSource() {
   return { hubTitle, hubPath, guideTitle, articles };
 }
 
+function resolveGuideOgImage(pathname, isHub = false) {
+  if (isHub) return GUIDE_HUB_OG_IMAGE;
+  const slug = pathname.split("/").filter(Boolean).pop() || "guide";
+  return `${DEFAULT_OG_IMAGE}?guide=${encodeURIComponent(slug)}`;
+}
+
 function renderGuideHtml({
   title,
   description,
@@ -59,8 +69,10 @@ function renderGuideHtml({
   bodyHtml,
   relatedLinks = "",
   chips = "",
+  isHub = false,
 }) {
   const canonical = `${SITE_ORIGIN}${pathname}`;
+  const ogImage = resolveGuideOgImage(pathname, isHub);
   const schema = {
     "@context": "https://schema.org",
     "@type": "BlogPosting",
@@ -68,12 +80,13 @@ function renderGuideHtml({
     description,
     articleSection: section,
     url: canonical,
+    dateModified: OG_UPDATED_TIME,
     publisher: {
       "@type": "Organization",
       name: "JahKnowsPR Firm",
       logo: { "@type": "ImageObject", url: DEFAULT_OG_IMAGE },
     },
-    image: DEFAULT_OG_IMAGE,
+    image: ogImage,
   };
 
   return `<!doctype html>
@@ -90,13 +103,17 @@ function renderGuideHtml({
   <meta property="og:type" content="article" />
   <meta property="og:url" content="${canonical}" />
   <meta property="og:site_name" content="JahKnowsPR" />
-  <meta property="og:image" content="${DEFAULT_OG_IMAGE}" />
+  <meta property="og:updated_time" content="${OG_UPDATED_TIME}" />
+  <meta property="og:image" content="${ogImage}" />
+  <meta property="og:image:secure_url" content="${ogImage}" />
+  <meta property="og:image:width" content="${OG_IMAGE_WIDTH}" />
+  <meta property="og:image:height" content="${OG_IMAGE_HEIGHT}" />
   <meta property="og:image:alt" content="${escapeHtml(title)}" />
   <meta property="article:section" content="${escapeHtml(section)}" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="${escapeHtml(title)}" />
   <meta name="twitter:description" content="${escapeHtml(description)}" />
-  <meta name="twitter:image" content="${DEFAULT_OG_IMAGE}" />
+  <meta name="twitter:image" content="${ogImage}" />
   <meta name="twitter:image:alt" content="${escapeHtml(title)}" />
   <script type="application/ld+json">${JSON.stringify(schema)}</script>
   <style>
@@ -198,6 +215,7 @@ function renderHubHtml({ hubTitle, hubPath, guideTitle, articles }) {
     bodyHtml,
     relatedLinks,
     chips: `<span class="eyebrow">The Making of a Brand</span>`,
+    isHub: true,
   });
 }
 
@@ -242,7 +260,16 @@ function writeGuidePage(relativeDir, html) {
   fs.writeFileSync(path.join(directory, "index.html"), html);
 }
 
+function ensureGuideOgAsset() {
+  const source = path.join(PUBLIC_DIR, "og-share-jk-pr.png");
+  const target = path.join(PUBLIC_DIR, "og-before-you-build-brand-starter-guide.png");
+  if (!fs.existsSync(target) && fs.existsSync(source)) {
+    fs.copyFileSync(source, target);
+  }
+}
+
 function main() {
+  ensureGuideOgAsset();
   const { hubTitle, hubPath, guideTitle, articles } = parseGuideSource();
   if (!articles.length) {
     throw new Error("[guide-seo] Could not parse guide articles from beforeYouBuildTheBrand.ts");

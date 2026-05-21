@@ -3,6 +3,9 @@ import { supabaseUrl } from "@/integrations/supabase/client";
 /** Default OG / link-preview image when a post has no cover (full URL on production). */
 export const DEFAULT_OG_IMAGE_PATH = "/og-share-jk-pr.png";
 
+/** Distinct OG image for the Before You Build the Brand starter guide hub (avoids Meta reusing homepage preview cache). */
+export const GUIDE_HUB_OG_IMAGE_PATH = "/og-before-you-build-brand-starter-guide.png";
+
 /** Brand navy (matches logo SVG) for browser / PWA chrome. */
 export const BRAND_THEME_COLOR = "#0A1A35";
 
@@ -25,6 +28,10 @@ export function getPublicSiteOrigin(): string {
 
 export function getDefaultOgImageAbsoluteUrl(): string {
   return `${getPublicSiteOrigin()}${DEFAULT_OG_IMAGE_PATH}`;
+}
+
+export function getGuideHubOgImageAbsoluteUrl(): string {
+  return `${getPublicSiteOrigin()}${GUIDE_HUB_OG_IMAGE_PATH}`;
 }
 
 /** URL path segment for /the-brief/:segment — prefers slug when set. */
