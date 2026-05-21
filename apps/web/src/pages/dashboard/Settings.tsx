@@ -12,6 +12,13 @@ import { isAppOwnerJustice } from "@/lib/super-ops";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { 
   Settings as SettingsIcon, 
   Send, 
@@ -25,6 +32,7 @@ import {
   RefreshCw,
   ExternalLink
 } from "lucide-react";
+import { CAMPAIGN_TIMEZONE_OPTIONS, DEFAULT_CAMPAIGN_TIMEZONE } from "@/lib/campaignSchedule";
 
 type DeliveryFrequency = "daily" | "weekly" | "none";
 
@@ -49,6 +57,7 @@ function AccountProfileForm() {
   const [accountEmail, setAccountEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [timezone, setTimezone] = useState(DEFAULT_CAMPAIGN_TIMEZONE);
 
   const { data: authUser, isLoading: authUserLoading } = useQuery({
     queryKey: ["settings-auth-user", userId],
@@ -66,7 +75,7 @@ function AccountProfileForm() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("full_name, job_title, phone")
+        .select("full_name, job_title, phone, timezone")
         .eq("id", userId!)
         .maybeSingle();
       if (error) throw error;
@@ -79,6 +88,7 @@ function AccountProfileForm() {
     setFullName(profile.full_name?.trim() || "");
     setJobTitle(profile.job_title?.trim() || "");
     setPhone(profile.phone?.trim() || "");
+    setTimezone(profile.timezone?.trim() || DEFAULT_CAMPAIGN_TIMEZONE);
   }, [profile]);
 
   useEffect(() => {
@@ -100,6 +110,7 @@ function AccountProfileForm() {
           full_name: fullName.trim() || null,
           job_title: jobTitle.trim() || null,
           phone: phone.trim() || null,
+          timezone: timezone.trim() || DEFAULT_CAMPAIGN_TIMEZONE,
         })
         .eq("id", userId!);
       if (error) throw error;
@@ -201,6 +212,24 @@ function AccountProfileForm() {
           placeholder="e.g. Founder, Strategist"
           disabled={isLoading}
         />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="acct-timezone">Timezone</Label>
+        <Select value={timezone} onValueChange={setTimezone} disabled={isLoading}>
+          <SelectTrigger id="acct-timezone">
+            <SelectValue placeholder="Select timezone" />
+          </SelectTrigger>
+          <SelectContent>
+            {CAMPAIGN_TIMEZONE_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-[11px] text-muted-foreground">
+          Used for campaign send times and admin confirmation emails. Subscriber blasts schedule in this timezone (default Central).
+        </p>
       </div>
       <Button
         type="button"

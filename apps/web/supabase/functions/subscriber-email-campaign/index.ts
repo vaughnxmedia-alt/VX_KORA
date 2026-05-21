@@ -4,11 +4,17 @@ import { Resend } from "resend";
 import { z } from "https://deno.land/x/zod/mod.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { logOutboundEmail } from "../_shared/outbound-email-log.ts";
+import {
+  buildCampaignBlastAdminNotificationHtml,
+  buildCampaignBlastAdminNotificationSubject,
+} from "../_shared/campaign-blast-admin-notification-email.ts";
 
 const FROM_NAME = "Jah Jah";
 const FROM_EMAIL = "welcome@jahknowspr.com";
 const SITE_URL = "https://www.jahknowspr.com";
 const THE_BRIEF_URL = `${SITE_URL}/the-brief`;
+const DASHBOARD_SUBSCRIBERS_URL = `${SITE_URL}/dashboard/subscribers`;
+const DEFAULT_CAMPAIGN_TIMEZONE = "America/Chicago";
 
 const bodySchema = z.discriminatedUnion("action", [
   z.object({
@@ -129,28 +135,181 @@ function buildBlogEmailHtml(
   });
 }
 
-function computeNextSendAt(cadence: string, sendTime: string, sendDayOfWeek: string | null): string | null {
-  const now = new Date();
-  const [hh, mm] = sendTime.split(":").map((v) => Number(v));
-  const next = new Date(now);
-  next.setHours(hh || 9, mm || 0, 0, 0);
-  if (next <= now) next.setDate(next.getDate() + 1);
+function normalizeSendTime(sendTime: string): string {
+  const trimmed = sendTime.trim();
+  if (trimmed.length >= 8) return trimmed.slice(0, 8);
+  if (trimmed.length === 5) return `${trimmed}:00`;
+  return "11:00:00";
+}
 
-  if (cadence === "daily") return next.toISOString();
-  if (cadence === "weekly") {
-    const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-    const target = days.indexOf((sendDayOfWeek || "monday").toLowerCase());
-    const current = next.getDay();
-    let delta = target - current;
-    if (delta <= 0) delta += 7;
-    next.setDate(next.getDate() + delta);
-    return next.toISOString();
+async function computeNextSendAt(
+  supabase: ReturnType<typeof createClient>,
+  cadence: string,
+  sendTime: string,
+  sendDayOfWeek: string | null,
+  timezone = DEFAULT_CAMPAIGN_TIMEZONE,
+): Promise<string | null> {
+  const { data, error } = await supabase.rpc("compute_subscriber_campaign_next_send", {
+    p_cadence: cadence,
+    p_send_time: normalizeSendTime(sendTime),
+    p_send_day_of_week: sendDayOfWeek,
+    p_timezone: timezone,
+  });
+  if (error) throw error;
+  return (data as string | null) ?? null;
+}
+
+type BlastTrigger = "blog_blast" | "custom_blast" | "scheduled_campaign" | "automated_due";
+
+type AdminRecipient = { email: string; name: string; timezone: string };
+
+async function loadAdminNotificationRecipients(
+  supabase: ReturnType<typeof createClient>,
+): Promise<AdminRecipient[]> {
+  const { data: roles, error } = await supabase
+    .from("user_roles")
+    .select("user_id")
+    .eq("role", "admin");
+  if (error) throw error;
+
+  const seen = new Set<string>();
+  const recipients: AdminRecipient[] = [];
+
+  for (const row of roles ?? []) {
+    const userId = String(row.user_id ?? "");
+    if (!userId) continue;
+
+    const { data: authData, error: authErr } = await supabase.auth.admin.getUserById(userId);
+    if (authErr || !authData?.user?.email) continue;
+
+    const email = authData.user.email.trim().toLowerCase();
+    if (!email || seen.has(email)) continue;
+    seen.add(email);
+
+    const meta = (authData.user.user_metadata ?? {}) as Record<string, unknown>;
+    const metaName = typeof meta.full_name === "string"
+      ? meta.full_name
+      : typeof meta.name === "string"
+        ? meta.name
+        : email.split("@")[0];
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name, timezone")
+      .eq("id", userId)
+      .maybeSingle();
+
+    recipients.push({
+      email,
+      name: String(profile?.full_name ?? metaName).trim() || email.split("@")[0] || "Admin",
+      timezone: String(profile?.timezone ?? DEFAULT_CAMPAIGN_TIMEZONE).trim() || DEFAULT_CAMPAIGN_TIMEZONE,
+    });
   }
-  if (cadence === "monthly") {
-    next.setMonth(next.getMonth() + 1, 1);
-    return next.toISOString();
+
+  return recipients;
+}
+
+async function notifyAdminsCampaignBlast(
+  supabase: ReturnType<typeof createClient>,
+  resend: Resend,
+  opts: {
+    campaignLabel: string;
+    subject: string;
+    sent: number;
+    failed: number;
+    total: number;
+    trigger: BlastTrigger;
+    sentByName: string;
+    sentByEmail: string;
+    nextSendAt?: string | null;
+  },
+) {
+  const admins = await loadAdminNotificationRecipients(supabase);
+  if (!admins.length) return { notified: 0 };
+
+  const sentAtIso = new Date().toISOString();
+  const emailSubject = buildCampaignBlastAdminNotificationSubject(opts.campaignLabel);
+  let notified = 0;
+
+  for (const admin of admins) {
+    const nextSendLabel = opts.nextSendAt
+      ? new Intl.DateTimeFormat("en-US", {
+        timeZone: admin.timezone || DEFAULT_CAMPAIGN_TIMEZONE,
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        timeZoneName: "short",
+      }).format(new Date(opts.nextSendAt))
+      : null;
+
+    const html = buildCampaignBlastAdminNotificationHtml({
+      campaignLabel: opts.campaignLabel,
+      subject: opts.subject,
+      sent: opts.sent,
+      failed: opts.failed,
+      total: opts.total,
+      trigger: opts.trigger,
+      sentByName: opts.sentByName,
+      sentByEmail: opts.sentByEmail,
+      sentAtIso,
+      timezoneLabel: admin.timezone || DEFAULT_CAMPAIGN_TIMEZONE,
+      dashboardUrl: DASHBOARD_SUBSCRIBERS_URL,
+      nextSendLabel,
+    });
+
+    try {
+      const result = await resend.emails.send({
+        from: `${FROM_NAME} <${FROM_EMAIL}>`,
+        to: admin.email,
+        subject: emailSubject,
+        html,
+      });
+      notified += 1;
+      await logOutboundEmail(supabase, {
+        messageType: "subscriber_campaign_admin_confirmation",
+        fromEmail: FROM_EMAIL,
+        toEmail: admin.email,
+        subject: emailSubject,
+        status: "sent",
+        providerMessageId: (result as { data?: { id?: string } })?.data?.id ?? null,
+        relatedTable: "subscriber_email_campaigns",
+        relatedId: null,
+        generatedBy: "system",
+        bodyHtml: html,
+        bodyText: toPlainText(html),
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Admin notification failed";
+      await logOutboundEmail(supabase, {
+        messageType: "subscriber_campaign_admin_confirmation",
+        fromEmail: FROM_EMAIL,
+        toEmail: admin.email,
+        subject: emailSubject,
+        status: "failed",
+        errorMessage: msg,
+        relatedTable: "subscriber_email_campaigns",
+        relatedId: null,
+        generatedBy: "system",
+        bodyHtml: html,
+        bodyText: toPlainText(html),
+      });
+    }
   }
-  return null;
+
+  return { notified };
+}
+
+function actorFromUser(user: { email?: string; user_metadata?: Record<string, unknown> }) {
+  const email = String(user.email ?? "").trim().toLowerCase();
+  const meta = user.user_metadata ?? {};
+  const name = typeof meta.full_name === "string"
+    ? meta.full_name
+    : typeof meta.name === "string"
+      ? meta.name
+      : email.split("@")[0] || "Dashboard user";
+  return { sentByName: String(name).trim() || "Dashboard user", sentByEmail: email || "unknown@jahknowspr.com" };
 }
 
 async function requireDashboardUser(req: Request, supabase: ReturnType<typeof createClient>) {
@@ -264,6 +423,8 @@ async function executeCampaignSend(
   supabase: ReturnType<typeof createClient>,
   resend: Resend,
   campaignId: string,
+  actor: { sentByName: string; sentByEmail: string },
+  trigger: BlastTrigger = "scheduled_campaign",
 ) {
   const { data: campaign, error: campErr } = await supabase
     .from("subscriber_email_campaigns")
@@ -326,7 +487,12 @@ async function executeCampaignSend(
 
   const nextSend = campaign.cadence === "one_time"
     ? null
-    : computeNextSendAt(campaign.cadence, campaign.send_time, campaign.send_day_of_week);
+    : await computeNextSendAt(
+      supabase,
+      campaign.cadence,
+      campaign.send_time,
+      campaign.send_day_of_week,
+    );
   await supabase
     .from("subscriber_email_campaigns")
     .update({
@@ -335,6 +501,20 @@ async function executeCampaignSend(
       is_active: campaign.cadence === "one_time" ? false : campaign.is_active,
     })
     .eq("id", campaign.id);
+
+  if (!result.testMode && result.total > 0) {
+    await notifyAdminsCampaignBlast(supabase, resend, {
+      campaignLabel: campaign.name,
+      subject,
+      sent: result.sent,
+      failed: result.failed,
+      total: result.total,
+      trigger,
+      sentByName: actor.sentByName,
+      sentByEmail: actor.sentByEmail,
+      nextSendAt: nextSend,
+    });
+  }
 
   return result;
 }
@@ -362,13 +542,6 @@ serve(async (req) => {
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-  const auth = await requireDashboardUser(req, supabase);
-  if ("error" in auth && auth.error) {
-    return new Response(await auth.error.text(), {
-      status: auth.error.status,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
 
   const raw = await req.json().catch(() => ({}));
   const parsed = bodySchema.safeParse(raw);
@@ -377,6 +550,23 @@ serve(async (req) => {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+  }
+
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const isServiceCron = parsed.data.action === "run_due" &&
+    authHeader === `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`;
+
+  let actor = { sentByName: "Automated scheduler", sentByEmail: "scheduler@jahknowspr.com" };
+
+  if (!isServiceCron) {
+    const auth = await requireDashboardUser(req, supabase);
+    if ("error" in auth && auth.error) {
+      return new Response(await auth.error.text(), {
+        status: auth.error.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    actor = actorFromUser(auth.user!);
   }
 
   const resend = new Resend(RESEND_API_KEY);
@@ -414,6 +604,18 @@ serve(async (req) => {
         post.id,
         "blog_posts",
       );
+      if (!parsed.data.testEmail && result.total > 0) {
+        await notifyAdminsCampaignBlast(supabase, resend, {
+          campaignLabel: `Blog blast: ${post.title}`,
+          subject,
+          sent: result.sent,
+          failed: result.failed,
+          total: result.total,
+          trigger: "blog_blast",
+          sentByName: actor.sentByName,
+          sentByEmail: actor.sentByEmail,
+        });
+      }
       return new Response(JSON.stringify({ ok: true, ...result }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -473,6 +675,18 @@ serve(async (req) => {
         post?.id ?? null,
         "subscriber_email_campaigns",
       );
+      if (!isTest && result.total > 0) {
+        await notifyAdminsCampaignBlast(supabase, resend, {
+          campaignLabel: campaignName,
+          subject,
+          sent: result.sent,
+          failed: result.failed,
+          total: result.total,
+          trigger: "custom_blast",
+          sentByName: actor.sentByName,
+          sentByEmail: actor.sentByEmail,
+        });
+      }
       return new Response(JSON.stringify({ ok: true, ...result }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -509,7 +723,13 @@ serve(async (req) => {
 
     if (parsed.data.action === "send_campaign") {
       try {
-        const result = await executeCampaignSend(supabase, resend, parsed.data.campaignId);
+        const result = await executeCampaignSend(
+          supabase,
+          resend,
+          parsed.data.campaignId,
+          actor,
+          "scheduled_campaign",
+        );
         return new Response(JSON.stringify({ ok: true, ...result }), {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -535,7 +755,13 @@ serve(async (req) => {
     const summaries: { campaignId: string; name: string; sent: number; failed: number }[] = [];
     for (const row of due ?? []) {
       try {
-        const result = await executeCampaignSend(supabase, resend, row.id);
+        const result = await executeCampaignSend(
+          supabase,
+          resend,
+          row.id,
+          actor,
+          "automated_due",
+        );
         summaries.push({
           campaignId: row.id,
           name: row.name,

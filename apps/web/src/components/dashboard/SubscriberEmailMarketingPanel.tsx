@@ -22,6 +22,12 @@ import { toast } from "sonner";
 import { CtaLinkSelect } from "@/components/dashboard/CtaLinkSelect";
 import { getPublicSiteOrigin } from "@/lib/publicSite";
 import {
+  CAMPAIGN_TIMEZONE_OPTIONS,
+  computeNextCampaignSendIso,
+  DEFAULT_CAMPAIGN_TIMEZONE,
+  formatCampaignSendPreview,
+} from "@/lib/campaignSchedule";
+import {
   buildBlogCampaignEmailHtml,
   buildScheduledCampaignEmailHtml,
   buildWelcomeEmailHtml,
@@ -94,30 +100,6 @@ async function invokeCampaign(body: Record<string, unknown>) {
   return data as { ok?: boolean; sent?: number; failed?: number; total?: number; testMode?: boolean };
 }
 
-function computeNextSendPreview(
-  cadence: EmailCampaign["cadence"],
-  sendTime: string,
-  sendDayOfWeek: string | null,
-): string | null {
-  if (cadence === "one_time") return null;
-  const now = new Date();
-  const [hh, mm] = sendTime.split(":").map(Number);
-  const next = new Date(now);
-  next.setHours(hh || 9, mm || 0, 0, 0);
-  if (next <= now) next.setDate(next.getDate() + 1);
-  if (cadence === "weekly") {
-    const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-    const target = days.indexOf((sendDayOfWeek || "monday").toLowerCase());
-    let delta = target - next.getDay();
-    if (delta <= 0) delta += 7;
-    next.setDate(next.getDate() + delta);
-  }
-  if (cadence === "monthly") {
-    next.setMonth(next.getMonth() + 1, 1);
-  }
-  return next.toISOString();
-}
-
 type Props = {
   subscriberCount: number;
   subscribers: PreviewSubscriber[];
@@ -144,8 +126,22 @@ export function SubscriberEmailMarketingPanel({ subscriberCount, subscribers }: 
   const [draftPreview, setDraftPreview] = useState("");
   const [draftBlogId, setDraftBlogId] = useState("");
   const [draftUseLatest, setDraftUseLatest] = useState(true);
-  const [draftSendTime, setDraftSendTime] = useState("09:00");
+  const [draftSendTime, setDraftSendTime] = useState("11:00");
   const [draftWeekday, setDraftWeekday] = useState<string>("monday");
+
+  const { data: accountTimezone = DEFAULT_CAMPAIGN_TIMEZONE } = useQuery({
+    queryKey: ["settings-profile", session?.user?.id],
+    enabled: Boolean(session?.user?.id),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("timezone")
+        .eq("id", session!.user!.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.timezone?.trim() || DEFAULT_CAMPAIGN_TIMEZONE;
+    },
+  });
 
   useEffect(() => {
     if (subscribers.length === 0) return;
@@ -327,7 +323,12 @@ export function SubscriberEmailMarketingPanel({ subscriberCount, subscribers }: 
   const createCampaignMutation = useMutation({
     mutationFn: async () => {
       if (!draftName.trim()) throw new Error("Campaign name is required.");
-      const nextSend = computeNextSendPreview(draftCadence, draftSendTime, draftWeekday);
+      const nextSend = await computeNextCampaignSendIso(
+        draftCadence,
+        draftSendTime,
+        draftCadence === "weekly" ? draftWeekday : null,
+        accountTimezone,
+      );
       const { error } = await supabase.from("subscriber_email_campaigns").insert({
         name: draftName.trim(),
         cadence: draftCadence,
@@ -356,7 +357,12 @@ export function SubscriberEmailMarketingPanel({ subscriberCount, subscribers }: 
     mutationFn: async ({ id, is_active, cadence, send_time, send_day_of_week }: EmailCampaign) => {
       const next_send_at = is_active
         ? null
-        : computeNextSendPreview(cadence, send_time.slice(0, 5), send_day_of_week);
+        : await computeNextCampaignSendIso(
+            cadence,
+            send_time.slice(0, 5),
+            send_day_of_week,
+            accountTimezone,
+          );
       const { error } = await supabase
         .from("subscriber_email_campaigns")
         .update({ is_active: !is_active, next_send_at })
@@ -539,7 +545,9 @@ export function SubscriberEmailMarketingPanel({ subscriberCount, subscribers }: 
             Saved schedules
           </CardTitle>
           <CardDescription>
-            Daily, weekly, or monthly automations. Use Publish at the bottom for one-time sends.
+            Daily, weekly, or monthly automations in{" "}
+            {CAMPAIGN_TIMEZONE_OPTIONS.find((t) => t.value === accountTimezone)?.label ?? "Central Time"}.
+            Active campaigns email all admins a confirmation when a blast sends. Change timezone in Account settings.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -566,7 +574,7 @@ export function SubscriberEmailMarketingPanel({ subscriberCount, subscribers }: 
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Send time</Label>
+                <Label>Send time ({accountTimezone.replace("America/", "").replace("_", " ")})</Label>
                 <Input type="time" value={draftSendTime} onChange={(e) => setDraftSendTime(e.target.value)} />
               </div>
               {draftCadence === "weekly" ? (
@@ -617,9 +625,14 @@ export function SubscriberEmailMarketingPanel({ subscriberCount, subscribers }: 
                     <p className="text-xs text-muted-foreground truncate">
                       CTA: {campaign.custom_cta_label} → {campaign.custom_cta_url}
                     </p>
+                    {campaign.next_send_at && campaign.is_active ? (
+                      <p className="text-xs text-muted-foreground">
+                        Next send {formatCampaignSendPreview(campaign.next_send_at, accountTimezone)}
+                      </p>
+                    ) : null}
                     {campaign.last_sent_at ? (
                       <p className="text-xs text-muted-foreground">
-                        Last sent {format(new Date(campaign.last_sent_at), "MMM d, yyyy h:mm a")}
+                        Last sent {formatCampaignSendPreview(campaign.last_sent_at, accountTimezone)}
                       </p>
                     ) : null}
                   </div>
