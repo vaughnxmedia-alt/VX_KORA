@@ -172,6 +172,7 @@ export async function processSquareStrategySessionPayment(input: {
   sourceId: string;
   idempotencyKey: string;
   buyerEmail?: string;
+  applicationId?: string;
 }): Promise<{
   ok?: boolean;
   squarePaymentId?: string;
@@ -184,6 +185,7 @@ export async function processSquareStrategySessionPayment(input: {
       sourceId: input.sourceId,
       idempotencyKey: input.idempotencyKey,
       ...(input.buyerEmail?.trim() ? { buyerEmail: input.buyerEmail.trim() } : {}),
+      ...(input.applicationId?.trim() ? { applicationId: input.applicationId.trim() } : {}),
     },
   });
   if (error) {

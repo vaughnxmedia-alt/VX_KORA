@@ -38,7 +38,19 @@ Card forms use the **Square Web Payments SDK** in the browser. Vite bakes public
 
 If only Supabase is configured, checkout shows “card payment unavailable” because the deployed bundle has empty Square IDs. After adding Vercel vars, **trigger a new production deploy**.
 
-Use **Production** Square Application ID on the live site (sandbox IDs will not work against production charges).
+Use **Production** Square Application ID on the live site (`sq0idp-…`, not sandbox `sq0idb-…`).
+
+If checkout shows **“This request could not be authorized”**, Square rejected the server token — almost always **sandbox vs production mismatch**:
+
+| Where | Production live site |
+|--------|----------------------|
+| Vercel `VITE_SQUARE_APPLICATION_ID` | `sq0idp-…` (Production app) |
+| Vercel `VITE_SQUARE_LOCATION_ID` | Your location ID (e.g. `LPXJCHKQ1AMX8`) |
+| Supabase `SQUARE_ACCESS_TOKEN` | **Production** access token from the **same** Square application |
+| Supabase `SQUARE_LOCATION_ID` | Same as Vercel location ID |
+| Supabase `SQUARE_ENVIRONMENT` | `production` or omit (defaults to production) |
+
+After changing secrets, **redeploy Vercel** and run `npx supabase functions deploy square-strategy-session-payment --no-verify-jwt`.
 
 ## Video storage (AWS S3)
 

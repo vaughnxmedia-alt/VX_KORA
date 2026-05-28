@@ -12,10 +12,18 @@ function readSquareEnvIds(): { applicationId: string; locationId: string } {
 }
 
 /** Reject placeholder / mistyped Vercel env values (e.g. literal "VITE_SQUARE_APPLICATION_ID"). */
+export function isSquareSandboxApplicationId(applicationId: string): boolean {
+  return applicationId.trim().startsWith("sq0idb-");
+}
+
+export function isSquareProductionApplicationId(applicationId: string): boolean {
+  return applicationId.trim().startsWith("sq0idp-");
+}
+
 export function isValidSquareApplicationId(applicationId: string): boolean {
   if (!applicationId) return false;
   if (applicationId.startsWith("VITE_")) return false;
-  return applicationId.startsWith("sq0");
+  return isSquareSandboxApplicationId(applicationId) || isSquareProductionApplicationId(applicationId);
 }
 
 export function isValidSquareLocationId(locationId: string): boolean {
@@ -40,6 +48,9 @@ export function describeSquareClientMisconfiguration(): string | null {
   }
   if (!isValidSquareApplicationId(applicationId)) {
     return `Square Application ID looks wrong ("${applicationId.slice(0, 24)}…"). Use your Production Application ID from Square Developer (starts with sq0idp-).`;
+  }
+  if (isSquareSandboxApplicationId(applicationId) && import.meta.env.PROD) {
+    return "Square Sandbox Application ID is deployed on the live site. Use Production credentials (sq0idp-…) in Vercel Production and redeploy.";
   }
   if (!isValidSquareLocationId(locationId)) {
     return "Square Location ID looks wrong. Use the same location ID as in Supabase SQUARE_LOCATION_ID.";

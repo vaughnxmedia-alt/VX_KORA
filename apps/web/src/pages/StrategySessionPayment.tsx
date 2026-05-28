@@ -175,6 +175,7 @@ export default function StrategySessionPayment() {
         sourceId: tokenResult.token,
         idempotencyKey,
         buyerEmail: draft.values.email,
+        applicationId,
       });
       if (!res.ok || !res.squarePaymentId) {
         const detail = res.error?.trim() || "Payment could not be completed.";

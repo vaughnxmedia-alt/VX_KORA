@@ -8,6 +8,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "https://deno.land/x/zod/mod.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { readAttributionFromPayload, safeRecordOutcome } from "../_shared/lls.ts";
+import {
+  formatSquareAuthError,
+  mismatchMessage,
+  squareEnvironmentFromApplicationId,
+} from "../_shared/square-environment.ts";
 
 const STRATEGY_SESSION_AMOUNT_CENTS = 150_00;
 
@@ -21,6 +26,8 @@ const bodySchema = z.object({
   sourceId: z.string().min(4, "Invalid payment source"),
   idempotencyKey: z.string().uuid("Invalid idempotency key"),
   buyerEmail: z.string().email().optional(),
+  /** Browser Application ID (VITE_SQUARE_APPLICATION_ID) — used to detect sandbox/production mismatch. */
+  applicationId: z.string().max(128).optional(),
   leadSource: z.record(z.unknown()).optional(),
 });
 
@@ -70,8 +77,21 @@ serve(async (req) => {
       );
     }
 
-    const { sourceId, idempotencyKey, buyerEmail } = parsed.data;
+    const { sourceId, idempotencyKey, buyerEmail, applicationId: clientApplicationId } = parsed.data;
     const leadSource = readAttributionFromPayload(parsed.data as unknown as Record<string, unknown>);
+
+    const clientAppId = clientApplicationId?.trim() ?? "";
+    if (clientAppId) {
+      const clientEnv = squareEnvironmentFromApplicationId(clientAppId);
+      const serverEnv = useSandbox ? "sandbox" : "production";
+      if (clientEnv && clientEnv !== serverEnv) {
+        console.error("square-strategy-session-payment: env mismatch", { clientEnv, serverEnv, clientAppId });
+        return new Response(
+          JSON.stringify({ error: mismatchMessage(clientAppId, useSandbox) }),
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
     const leadSourceMeta = leadSource.metadata as Record<string, unknown>;
     const buyerEmailLower = buyerEmail?.trim().toLowerCase() || null;
     const buyerKey = textOrNull(leadSourceMeta.buyer_key, 180) ?? buyerEmailLower ?? idempotencyKey;
@@ -117,8 +137,9 @@ serve(async (req) => {
     };
 
     if (!squareRes.ok || squareJson.errors?.length) {
-      const msg = squareJson.errors?.map((e) => e.detail || e.code).filter(Boolean).join("; ") ||
+      const rawMsg = squareJson.errors?.map((e) => e.detail || e.code).filter(Boolean).join("; ") ||
         `Square error (${squareRes.status})`;
+      const msg = formatSquareAuthError(rawMsg, useSandbox);
       console.error("Square CreatePayment failed:", squareRes.status, squareJson);
       return new Response(
         JSON.stringify({ error: msg }),
