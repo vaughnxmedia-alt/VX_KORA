@@ -8,12 +8,19 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { buildFreeAuditReport, type FreeAuditReport } from "../_shared/free-audit-report.ts";
 import { logOutboundEmail } from "../_shared/outbound-email-log.ts";
 import { personalizePdfAuditReport } from "../_shared/personalizedPdfAuditSummary.ts";
+import { usesStarterGuidePipeline } from "../_shared/auditResearchEligibility.ts";
+import { autoSendGuideDeliveryEmail } from "../_shared/autoGuideDelivery.ts";
+import {
+  buildGuideDeliveryEmailHtml,
+  GUIDE_DELIVERY_EMAIL_SUBJECT,
+} from "../_shared/guideDeliveryEmail.ts";
 
 const bodySchema = z.object({
   auditId: z.string().uuid(),
   mode: z.enum(["preview", "send"]).default("send"),
   includeAudio: z.boolean().default(false),
   regenerate: z.boolean().default(false),
+  forceGuideEmail: z.boolean().default(false),
 });
 
 const FROM_NAME = "Jah Jah";
@@ -349,35 +356,20 @@ function numberOrZero(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
-function shouldUseStarterGuide(
-  report: FreeAuditReport,
-  audit: Record<string, unknown>,
-  approvedFindings: Array<Record<string, unknown>>,
-): boolean {
-  const metadata = asObject(audit.metadata);
-  if (metadata.report_mode === "starter_guide") return true;
-  const hasWebsite = String(audit.website_link ?? "").trim().length > 0;
-  const hasAllCoreSocials = [
-    String(audit.instagram ?? "").trim(),
-    String(audit.facebook ?? "").trim(),
-    String(audit.tiktok ?? "").trim(),
-  ].every((value) => value.length > 0);
-  if (!(hasWebsite || hasAllCoreSocials)) return true;
-  const socialResearch = asObject(metadata.social_research);
-  const totals = asObject(socialResearch.totals);
-  const totalSignals = Object.values(totals).reduce((sum, value) => sum + numberOrZero(value), 0);
-  const socialHighlights = report.evidence.socialHighlights?.length ?? 0;
-  const contextLength = [
-    report.evidence.growthGoal,
-    report.evidence.currentBlocker,
-    report.evidence.targetAudience,
-    report.evidence.presence.join(" "),
-  ].join(" ").replace(/Not provided/gi, "").trim().length;
-  const hasResearch = approvedFindings.length > 0 || socialHighlights > 0 || totalSignals > 0;
-  const lowContext = contextLength < 140;
-  const noPresence = report.evidence.presence.length === 0;
-  if (noPresence) return true;
-  return !hasResearch && lowContext;
+function auditPresenceFields(audit: Record<string, unknown>) {
+  return {
+    website_link: audit.website_link as string | null,
+    instagram: audit.instagram as string | null,
+    facebook: audit.facebook as string | null,
+    tiktok: audit.tiktok as string | null,
+    other_socials: audit.other_socials as string | null,
+    metadata: asObject(audit.metadata),
+  };
+}
+
+/** Guide vs audit is decided only by website + social presence — not research volume. */
+function shouldUseStarterGuide(audit: Record<string, unknown>): boolean {
+  return usesStarterGuidePipeline(auditPresenceFields(audit));
 }
 
 function buildStarterGuideReport(baseReport: FreeAuditReport): FreeAuditReport {
@@ -934,31 +926,36 @@ function buildEmailHtml(report: FreeAuditReport, reportAudio: ReportAudio | null
       <p style="font-size:12px;color:#666;margin:0;">Note: this audio was created using your submitted audit data plus JahKnowsPR KORA assistants.</p>
     </div>`
     : "";
-  const heading = starterGuideMode ? "Your Starter Guide is ready" : "Your Brand Diagnosis is ready";
+  const guideHubUrl = `https://www.jahknowspr.com${STARTER_GUIDE_HUB_PATH}`;
+  const heading = starterGuideMode ? "Build your foundation first" : "Your Brand Diagnosis is ready";
   const introLine = starterGuideMode
-    ? `Your JahKnowsPR Starter Guide for <strong>${report.businessName}</strong> is attached as a PDF.`
+    ? `Thank you for completing the questionnaire for <strong>${report.businessName}</strong>. A full public-facing audit needs a live website and at least one social or public profile so we can research posts, comments, and site content. Your Brand Foundation Starter Guide PDF is attached, and you can continue on The Brief below.`
     : `Your JahKnowsPR Free Audit for <strong>${report.businessName}</strong> is attached as a PDF diagnosis report.`;
-  const ctaLabel = starterGuideMode ? "Start the Free Brand Audit" : "Book Strategy Session";
-  const ctaHref = starterGuideMode ? "https://www.jahknowspr.com/free-audit" : "https://www.jahknowspr.com/brand-strategy-session";
+  const ctaLabel = starterGuideMode ? "Go to Before You Build the Brand" : "Book Strategy Session";
+  const ctaHref = starterGuideMode ? guideHubUrl : "https://www.jahknowspr.com/brand-strategy-session";
   const followupLine = starterGuideMode
-    ? "Then begin your blog series: Building a Digital Presence (Website and Social Media Accounts)."
+    ? "When your website and at least one social profile are live, apply again for the Free Brand Audit."
     : "If you're ready to turn the diagnosis into a strategy, book your Strategy Session here:";
+  const summaryBlock = starterGuideMode
+    ? `<p style="margin:0 0 14px;color:#0A1A35;">Use the guide and Brief hub to build clarity before you invest in a website, content system, or ads.</p>`
+    : `<div style="margin:20px 0;padding:18px;border-left:4px solid #C59B3C;background:#F7F3EA;border-radius:0 16px 16px 0;">
+          <p style="margin:0;color:#0A1A35;">${report.executiveSummary}</p>
+        </div>`;
+  const brandLabel = starterGuideMode ? "JahKnowsPR Firm / Brand Foundation" : "JahKnowsPR Firm / Brand Diagnosis";
   return `
   <body style="margin:0;background:#F7F3EA;padding:28px 12px;font-family:Arial,sans-serif;color:#0A1A35;line-height:1.6;">
     <div style="max-width:680px;margin:0 auto;background:#fff;border:1px solid #E8DFC8;border-radius:24px;overflow:hidden;">
       <div style="height:8px;background:#0A1A35;"></div>
       <div style="padding:34px 32px 28px;">
-        <p style="margin:0 0 14px;font-size:11px;letter-spacing:0.28em;text-transform:uppercase;color:#8C6C27;font-weight:700;">JahKnowsPR Firm / Brand Diagnosis</p>
+        <p style="margin:0 0 14px;font-size:11px;letter-spacing:0.28em;text-transform:uppercase;color:#8C6C27;font-weight:700;">${brandLabel}</p>
         <h1 style="font-family:Georgia,serif;margin:0 0 18px;font-size:38px;line-height:1.05;color:#0A1A35;">${heading}</h1>
         <p style="margin:0 0 14px;">Hi ${report.contactName || "there"},</p>
         <p style="margin:0 0 14px;">${introLine}</p>
-        <div style="margin:20px 0;padding:18px;border-left:4px solid #C59B3C;background:#F7F3EA;border-radius:0 16px 16px 0;">
-          <p style="margin:0;color:#0A1A35;">${report.executiveSummary}</p>
-        </div>
-        ${audioBlock}
+        ${summaryBlock}
+        ${starterGuideMode ? "" : audioBlock}
         <p style="margin:0 0 16px;">${followupLine}</p>
         <p style="margin:0 0 18px;"><a href="${ctaHref}" style="display:inline-block;background:#0A1A35;color:#fff;padding:13px 20px;border-radius:999px;text-decoration:none;font-weight:700;">${ctaLabel}</a></p>
-        ${warningBlock}
+        ${starterGuideMode ? "" : warningBlock}
         <p style="margin:24px 0 0;font-size:12px;color:#666;">JahKnowsPR Firm</p>
       </div>
     </div>
@@ -1038,19 +1035,81 @@ serve(async (req) => {
       .order("confidence_score", { ascending: false })
       .limit(40);
     const approvedFindingsRows = (approvedFindings ?? []) as Record<string, unknown>[];
+    const auditRecord = audit as Record<string, unknown>;
+    const starterGuideMode = shouldUseStarterGuide(auditRecord);
+    const forceGuideOnly = Boolean(parsed.data.forceGuideEmail);
+
+    if (mode === "send" && (starterGuideMode || forceGuideOnly)) {
+      const guideResult = await autoSendGuideDeliveryEmail(
+        supabase,
+        {
+        id: String(audit.id),
+        audit_intake_id: typeof auditRecord.audit_intake_id === "string" ? auditRecord.audit_intake_id : String(audit.id),
+        lead_email_lower: auditRecord.lead_email_lower as string | null,
+        lead_key: auditRecord.lead_key as string | null,
+        contact_name: auditRecord.contact_name as string | null,
+        business_name: auditRecord.business_name as string | null,
+        website_link: auditRecord.website_link as string | null,
+        instagram: auditRecord.instagram as string | null,
+        facebook: auditRecord.facebook as string | null,
+        tiktok: auditRecord.tiktok as string | null,
+        other_socials: auditRecord.other_socials as string | null,
+        follow_up_status: auditRecord.follow_up_status as string | null,
+        metadata: asObject(auditRecord.metadata),
+      },
+        { force: forceGuideOnly, forceGuidePath: true },
+      );
+      const recipient = String(auditRecord.lead_email_lower ?? auditRecord.lead_key ?? "");
+      return jsonResponse({
+        ok: true,
+        mode,
+        reportMode: "starter_guide",
+        to: guideResult.to ?? recipient,
+        guideEmail: guideResult,
+        report: {
+          auditId: String(audit.id),
+          recipient,
+          contactName: auditRecord.contact_name,
+          businessName: auditRecord.business_name,
+          subject: GUIDE_DELIVERY_EMAIL_SUBJECT,
+        },
+      }, 200, corsHeaders);
+    }
+
     const baseReport = buildFreeAuditReport(audit, aestheticSignal ?? null, approvedFindings ?? []);
-    const starterGuideMode = shouldUseStarterGuide(
-      baseReport,
-      audit as Record<string, unknown>,
-      approvedFindingsRows,
-    );
-    const report = starterGuideMode
-      ? buildStarterGuideReport(baseReport)
-      : await personalizePdfAuditReport({
-        report: baseReport,
-        audit: audit as Record<string, unknown>,
-        approvedFindings: approvedFindingsRows,
+
+    if (starterGuideMode && mode === "preview") {
+      const emailHtml = buildGuideDeliveryEmailHtml({
+        contactName: baseReport.contactName,
+        businessName: baseReport.businessName,
       });
+      return jsonResponse({
+        ok: true,
+        mode,
+        reportMode: "starter_guide",
+        emailHtml,
+        report: {
+          auditId: baseReport.auditId,
+          recipient: baseReport.recipient,
+          contactName: baseReport.contactName,
+          businessName: baseReport.businessName,
+          subject: GUIDE_DELIVERY_EMAIL_SUBJECT,
+        },
+      }, 200, corsHeaders);
+    }
+
+    if (starterGuideMode) {
+      return jsonResponse({
+        error: "Guide path only. Full audit PDF cannot be sent until the client resubmits with a website and at least one social profile.",
+        reportMode: "starter_guide",
+      }, 400, corsHeaders);
+    }
+
+    const report = await personalizePdfAuditReport({
+      report: baseReport,
+      audit: audit as Record<string, unknown>,
+      approvedFindings: approvedFindingsRows,
+    });
     const reportAudio = reportAudioFromAudit(audit);
     const blockingWarning = report.warnings.find((warning) => warning.severity === "error");
     if (blockingWarning) {
@@ -1065,14 +1124,9 @@ serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    const pdfBytes = await buildReportPdf(
-      report,
-      template,
-      supabase,
-      starterGuideMode ? starterGuideSlidesWithLinks() : [],
-    );
+    const pdfBytes = await buildReportPdf(report, template, supabase, []);
     const pdfBase64 = bytesToBase64(pdfBytes);
-    const previewEmailHtml = buildEmailHtml(report, reportAudio, starterGuideMode);
+    const previewEmailHtml = buildEmailHtml(report, reportAudio, false);
 
     if (mode === "preview") {
       return jsonResponse({
@@ -1083,7 +1137,7 @@ serve(async (req) => {
         filename: report.filename,
         pdfBase64,
         contentType: "application/pdf",
-        reportMode: starterGuideMode ? "starter_guide" : "brand_diagnosis",
+        reportMode: "brand_diagnosis",
         audioBrief: reportAudio,
         emailHtml: previewEmailHtml,
       }, 200, corsHeaders);
@@ -1098,7 +1152,7 @@ serve(async (req) => {
       return jsonResponse({ error: "RESEND_API_KEY is not configured" }, 500, corsHeaders);
     }
 
-    const html = buildEmailHtml(report, includeAudio ? reportAudio : null, starterGuideMode);
+    const html = buildEmailHtml(report, includeAudio ? reportAudio : null, false);
     const resend = new Resend(RESEND_API_KEY);
     const sendResult = await resend.emails.send({
       from: `${FROM_NAME} <${FROM_EMAIL}>`,
@@ -1122,7 +1176,14 @@ serve(async (req) => {
     await Promise.allSettled([
       supabase
         .from("free_audits")
-        .update({ follow_up_status: "audit_sent" })
+        .update({
+          follow_up_status: "audit_sent",
+          metadata: {
+            ...asObject(auditRecord.metadata),
+            report_mode: "brand_diagnosis",
+            audit_delivery_mode: "brand_diagnosis",
+          },
+        })
         .eq("id", audit.id),
       supabase
         .from("audit_intakes")
@@ -1165,7 +1226,7 @@ serve(async (req) => {
           metadata: {
             email_provider_message_id: (sendResult as { data?: { id?: string } })?.data?.id ?? null,
             include_audio: includeAudio,
-            report_mode: starterGuideMode ? "starter_guide" : "brand_diagnosis",
+            report_mode: "brand_diagnosis",
           },
         }, { onConflict: "audit_intake_id" }),
     ]);
@@ -1188,7 +1249,7 @@ serve(async (req) => {
       to: report.recipient,
       report,
       warnings: report.warnings,
-      reportMode: starterGuideMode ? "starter_guide" : "brand_diagnosis",
+      reportMode: "brand_diagnosis",
       audioBrief: includeAudio ? reportAudio : null,
     }, 200, corsHeaders);
   } catch (error) {

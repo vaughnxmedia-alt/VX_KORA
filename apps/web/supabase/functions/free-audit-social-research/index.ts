@@ -6,6 +6,12 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { normalizeAuditSources, normalizeSource, type NormalizedSource, type SourceType } from "../_shared/sourceNormalizer.ts";
 import { buildStrategicResearchProfile, computeEvidenceConfidence, type StrategicResearchProfile } from "../_shared/strategicResearchAgents.ts";
 import { decryptToken } from "../_shared/token-crypto.ts";
+import {
+  presenceResearchGap,
+  presenceResearchGapLabel,
+  qualifiesForFullAuditResearch,
+} from "../_shared/auditResearchEligibility.ts";
+import { autoSendGuideDeliveryEmail } from "../_shared/autoGuideDelivery.ts";
 
 const bodySchema = z.object({
   auditId: z.string().uuid(),
@@ -1342,6 +1348,15 @@ serve(async (req) => {
     if (!audit) return jsonResponse({ error: "Audit not found" }, 404, corsHeaders);
 
     const auditRecord = audit as AuditRecord;
+    const eligibleForResearch = qualifiesForFullAuditResearch({
+      website_link: auditRecord.website_link,
+      instagram: auditRecord.instagram,
+      facebook: auditRecord.facebook,
+      tiktok: auditRecord.tiktok,
+      other_socials: auditRecord.other_socials,
+      metadata: auditRecord.metadata,
+    });
+
     if (parsed.data.action === "review") {
       const review = await loadReviewPayload(supabase, auditRecord.id);
       return jsonResponse({ ok: true, ...review }, 200, corsHeaders);
@@ -1350,6 +1365,47 @@ serve(async (req) => {
       await approveFindings(supabase, auditRecord.id);
       const review = await loadReviewPayload(supabase, auditRecord.id);
       return jsonResponse({ ok: true, approved: true, ...review }, 200, corsHeaders);
+    }
+
+    if (!eligibleForResearch) {
+      const presenceFields = {
+        website_link: auditRecord.website_link,
+        instagram: auditRecord.instagram,
+        facebook: auditRecord.facebook,
+        tiktok: auditRecord.tiktok,
+        other_socials: auditRecord.other_socials,
+        metadata: auditRecord.metadata,
+      };
+      const gapLabel = presenceResearchGapLabel(presenceResearchGap(presenceFields));
+      const intakeOnly = intakeEvidence(auditRecord);
+      if (intakeOnly.length) {
+        await insertEvidenceWithFallback(supabase, intakeOnly);
+      }
+      await supabase
+        .from("free_audits")
+        .update({
+          metadata: {
+            ...asObject(auditRecord.metadata),
+            social_research: {
+              status: "skipped_insufficient_presence",
+              message: gapLabel,
+              research_agents: [],
+              totals: {},
+              completed_at: new Date().toISOString(),
+            },
+          },
+        })
+        .eq("id", auditRecord.id);
+      const guideDelivery = await autoSendGuideDeliveryEmail(supabase, auditRecord);
+      const review = await loadReviewPayload(supabase, auditRecord.id);
+      return jsonResponse({
+        ok: true,
+        skipped: true,
+        reason: "insufficient_presence",
+        message: gapLabel,
+        guideEmail: guideDelivery,
+        ...review,
+      }, 200, corsHeaders);
     }
 
     if (parsed.data.force) {

@@ -372,12 +372,13 @@ function normalizeCorePresenceValue(value: string): string {
 
 function qualifiesForAuditPipeline(form: FormState): boolean {
   const hasWebsite = normalizeCorePresenceValue(form.websiteUrl).length > 0;
-  const hasAllCoreSocials = [
+  const hasAnySocial = [
     normalizeCorePresenceValue(form.instagramUrl),
     normalizeCorePresenceValue(form.facebookUrl),
     normalizeCorePresenceValue(form.tiktokUrl),
-  ].every((value) => value.length > 0);
-  return hasWebsite || hasAllCoreSocials;
+    normalizeCorePresenceValue(form.otherPublicPages),
+  ].some((value) => value.length > 0);
+  return hasWebsite && hasAnySocial;
 }
 
 function buildAuditScoreSummary(form: FormState, readiness: Readiness, auditAngle: string) {
@@ -739,7 +740,7 @@ export default function FreeAudit() {
       });
 
       if (shouldRouteToBrandFoundation) {
-        navigate("/brand-foundation", {
+        navigate("/free-audit/starter-guide-thank-you", {
           replace: true,
           state: {
             readiness,

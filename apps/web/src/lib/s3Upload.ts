@@ -16,7 +16,13 @@ export const S3_VIDEO_FOLDERS = {
    * and set `VITE_PR_VS_MARKETING_VIDEO_URL` to the resulting public object URL.
    */
   site: "site/videos",
+  /** Asset Library — per-audit diagnosis / client videos */
+  assetLibraryAudit: "asset-library/audits",
 } as const;
+
+export function s3AuditVideoFolder(auditId: string): string {
+  return `${S3_VIDEO_FOLDERS.assetLibraryAudit}/${auditId}/videos`;
+}
 
 export interface UploadToS3Options {
   file: File;

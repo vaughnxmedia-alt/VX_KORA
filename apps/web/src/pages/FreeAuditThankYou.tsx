@@ -23,7 +23,7 @@ export default function FreeAuditThankYou() {
   const readiness = (state?.readiness ?? null) as Readiness | null;
 
   if (state?.nextStep === "brand_foundation" || state?.reportMode === "starter_guide") {
-    return <Navigate to="/brand-foundation" replace state={state} />;
+    return <Navigate to="/free-audit/starter-guide-thank-you" replace state={state} />;
   }
 
   return (

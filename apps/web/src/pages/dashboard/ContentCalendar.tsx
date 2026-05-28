@@ -10,9 +10,14 @@ import { ChevronLeft, ChevronRight, Settings, Loader2, CheckCircle2, Link2 } fro
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths } from "date-fns";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
-import { uploadToS3, S3_VIDEO_FOLDERS } from "@/lib/s3Upload";
+import {
+  linkCalendarImageToAudit,
+  linkCalendarVideoToAudit,
+  resolveAuditIdForCustomer,
+  uploadContentCalendarVideo,
+} from "@/lib/clientMedia";
 import { useNavigate } from "react-router-dom";
 
 interface ContentCalendar {
@@ -57,6 +62,7 @@ export default function ContentCalendar() {
     Array.isArray(post.platforms) ? post.platforms : [];
 
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { role, user } = useAuth();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -81,6 +87,26 @@ export default function ContentCalendar() {
   });
 
   // Fetch all active clients
+  const { data: assetLinkAudits = [] } = useQuery({
+    queryKey: ["asset-link-audits"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("free_audits")
+        .select("id, business_name, customer_id, follow_up_status")
+        .order("created_at", { ascending: false })
+        .limit(80);
+      if (error) throw error;
+      const booked = new Set(["booked_strategy_session", "converted"]);
+      return (data ?? [])
+        .filter((row) => !booked.has(String(row.follow_up_status ?? "")))
+        .map((row) => ({
+          auditId: row.id as string,
+          businessName: (row.business_name as string | null)?.trim() || "Unnamed lead",
+          customerId: (row.customer_id as string | null) ?? null,
+        }));
+    },
+  });
+
   const { data: activeClients = [] } = useQuery({
     queryKey: ["active-clients"],
     queryFn: async () => {
@@ -210,7 +236,30 @@ export default function ContentCalendar() {
     void run();
   }, [refetchMetaAccounts]);
 
-  const handlePostCreated = async (post: any) => {
+  const suggestedAssetAuditId = (() => {
+    const cal = calendars.find((c) => c.id === selectedCalendarId);
+    if (!cal) return null;
+    if (cal.customer_id) {
+      const match = assetLinkAudits.find((a) => a.customerId === cal.customer_id);
+      if (match) return match.auditId;
+    }
+    const calName = cal.name.toLowerCase();
+    const byName = assetLinkAudits.find((a) => {
+      const bn = a.businessName.toLowerCase();
+      return bn.includes(calName) || calName.includes(bn);
+    });
+    return byName?.auditId ?? null;
+  })();
+
+  const handlePostCreated = async (post: {
+    files?: File[];
+    caption?: string;
+    platforms?: string[];
+    scheduledDate: Date;
+    scheduledTime: string;
+    platformSettings?: Record<string, unknown>;
+    linkAuditId?: string | null;
+  }) => {
     if (!selectedCalendarId) {
       toast({
         title: "Error",
@@ -220,15 +269,24 @@ export default function ContentCalendar() {
       return;
     }
 
-    // Collect all media URLs (images in Supabase Storage, videos in S3)
+    const selectedCalendar = calendars.find((c) => c.id === selectedCalendarId);
+    let linkAuditId = post.linkAuditId ?? suggestedAssetAuditId ?? null;
+    if (!linkAuditId && selectedCalendar?.customer_id) {
+      linkAuditId = await resolveAuditIdForCustomer(selectedCalendar.customer_id);
+    }
+    const linkCustomerId =
+      assetLinkAudits.find((a) => a.auditId === linkAuditId)?.customerId ??
+      selectedCalendar?.customer_id ??
+      null;
+
     const mediaUrls: string[] = [];
-    
+
     if (post.files && post.files.length > 0) {
       try {
         for (const file of post.files) {
           const isVideo = file.type.startsWith("video/");
           const isImage = file.type.startsWith("image/");
-          
+
           if (!isVideo && !isImage) {
             toast({
               title: "Unsupported file type",
@@ -239,14 +297,23 @@ export default function ContentCalendar() {
           }
 
           if (isVideo) {
-            // Videos → S3 via Edge Function
-            const folder = S3_VIDEO_FOLDERS.contentCalendar;
-            const publicUrl = await uploadToS3({
-              file,
-              folder,
-              fileType: "video",
-            });
+            const { publicUrl, storagePath } = await uploadContentCalendarVideo(file);
             mediaUrls.push(publicUrl);
+            if (linkAuditId) {
+              try {
+                await linkCalendarVideoToAudit({
+                  auditId: linkAuditId,
+                  customerId: linkCustomerId,
+                  publicUrl,
+                  storagePath,
+                  filename: file.name,
+                  mimeType: file.type,
+                  fileSizeBytes: file.size,
+                });
+              } catch (linkErr) {
+                console.warn("Asset library link skipped:", linkErr);
+              }
+            }
           } else if (isImage) {
             // Images → Supabase Storage (blog-images bucket)
             const fileExt = file.name.split(".").pop();
@@ -274,6 +341,23 @@ export default function ContentCalendar() {
             } = supabase.storage.from("blog-images").getPublicUrl(filePath);
 
             mediaUrls.push(publicUrl);
+
+            if (linkAuditId) {
+              try {
+                await linkCalendarImageToAudit({
+                  auditId: linkAuditId,
+                  customerId: linkCustomerId,
+                  storageBucket: "blog-images",
+                  storagePath: filePath,
+                  publicUrl,
+                  filename: file.name,
+                  mimeType: file.type,
+                  fileSizeBytes: file.size,
+                });
+              } catch (linkErr) {
+                console.warn("Asset library link skipped:", linkErr);
+              }
+            }
           }
         }
 
@@ -300,7 +384,7 @@ export default function ContentCalendar() {
     const { error } = await supabase.from("scheduled_posts").insert({
       calendar_id: selectedCalendarId,
       caption: post.caption,
-      platforms: post.platforms || [], // Allow empty platforms array
+      platforms: post.platforms || [],
       platform_settings: post.platformSettings,
       scheduled_date: post.scheduledDate.toISOString().split("T")[0],
       scheduled_time: post.scheduledTime,
@@ -321,6 +405,10 @@ export default function ContentCalendar() {
         description: `Your post has been scheduled${mediaUrls.length > 0 ? ` with ${mediaUrls.length} file(s) uploaded` : ""}.`,
       });
       refetchPosts();
+      if (linkAuditId) {
+        void queryClient.invalidateQueries({ queryKey: ["audit-media-bundle", linkAuditId] });
+        void queryClient.invalidateQueries({ queryKey: ["asset-library-pre-screening"] });
+      }
     }
   };
 
@@ -424,7 +512,11 @@ export default function ContentCalendar() {
             <Settings className="w-4 h-4" />
             Connections
           </Button>
-          <NewPostDialog onPostCreated={handlePostCreated} />
+          <NewPostDialog
+            onPostCreated={handlePostCreated}
+            assetLinkOptions={assetLinkAudits}
+            suggestedAssetAuditId={suggestedAssetAuditId}
+          />
         </div>
       </div>
 

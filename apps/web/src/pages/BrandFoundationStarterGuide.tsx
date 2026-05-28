@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, Navigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { BookOpen, Globe2, Share2 } from "lucide-react";
 import { GUIDE_HUB_PATH, GUIDE_SERIES_BASE_PATH } from "@/content/guides/beforeYouBuildTheBrand";
@@ -34,6 +34,10 @@ const RELATED_BRIEF_POSTS = [
 export default function BrandFoundationStarterGuide() {
   const location = useLocation();
   const state = (location.state ?? {}) as LocationState;
+
+  if (state.auditId) {
+    return <Navigate to="/free-audit/starter-guide-thank-you" replace state={state} />;
+  }
   const businessName = state.businessName?.trim() || "your new business";
   const guideHref = state.auditId ? `${GUIDE_HUB_PATH}?auditId=${encodeURIComponent(state.auditId)}` : GUIDE_HUB_PATH;
 

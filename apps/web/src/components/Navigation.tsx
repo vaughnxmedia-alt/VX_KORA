@@ -101,6 +101,10 @@ const Navigation = () => {
     setIsOpen(false);
   };
 
+  const isStrategySessionFlow =
+    location.pathname.startsWith("/strategy-session") ||
+    location.pathname.startsWith("/brand-strategy-session");
+
   // Get current page indicator for styling
   const isActiveRoute = (route?: string) => {
     if (!route) return false;
@@ -110,7 +114,13 @@ const Navigation = () => {
 
   return (
     <div className="sticky top-0 z-50">
-      <nav className="bg-background/95 backdrop-blur-sm border-b border-border shadow-sm">
+      <nav
+        className={
+          isStrategySessionFlow
+            ? "bg-background border-b border-border shadow-sm"
+            : "bg-background/95 backdrop-blur-sm border-b border-border shadow-sm"
+        }
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             {/* Logo with context indicator */}

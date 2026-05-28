@@ -3,8 +3,9 @@
 ## New Agent Flow
 
 1. Normalize submitted sources and gather baseline intake evidence.
-2. Run connected/public research collectors (Meta, website, provider, screenshot, Tavily, competitor discovery).
-3. Build a strategist profile from evidence:
+2. **Gate:** skip full research unless the lead has a **website URL and at least one social/public profile** (Guide-path leads get intake-only evidence + `skipped_insufficient_presence`).
+3. Run connected/public research collectors (Meta Graph posts/comments, Apify posts/comments, website HTML scrape, screenshot, Tavily, competitor discovery).
+4. Build a strategist profile from evidence:
    - Brand Architecture
    - Business Model
    - Offer Ladder
@@ -13,10 +14,10 @@
    - Proof Inventory
    - Conversion Path
    - Content-to-Revenue
-4. Write structured agent evidence records back to `audit_social_evidence`.
-5. Generate richer findings (diagnosis, business implication, revenue implication, audience implication, source list, produced-by agent, human summary).
-6. Keep admin approval flow unchanged (`report_ready` still controls downstream report eligibility).
-7. Save strategist summary + structured profile under `free_audits.metadata.social_research`.
+5. Write structured agent evidence records back to `audit_social_evidence`.
+6. Generate richer findings (diagnosis, business implication, revenue implication, audience implication, source list, produced-by agent, human summary).
+7. Keep admin approval flow unchanged (`report_ready` still controls downstream report eligibility).
+8. Save strategist summary + structured profile under `free_audits.metadata.social_research`.
 
 ## Confidence Model
 

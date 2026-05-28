@@ -15,31 +15,16 @@ import {
 } from "@/features/strategy-session/strategySessionDraft";
 import { isComplimentaryStrategySessionPromo } from "@/features/strategy-session/strategySessionPromo";
 import { processSquareStrategySessionPayment } from "@/features/strategy-session/api";
+import {
+  getSquareClientIds,
+  isSquareClientConfigured,
+  loadSquarePaymentsSdk,
+  preloadSquarePaymentsSdk,
+} from "@/lib/squarePaymentsSdk";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-const SQUARE_SCRIPT = "https://web.squarecdn.com/v1/square.js";
 const SUPPORT_ERROR_MESSAGE = "Something went wrong. Please contact support.";
-
-function loadSquareSdk(): Promise<void> {
-  if (window.Square) return Promise.resolve();
-  return new Promise((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>(`script[src="${SQUARE_SCRIPT}"]`);
-    if (existing) {
-      existing.addEventListener("load", () => resolve(), { once: true });
-      existing.addEventListener("error", () => reject(new Error("Square SDK failed to load")), {
-        once: true,
-      });
-      return;
-    }
-    const s = document.createElement("script");
-    s.src = SQUARE_SCRIPT;
-    s.async = true;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error("Square SDK failed to load"));
-    document.head.appendChild(s);
-  });
-}
 
 export default function StrategySessionPayment() {
   const navigate = useNavigate();
@@ -51,9 +36,12 @@ export default function StrategySessionPayment() {
   const cardRef = useRef<{ destroy(): Promise<void> } | null>(null);
   const containerId = "square-card-container-strategy-session";
 
-  const applicationId = (import.meta.env.VITE_SQUARE_APPLICATION_ID || "").trim();
-  const locationId = (import.meta.env.VITE_SQUARE_LOCATION_ID || "").trim();
-  const squareConfigured = Boolean(applicationId && locationId);
+  const { applicationId, locationId } = getSquareClientIds();
+  const squareConfigured = isSquareClientConfigured();
+
+  useEffect(() => {
+    if (squareConfigured) preloadSquarePaymentsSdk();
+  }, [squareConfigured]);
 
   useEffect(() => {
     const fromNav = location.state as StrategySessionBookingDraft | null;
@@ -103,7 +91,11 @@ export default function StrategySessionPayment() {
     let cancelled = false;
     (async () => {
       try {
-        await loadSquareSdk();
+        await loadSquarePaymentsSdk();
+        if (cancelled) return;
+        await new Promise<void>((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        });
         if (cancelled) return;
         await mountCard();
         if (!cancelled) setSdkReady(true);
@@ -178,22 +170,22 @@ export default function StrategySessionPayment() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
-      <div className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="sm" asChild>
+      <div className="sticky top-0 z-40 border-b border-border bg-background shadow-sm">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 sm:py-4">
+          <Button variant="ghost" size="sm" asChild className="w-fit shrink-0">
             <Link to="/strategy-session">
               <ArrowLeft className="h-4 w-4 mr-1" />
               Back to scheduling
             </Link>
           </Button>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Sparkles className="h-4 w-4 text-primary" />
-            <span>Strategy Session · Payment</span>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground sm:ml-auto">
+            <Sparkles className="h-4 w-4 shrink-0 text-primary" />
+            <span className="truncate">Strategy Session · Payment</span>
           </div>
         </div>
       </div>
 
-      <section className="relative px-4 pt-10 pb-16 overflow-hidden">
+      <section className="relative px-4 pt-8 pb-16 scroll-mt-20">
         <div
           className="absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none"
           aria-hidden
@@ -241,9 +233,25 @@ export default function StrategySessionPayment() {
               </dl>
 
               {!squareConfigured ? (
-                <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-                  <p className="font-medium">{SUPPORT_ERROR_MESSAGE}</p>
-                  <p className="text-muted-foreground mt-1">Support can assist with checkout.</p>
+                <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive space-y-2">
+                  <p className="font-medium">Card payment is temporarily unavailable.</p>
+                  <p className="text-muted-foreground">
+                    Your session details are still saved on this device. Please try again in a few minutes, or email{" "}
+                    <a
+                      href="mailto:montcitynetwork@gmail.com?subject=Strategy%20Session%20checkout%20help"
+                      className="text-primary underline underline-offset-2"
+                    >
+                      montcitynetwork@gmail.com
+                    </a>{" "}
+                    and we will send you a link to complete payment.
+                  </p>
+                  {import.meta.env.DEV ? (
+                    <p className="text-xs text-muted-foreground border-t border-border/60 pt-2">
+                      Dev: set <code className="text-xs">VITE_SQUARE_APPLICATION_ID</code> and{" "}
+                      <code className="text-xs">VITE_SQUARE_LOCATION_ID</code> in <code className="text-xs">apps/web/.env</code>,
+                      then restart the dev server.
+                    </p>
+                  ) : null}
                 </div>
               ) : (
                 <>
@@ -255,13 +263,15 @@ export default function StrategySessionPayment() {
                     <div
                       id={containerId}
                       className={cn(
-                        "min-h-[120px] rounded-lg border border-input bg-background p-3 transition-opacity",
-                        !sdkReady && "opacity-50 pointer-events-none",
+                        "min-h-[140px] rounded-lg border border-input bg-background p-3 transition-opacity",
+                        !sdkReady && "opacity-60 pointer-events-none",
                       )}
+                      aria-busy={!sdkReady}
+                      aria-live="polite"
                     />
                     {!sdkReady ? (
                       <p className="text-xs text-muted-foreground flex items-center gap-2">
-                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
                         Loading secure payment fields…
                       </p>
                     ) : null}

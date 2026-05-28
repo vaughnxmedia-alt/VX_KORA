@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Upload, CalendarIcon, Link2, Image, Video, FileText } from "lucide-react";
+import { Plus, CalendarIcon, Link2, Image, Video, FileText } from "lucide-react";
+import { MediaUploadDropzone } from "@/components/dashboard/MediaUploadDropzone";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
@@ -31,11 +32,33 @@ const PLATFORMS: Platform[] = [
   { id: "tiktok", name: "TikTok", icon: "🎵", connected: false },
 ];
 
+export type AssetLinkOption = {
+  auditId: string;
+  businessName: string;
+  customerId: string | null;
+};
+
 interface NewPostDialogProps {
-  onPostCreated?: (post: any) => void;
+  onPostCreated?: (post: {
+    id: string;
+    files: File[];
+    platforms: string[];
+    caption: string;
+    scheduledDate: Date;
+    scheduledTime: string;
+    platformSettings: Record<string, unknown>;
+    status: string;
+    linkAuditId: string | null;
+  }) => void;
+  assetLinkOptions?: AssetLinkOption[];
+  suggestedAssetAuditId?: string | null;
 }
 
-export function NewPostDialog({ onPostCreated }: NewPostDialogProps) {
+export function NewPostDialog({
+  onPostCreated,
+  assetLinkOptions = [],
+  suggestedAssetAuditId = null,
+}: NewPostDialogProps) {
   const [open, setOpen] = useState(false);
   const [platforms, setPlatforms] = useState<Platform[]>(PLATFORMS);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
@@ -44,17 +67,20 @@ export function NewPostDialog({ onPostCreated }: NewPostDialogProps) {
   const [caption, setCaption] = useState("");
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [platformSettings, setPlatformSettings] = useState<Record<string, any>>({});
+  const [linkAuditId, setLinkAuditId] = useState<string | null>(suggestedAssetAuditId);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files) {
-      const newFiles = Array.from(files);
-      setUploadedFiles(prev => [...prev, ...newFiles]);
-      toast({
-        title: "Files uploaded",
-        description: `${newFiles.length} file(s) added successfully.`,
-      });
-    }
+  useEffect(() => {
+    setLinkAuditId(suggestedAssetAuditId);
+  }, [suggestedAssetAuditId, open]);
+
+  const handleFileUpload = (files: FileList | null) => {
+    if (!files?.length) return;
+    const newFiles = Array.from(files);
+    setUploadedFiles((prev) => [...prev, ...newFiles]);
+    toast({
+      title: "Files added",
+      description: `${newFiles.length} file(s) ready to schedule.`,
+    });
   };
 
   const removeFile = (index: number) => {
@@ -129,6 +155,7 @@ export function NewPostDialog({ onPostCreated }: NewPostDialogProps) {
       scheduledTime,
       platformSettings,
       status: "scheduled",
+      linkAuditId,
     };
 
     onPostCreated?.(post);
@@ -144,6 +171,7 @@ export function NewPostDialog({ onPostCreated }: NewPostDialogProps) {
     setScheduledDate(undefined);
     setScheduledTime("12:00");
     setPlatformSettings({});
+    setLinkAuditId(suggestedAssetAuditId);
     setOpen(false);
   };
 
@@ -167,30 +195,35 @@ export function NewPostDialog({ onPostCreated }: NewPostDialogProps) {
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* File Upload Section */}
-          <div className="space-y-3">
-            <Label className="text-base font-semibold">Upload Content</Label>
-            <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
-              <input
-                type="file"
-                id="content-upload"
-                className="hidden"
-                multiple
-                accept="image/png,image/jpeg,image/jpg,image/gif,image/webp,video/mp4,video/mov,video/avi"
-                onChange={handleFileUpload}
-              />
-              <label htmlFor="content-upload" className="cursor-pointer">
-                <Upload className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">
-                  Click to upload or drag and drop
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  PNG, JPG, GIF, WEBP, MP4, MOV, AVI
-                </p>
-              </label>
-            </div>
+          <MediaUploadDropzone id="content-upload" onFiles={handleFileUpload} />
 
-            {uploadedFiles.length > 0 && (
+          {assetLinkOptions.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-base font-semibold">Also show in Asset Library</Label>
+              <Select
+                value={linkAuditId ?? "none"}
+                onValueChange={(v) => setLinkAuditId(v === "none" ? null : v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Link to a pre-screening client (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No link</SelectItem>
+                  {assetLinkOptions.map((opt) => (
+                    <SelectItem key={opt.auditId} value={opt.auditId}>
+                      {opt.businessName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Uses the same file in storage — no duplicate upload. Videos go to S3; images to Supabase.
+              </p>
+            </div>
+          )}
+
+          {uploadedFiles.length > 0 && (
+            <div className="space-y-3">
               <div className="flex flex-wrap gap-2 mt-3">
                 {uploadedFiles.map((file, index) => (
                   <Badge
@@ -209,8 +242,8 @@ export function NewPostDialog({ onPostCreated }: NewPostDialogProps) {
                   </Badge>
                 ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Caption */}
           <div className="space-y-2">

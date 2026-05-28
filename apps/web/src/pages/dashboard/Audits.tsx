@@ -1,4 +1,4 @@
-import { type MouseEvent, useEffect, useMemo, useState } from "react";
+import { type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, Eye, FileAudio, FileText, Headphones, Loader2, Palette, RefreshCcw, SearchCheck, Send, Trash2, Upload } from "lucide-react";
@@ -52,6 +52,19 @@ import {
   type FreeAuditReportPreviewData,
   type FreeAuditReportWarning,
 } from "@/features/audit-visuals/FreeAuditReportPreview";
+import {
+  buildAuditIntakeFieldRows,
+  followUpShortLabel,
+  getAuditDeliveryLabel,
+  getAuditDeliveryPathShortLabel,
+  getAuditDeliveryShortLabel,
+  isStarterGuideBriefPath,
+} from "@/lib/freeAuditIntakeDisplay";
+import {
+  buildGuideDeliveryEmailHtml,
+  GUIDE_DELIVERY_EMAIL_SUBJECT,
+  GUIDE_DELIVERY_HUB_URL,
+} from "@/lib/guideDeliveryEmail";
 
 type AuditRow = {
   id: string;
@@ -103,6 +116,7 @@ type AuditReportFunctionResponse = {
   contentType?: string;
   audioBrief?: AuditAudioBrief | null;
   emailHtml?: string;
+  reportMode?: "starter_guide" | "brand_diagnosis";
 };
 
 type PlainLanguageAudioBrief = {
@@ -791,6 +805,22 @@ export default function Audits() {
       return data as AuditReportFunctionResponse;
     },
     onSuccess: (result, variables) => {
+      const auditRow = audits?.find((row) => row.id === variables.auditId);
+      if (auditRow && isStarterGuideBriefPath(auditRow)) {
+        openGuidePreview(auditRow);
+        return;
+      }
+      const isGuide = result.reportMode === "starter_guide";
+      if (isGuide) {
+        openGuidePreview(auditRow ?? {
+          id: variables.auditId,
+          lead_email_lower: result.report?.recipient ?? null,
+          lead_key: result.report?.recipient ?? variables.auditId,
+          contact_name: result.report?.contactName ?? null,
+          business_name: result.report?.businessName ?? null,
+        } as AuditRow);
+        return;
+      }
       if (!result.report || !result.pdfBase64) {
         toast.info(
           "Showing the local template preview. Deploy send-free-audit-report to enable the downloadable generated PDF.",
@@ -826,10 +856,50 @@ export default function Audits() {
         setPreviewPayload((current) => current ? { ...current, report: result.report, warnings: result.warnings } : current);
       }
       setPreviewOpen(false);
-      toast.success(`Audit report sent${result?.to ? ` to ${result.to}` : ""}`);
+      const isGuide = result.reportMode === "starter_guide";
+      toast.success(
+        isGuide
+          ? `Guide email sent${result?.to ? ` to ${result.to}` : ""}`
+          : `Audit report sent${result?.to ? ` to ${result.to}` : ""}`,
+      );
     },
     onError: (error: Error) => toast.error(error.message || "Could not send audit report"),
   });
+
+  const ensureGuideDelivery = useMutation({
+    mutationFn: async ({ auditId, force = false }: { auditId: string; force?: boolean }) => {
+      const { data, error } = await supabase.functions.invoke("send-guide-delivery", {
+        body: { auditIds: [auditId], force },
+      });
+      if (error) {
+        throw new Error(await functionErrorMessage(error));
+      }
+      const payload = data as {
+        ok?: boolean;
+        results?: Array<{ sent?: boolean; to?: string; reason?: string; error?: string; ok?: boolean }>;
+        error?: string;
+      };
+      if (payload?.error) {
+        throw new Error(payload.error);
+      }
+      const row = payload?.results?.[0];
+      if (!row?.sent) {
+        throw new Error(
+          row?.reason === "guide_already_sent"
+            ? "Guide email was already sent. Use Resend to force another delivery."
+            : row?.error ?? row?.reason ?? "Guide email was not sent",
+        );
+      }
+      return { sent: true, to: row.to };
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["free-audit-submissions"] });
+      toast.success(`Guide email sent${result.to ? ` to ${result.to}` : ""}`);
+    },
+    onError: (error: Error) => toast.error(error.message || "Could not send guide email"),
+  });
+
+  const ensuredGuideDeliveryRef = useRef<Set<string>>(new Set());
 
   const generateAudioBrief = useMutation({
     mutationFn: async (
@@ -972,6 +1042,9 @@ export default function Audits() {
         throw new Error(await functionErrorMessage(error));
       }
       return data as {
+        skipped?: boolean;
+        message?: string;
+        guideEmail?: { sent?: boolean; to?: string };
         evidenceWritten?: number;
         evidence?: AuditEvidenceReview["evidence"];
         findings?: AuditEvidenceReview["findings"];
@@ -981,6 +1054,23 @@ export default function Audits() {
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["free-audit-submissions"] });
+      if (result.skipped) {
+        const guideEmail = result as { guideEmail?: { sent?: boolean; to?: string } };
+        if (guideEmail.guideEmail?.sent) {
+          toast.success(`Guide email sent${guideEmail.guideEmail.to ? ` to ${guideEmail.guideEmail.to}` : ""}`);
+        } else {
+          toast.info(result.message || "Full research requires a website and at least one social profile.");
+        }
+        if (result.evidence && result.findings) {
+          setEvidenceReview({
+            evidence: result.evidence,
+            findings: result.findings,
+            strategic_profile: result.strategic_profile ?? null,
+            strategist_summary: result.strategist_summary ?? null,
+          });
+        }
+        return;
+      }
       if (result.evidence && result.findings) {
         setEvidenceReview({
           evidence: result.evidence,
@@ -1105,8 +1195,57 @@ export default function Audits() {
       warm: rows.filter((row) => row.readiness_level === "WARM").length,
       cold: rows.filter((row) => row.readiness_level === "COLD").length,
       needsFollowUp: rows.filter((row) => row.follow_up_status === "follow_up_needed").length,
+      fullAuditSent: rows.filter(
+        (row) => !isStarterGuideBriefPath(row) && row.follow_up_status === "audit_sent",
+      ).length,
+      starterGuideBrief: rows.filter((row) => isStarterGuideBriefPath(row)).length,
     };
   }, [audits]);
+
+  const selectedIsGuide = useMemo(
+    () => (selectedAudit ? isStarterGuideBriefPath(selectedAudit) : false),
+    [selectedAudit],
+  );
+
+  const guideEmailWasSent = useMemo(() => {
+    if (!selectedAudit?.metadata || typeof selectedAudit.metadata !== "object") return false;
+    const guideEmail = (selectedAudit.metadata as Record<string, unknown>).guide_email;
+    return Boolean(
+      guideEmail &&
+        typeof guideEmail === "object" &&
+        (guideEmail as Record<string, unknown>).sent_at,
+    );
+  }, [selectedAudit?.metadata]);
+
+  useEffect(() => {
+    if (!selectedAudit?.id || !selectedIsGuide || guideEmailWasSent) return;
+    if (ensuredGuideDeliveryRef.current.has(selectedAudit.id)) return;
+    if (ensureGuideDelivery.isPending) return;
+    ensuredGuideDeliveryRef.current.add(selectedAudit.id);
+    ensureGuideDelivery.mutate({ auditId: selectedAudit.id });
+  }, [selectedAudit?.id, selectedIsGuide, guideEmailWasSent]);
+
+  const previewIsGuide = previewPayload?.reportMode === "starter_guide";
+
+  const guidePreviewHtml = useMemo(() => {
+    if (!previewIsGuide) return "";
+    const contactName = selectedAudit?.contact_name ?? previewPayload?.report?.contactName;
+    const businessName = selectedAudit?.business_name ?? previewPayload?.report?.businessName;
+    return buildGuideDeliveryEmailHtml({ contactName, businessName });
+  }, [previewIsGuide, previewPayload?.report, selectedAudit]);
+
+  const selectedIntakeFields = useMemo(
+    () => (selectedAudit ? buildAuditIntakeFieldRows(selectedAudit) : []),
+    [selectedAudit],
+  );
+
+  const intakeGroups = useMemo(() => {
+    const groups: string[] = [];
+    for (const row of selectedIntakeFields) {
+      if (!groups.includes(row.group)) groups.push(row.group);
+    }
+    return groups;
+  }, [selectedIntakeFields]);
 
   function handleDownloadPreview() {
     if (!previewPayload?.pdfBase64) {
@@ -1141,6 +1280,7 @@ export default function Audits() {
     setPreviewPayload({
       ok: true,
       mode: "preview",
+      reportMode: "brand_diagnosis",
       report: localReport,
       warnings: localReport.warnings,
       filename: localReport.filename,
@@ -1149,6 +1289,52 @@ export default function Audits() {
     });
     setShowPdfPreview(false);
     setPreviewOpen(true);
+  }
+
+  function openGuidePreview(audit: AuditRow) {
+    const recipient = audit.lead_email_lower || audit.lead_key;
+    const emailHtml = buildGuideDeliveryEmailHtml({
+      contactName: audit.contact_name,
+      businessName: audit.business_name,
+    });
+    setAudioBrief(null);
+    setEvidenceReview(null);
+    setPreviewPayload({
+      ok: true,
+      mode: "preview",
+      reportMode: "starter_guide",
+      emailHtml,
+      report: {
+        auditId: audit.id,
+        recipient,
+        contactName: audit.contact_name || "there",
+        businessName: audit.business_name || "Your Brand",
+        subject: GUIDE_DELIVERY_EMAIL_SUBJECT,
+      } as FreeAuditReportPreviewData,
+    });
+    setShowPdfPreview(false);
+    setPreviewOpen(true);
+  }
+
+  function handlePreviewAudit(audit: AuditRow) {
+    if (isStarterGuideBriefPath(audit)) {
+      openGuidePreview(audit);
+      return;
+    }
+    const localAudio = audioBriefFromAudit(audit);
+    openLocalPreview(audit);
+    setEvidenceReview(null);
+    if (!localAudio?.audioUrl && !generateAudioBrief.isPending) {
+      setAutoAudioAttemptedAuditId(audit.id);
+      generateAudioBrief.mutate({ auditId: audit.id, voicePreset: audioVoicePreset, audioMode });
+    }
+    if (!runSocialResearch.isPending) {
+      runSocialResearch.mutate(audit.id);
+    }
+    if (!loadEvidenceReview.isPending) {
+      loadEvidenceReview.mutate(audit.id);
+    }
+    previewReport.mutate({ auditId: audit.id });
   }
 
   return (
@@ -1167,12 +1353,14 @@ export default function Audits() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
         {[
           ["Total", stats.total],
           ["Hot", stats.hot],
           ["Warm", stats.warm],
           ["Cold", stats.cold],
+          ["Sent", stats.fullAuditSent],
+          ["Guide", stats.starterGuideBrief],
           ["Follow-up", stats.needsFollowUp],
         ].map(([label, value]) => (
           <div key={label} className="rounded-2xl border bg-card p-4">
@@ -1210,6 +1398,7 @@ export default function Audits() {
               <TableRow>
                 <TableHead>Lead</TableHead>
                 <TableHead>Readiness</TableHead>
+                <TableHead>Delivery</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="hidden sm:table-cell">Source</TableHead>
                 <TableHead className="hidden md:table-cell">Submitted</TableHead>
@@ -1221,11 +1410,11 @@ export default function Audits() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Loading audits...</TableCell>
+                  <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Loading audits...</TableCell>
                 </TableRow>
               ) : filteredAudits.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">No audit submissions found.</TableCell>
+                  <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">No audit submissions found.</TableCell>
                 </TableRow>
               ) : (
                 filteredAudits.map((audit) => (
@@ -1243,7 +1432,24 @@ export default function Audits() {
                         {audit.readiness_level ?? "Unknown"}
                       </Badge>
                     </TableCell>
-                    <TableCell>{statusLabel(audit.follow_up_status)}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={isStarterGuideBriefPath(audit) ? "outline" : "secondary"}
+                        className="font-medium"
+                        title={getAuditDeliveryLabel(audit)}
+                      >
+                        {getAuditDeliveryShortLabel(audit)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className="font-normal"
+                        title={statusLabel(audit.follow_up_status)}
+                      >
+                        {followUpShortLabel(audit.follow_up_status)}
+                      </Badge>
+                    </TableCell>
                     <TableCell className="hidden sm:table-cell">{audit.lead_source ?? "direct"}</TableCell>
                     <TableCell className="hidden md:table-cell whitespace-nowrap">{formatDate(audit.created_at)}</TableCell>
                     <TableCell className="text-right">
@@ -1280,6 +1486,17 @@ export default function Audits() {
                   <p className="text-sm text-muted-foreground">Selected Audit</p>
                   <h2 className="text-xl font-semibold">{selectedAudit.business_name || selectedAudit.contact_name || "Unnamed lead"}</h2>
                   <p className="text-sm text-muted-foreground">{selectedAudit.lead_email_lower}</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Badge
+                      variant={isStarterGuideBriefPath(selectedAudit) ? "outline" : "secondary"}
+                      title={getAuditDeliveryLabel(selectedAudit)}
+                    >
+                      {getAuditDeliveryShortLabel(selectedAudit)}
+                    </Badge>
+                    <Badge variant="outline" title={statusLabel(selectedAudit.follow_up_status)}>
+                      {followUpShortLabel(selectedAudit.follow_up_status)}
+                    </Badge>
+                  </div>
                 </div>
                 <SearchCheck className="h-6 w-6 text-gold" />
               </div>
@@ -1300,54 +1517,81 @@ export default function Audits() {
 
               <Button
                 className="w-full"
-                onClick={() => {
-                  const localAudio = audioBriefFromAudit(selectedAudit);
-                  openLocalPreview(selectedAudit);
-                  setEvidenceReview(null);
-                  if (!localAudio?.audioUrl && !generateAudioBrief.isPending) {
-                    setAutoAudioAttemptedAuditId(selectedAudit.id);
-                    generateAudioBrief.mutate({ auditId: selectedAudit.id, voicePreset: audioVoicePreset, audioMode });
-                  }
-                  if (!runSocialResearch.isPending) {
-                    runSocialResearch.mutate(selectedAudit.id);
-                  }
-                  if (!loadEvidenceReview.isPending) {
-                    loadEvidenceReview.mutate(selectedAudit.id);
-                  }
-                  previewReport.mutate({ auditId: selectedAudit.id });
-                }}
-                disabled={previewReport.isPending}
+                onClick={() => handlePreviewAudit(selectedAudit)}
+                disabled={previewReport.isPending && !selectedIsGuide}
               >
-                {previewReport.isPending ? (
+                {previewReport.isPending && !selectedIsGuide ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <Eye className="mr-2 h-4 w-4" />
                 )}
-                {previewReport.isPending ? "Generating Preview..." : "Preview / Download PDF"}
+                {previewReport.isPending && !selectedIsGuide
+                  ? "Generating Preview..."
+                  : selectedIsGuide
+                    ? "View guide email"
+                    : "Preview / Download PDF"}
               </Button>
 
-              <div className="grid gap-3 text-sm">
-                <div>
-                  <p className="font-medium">Trying to grow</p>
-                  <p className="text-muted-foreground">{selectedAudit.growth_goal || "Not provided"}</p>
-                </div>
-                <div>
-                  <p className="font-medium">Not working</p>
-                  <p className="text-muted-foreground">{selectedAudit.current_blocker || "Not provided"}</p>
-                </div>
-                <div>
-                  <p className="font-medium">Believed audience</p>
-                  <p className="text-muted-foreground">{selectedAudit.target_audience_belief || "Not provided"}</p>
+              {selectedIsGuide ? (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() =>
+                    ensureGuideDelivery.mutate({
+                      auditId: selectedAudit.id,
+                      force: guideEmailWasSent,
+                    })}
+                  disabled={ensureGuideDelivery.isPending}
+                >
+                  {ensureGuideDelivery.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="mr-2 h-4 w-4" />
+                  )}
+                  {guideEmailWasSent ? "Resend guide email" : "Send guide email now"}
+                </Button>
+              ) : null}
+
+              <div className="rounded-xl border border-gold/30 bg-gold/5 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">Delivery</p>
+                <div className="mt-3 grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Path</p>
+                    <p className="text-2xl font-bold tracking-tight">
+                      {getAuditDeliveryPathShortLabel(selectedAudit)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Send status</p>
+                    <p className="text-2xl font-bold tracking-tight">
+                      {selectedAudit.follow_up_status === "audit_sent" ? "Sent" : "Queued"}
+                    </p>
+                    {selectedAudit.follow_up_status !== "audit_sent" && selectedIsGuide ? (
+                      <p className="mt-1 text-xs text-muted-foreground leading-snug">Sends automatically</p>
+                    ) : null}
+                  </div>
                 </div>
               </div>
 
-              <div className="grid gap-2 text-sm">
-                <p className="font-medium">Presence</p>
-                {[selectedAudit.website_link, selectedAudit.instagram, selectedAudit.facebook, selectedAudit.tiktok, selectedAudit.other_socials]
-                  .filter(Boolean)
-                  .map((value) => (
-                    <p key={value} className="truncate text-muted-foreground">{value}</p>
+              <div className="rounded-xl border bg-muted/15 p-4">
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                  Form answers (as submitted)
+                </p>
+                <div className="mt-4 space-y-5">
+                  {intakeGroups.map((group) => (
+                    <div key={group} className="space-y-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gold">{group}</p>
+                      {selectedIntakeFields
+                        .filter((row) => row.group === group)
+                        .map((row) => (
+                          <div key={`${group}-${row.label}`}>
+                            <p className="text-sm font-medium leading-snug">{row.label}</p>
+                            <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{row.value}</p>
+                          </div>
+                        ))}
+                    </div>
                   ))}
+                </div>
               </div>
 
               <div className="rounded-xl border bg-muted/20 p-3 text-sm">
@@ -1411,7 +1655,8 @@ export default function Audits() {
                       size="sm"
                       className="w-full"
                       onClick={() => runSocialResearch.mutate(selectedAudit.id)}
-                      disabled={runSocialResearch.isPending}
+                      disabled={runSocialResearch.isPending || selectedIsGuide}
+                      title={selectedIsGuide ? "Guide leads receive the Brief email automatically." : undefined}
                     >
                       {runSocialResearch.isPending ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -1439,7 +1684,7 @@ export default function Audits() {
         </aside>
       </div>
 
-      {selectedVisualInput ? (
+      {selectedVisualInput && !selectedIsGuide ? (
         <section className="space-y-4">
           <div>
             <p className="text-sm font-medium uppercase tracking-[0.25em] text-muted-foreground">Visual Intelligence</p>
@@ -1458,15 +1703,62 @@ export default function Audits() {
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-h-[92vh] w-[calc(100vw-2rem)] max-w-6xl overflow-y-auto sm:w-full">
           <DialogHeader>
-            <DialogTitle>Audit PDF Preview</DialogTitle>
+            <DialogTitle>{previewIsGuide ? "Guide email preview" : "Audit PDF Preview"}</DialogTitle>
             <DialogDescription>
-              Review the PDF and optional audio brief before sending anything to the client.
+              {previewIsGuide
+                ? "Guide path only. No audit PDF — client must resubmit with website and at least one social profile for a full diagnosis."
+                : "Review the PDF and optional audio brief before sending anything to the client."}
             </DialogDescription>
           </DialogHeader>
 
           {previewPayload ? (
+            previewIsGuide ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                This lead cannot receive a full audit from this submission. The Brief guide email is sent automatically.
+                They must complete a new application once their website and at least one social profile are live.
+              </p>
+              <div className="grid gap-3 rounded-2xl border bg-card p-4 text-sm sm:grid-cols-2">
+                <div>
+                  <p className="text-muted-foreground">Recipient</p>
+                  <p className="font-medium">{previewPayload.report?.recipient}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Subject</p>
+                  <p className="font-medium">{GUIDE_DELIVERY_EMAIL_SUBJECT}</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                <p className="text-muted-foreground">
+                  CTA opens:{" "}
+                  <a
+                    href={GUIDE_DELIVERY_HUB_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-gold underline-offset-2 hover:underline"
+                  >
+                    {GUIDE_DELIVERY_HUB_URL}
+                  </a>
+                </p>
+                <Button variant="outline" size="sm" asChild>
+                  <a href={GUIDE_DELIVERY_HUB_URL} target="_blank" rel="noopener noreferrer">
+                    Open guide page
+                  </a>
+                </Button>
+              </div>
+              <iframe
+                title="Guide email preview"
+                srcDoc={guidePreviewHtml}
+                className="h-[70vh] w-full rounded-xl border bg-[#F7F3EA]"
+              />
+            </div>
+            ) : (
             <div className="space-y-4">
               <div className="grid gap-3 rounded-2xl border bg-card p-4 text-sm md:grid-cols-3">
+                <div>
+                  <p className="text-muted-foreground">Delivery path</p>
+                  <p className="font-medium">Audit</p>
+                </div>
                 <div>
                   <p className="text-muted-foreground">Recipient</p>
                   <p className="font-medium">{previewPayload.report?.recipient}</p>
@@ -1475,7 +1767,7 @@ export default function Audits() {
                   <p className="text-muted-foreground">Subject</p>
                   <p className="font-medium">{previewPayload.report?.subject}</p>
                 </div>
-                <div>
+                <div className="md:col-span-3">
                   <p className="text-muted-foreground">File</p>
                   <p className="font-medium">{previewPayload.filename || previewPayload.report?.filename}</p>
                 </div>
@@ -1812,11 +2104,11 @@ export default function Audits() {
                     PDF preview could not be embedded. Use Download PDF to open the generated file.
                   </div>
                 </object>
-              ) : (
-                previewPayload.report ? <FreeAuditReportPreview report={previewPayload.report} /> : null
-              )}
+              ) : previewPayload.report ? (
+                <FreeAuditReportPreview report={previewPayload.report} />
+              ) : null}
 
-              {previewPayload.report ? (
+              {previewPayload.emailHtml || previewPayload.report ? (
                 <div className="rounded-2xl border bg-card p-4">
                   <div className="mb-3 flex items-center gap-2 font-semibold">
                     <Send className="h-4 w-4 text-gold" />
@@ -1824,7 +2116,12 @@ export default function Audits() {
                   </div>
                   <iframe
                     title="Client email preview"
-                    srcDoc={previewPayload.emailHtml || fallbackEmailPreview(previewPayload.report, audioBrief)}
+                    srcDoc={
+                      previewPayload.emailHtml ||
+                      (previewPayload.report
+                        ? fallbackEmailPreview(previewPayload.report, audioBrief)
+                        : "")
+                    }
                     className="h-96 w-full rounded-xl border bg-white"
                   />
                 </div>
@@ -2060,6 +2357,7 @@ export default function Audits() {
                 )}
               </div>
             </div>
+            )
           ) : (
             <div className="flex min-h-72 items-center justify-center rounded-2xl border bg-muted/20">
               <p className="text-sm text-muted-foreground">Generate a preview from a selected audit.</p>
@@ -2067,42 +2365,81 @@ export default function Audits() {
           )}
 
           <DialogFooter className="gap-2 sm:space-x-0">
-            <Button
-              variant="outline"
-              onClick={() =>
-                previewPayload?.report?.auditId &&
-                previewReport.mutate({ auditId: previewPayload.report.auditId, regenerate: true })}
-              disabled={!previewPayload?.report?.auditId || previewReport.isPending}
-            >
-              {previewReport.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCcw className="mr-2 h-4 w-4" />
-              )}
-              {previewReport.isPending ? "Regenerating..." : "Regenerate PDF"}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleDownloadPreview}
-              disabled={!previewPayload?.pdfBase64}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Download PDF
-            </Button>
-            <Button
-              onClick={() => previewPayload?.report?.auditId && sendReport.mutate({
-                auditId: previewPayload.report.auditId,
-                includeAudio: true,
-              })}
-              disabled={!previewPayload?.report?.auditId || !audioBrief?.audioUrl || audioApproved === false || sendReport.isPending}
-            >
-              {sendReport.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="mr-2 h-4 w-4" />
-              )}
-              {sendReport.isPending ? "Sending..." : "Send PDF + Audio"}
-            </Button>
+            {previewIsGuide ? (
+              <>
+                <Button variant="outline" onClick={() => setPreviewOpen(false)}>
+                  Close
+                </Button>
+                <Button
+                  onClick={() => {
+                    const auditId = previewPayload?.report?.auditId ?? selectedAudit?.id;
+                    if (!auditId) return;
+                    ensureGuideDelivery.mutate({ auditId, force: true });
+                  }}
+                  disabled={
+                    ensureGuideDelivery.isPending ||
+                    !(previewPayload?.report?.auditId ?? selectedAudit?.id)
+                  }
+                >
+                  {ensureGuideDelivery.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="mr-2 h-4 w-4" />
+                  )}
+                  {ensureGuideDelivery.isPending
+                    ? "Sending..."
+                    : guideEmailWasSent
+                      ? "Resend guide email"
+                      : "Send guide email"}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    previewPayload?.report?.auditId &&
+                    previewReport.mutate({ auditId: previewPayload.report.auditId, regenerate: true })}
+                  disabled={!previewPayload?.report?.auditId || previewReport.isPending}
+                >
+                  {previewReport.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCcw className="mr-2 h-4 w-4" />
+                  )}
+                  {previewReport.isPending ? "Regenerating..." : "Regenerate PDF"}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleDownloadPreview}
+                  disabled={!previewPayload?.pdfBase64}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download PDF
+                </Button>
+                <Button
+                  onClick={() =>
+                    previewPayload?.report?.auditId &&
+                    sendReport.mutate({
+                      auditId: previewPayload.report.auditId,
+                      includeAudio: true,
+                    })}
+                  disabled={
+                    !previewPayload?.report?.auditId ||
+                    !audioBrief?.audioUrl ||
+                    audioApproved === false ||
+                    sendReport.isPending
+                  }
+                >
+                  {sendReport.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="mr-2 h-4 w-4" />
+                  )}
+                  {sendReport.isPending ? "Sending..." : "Send PDF + Audio"}
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

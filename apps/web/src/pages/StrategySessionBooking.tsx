@@ -44,6 +44,7 @@ import { toast } from "sonner";
 import { DateTime } from "luxon";
 import { supabaseIsConfigured } from "@/integrations/supabase/client";
 import { trackBookingClick, trackFormStart, trackFormSubmit, trackStrategySessionView } from "@/lib/kora-analytics";
+import { isSquareClientConfigured, preloadSquarePaymentsSdk } from "@/lib/squarePaymentsSdk";
 const SUPPORT_ERROR_MESSAGE = "Something went wrong. Please contact support.";
 
 /**
@@ -221,6 +222,10 @@ export default function StrategySessionBooking() {
   }, [bookingKindFromUrl]);
 
   useEffect(() => {
+    if (isSquareClientConfigured()) preloadSquarePaymentsSdk();
+  }, []);
+
+  useEffect(() => {
     if (step !== 1) return;
     trackFormStart({
       page_path: "/strategy-session",
@@ -358,21 +363,27 @@ export default function StrategySessionBooking() {
       navigate("/strategy-session/thank-you", { replace: true });
       return;
     }
+    preloadSquarePaymentsSdk();
     navigate("/strategy-session/payment", { state: draft });
   };
 
   return (
     <Form {...form}>
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
-      <div className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => (step === 1 ? navigate(-1) : setStep((s) => (s - 1) as 1 | 2))}>
+      <div className="sticky top-0 z-40 border-b border-border bg-background shadow-sm">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 sm:py-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-fit shrink-0"
+            onClick={() => (step === 1 ? navigate(-1) : setStep((s) => (s - 1) as 1 | 2))}
+          >
             <ArrowLeft className="h-4 w-4 mr-1" />
             {step === 1 ? "Back" : "Previous"}
           </Button>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Sparkles className="h-4 w-4 text-primary" />
-            <span>Strategy Session — $150</span>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground sm:ml-auto">
+            <Sparkles className="h-4 w-4 shrink-0 text-primary" />
+            <span className="truncate">Strategy Session — $150</span>
           </div>
         </div>
       </div>

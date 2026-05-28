@@ -11,6 +11,7 @@ import {
   safeUpsertFunnelAttribution,
 } from "../_shared/lls.ts";
 import { normalizeAuditSources } from "../_shared/sourceNormalizer.ts";
+import { autoSendGuideDeliveryEmail } from "../_shared/autoGuideDelivery.ts";
 
 const submitSchema = z.object({
   email: z.string().email(),
@@ -208,13 +209,14 @@ function buildBrandStageSignals(presence: PresenceState) {
 }
 
 function usesBrandFoundationPipeline(presence: PresenceState): boolean {
-  // Product rule:
-  // - Website present => audit pipeline.
-  // - OR Instagram + Facebook + TikTok all present => audit pipeline.
-  // - Otherwise => brand foundation starter-guide pipeline.
+  // Full audit research requires website + at least one social/public profile.
   const hasWebsite = Boolean(presence.websiteUrl);
-  const hasAllCoreSocials = Boolean(presence.instagramUrl) && Boolean(presence.facebookUrl) && Boolean(presence.tiktokUrl);
-  return !(hasWebsite || hasAllCoreSocials);
+  const hasAnySocial =
+    Boolean(presence.instagramUrl) ||
+    Boolean(presence.facebookUrl) ||
+    Boolean(presence.tiktokUrl) ||
+    Boolean(presence.otherPublicPages);
+  return !(hasWebsite && hasAnySocial);
 }
 
 function normalizeLeadKey(data: SubmitPayload) {
@@ -761,56 +763,6 @@ async function safeNotifyNewAuditEmail(
   }
 }
 
-async function safeSendStarterGuideEmail(input: {
-  email: string;
-  contactName?: string | null;
-  businessName?: string | null;
-}) {
-  const resendApiKey = Deno.env.get("RESEND_API_KEY")?.trim();
-  if (!resendApiKey) return;
-  const recipient = normalizeEmail(input.email);
-  if (!recipient) return;
-
-  const fromEmail = (Deno.env.get("FREE_AUDIT_FROM_EMAIL")?.trim() ||
-    Deno.env.get("STRATEGY_SESSION_FROM_EMAIL")?.trim() ||
-    DEFAULT_FROM_EMAIL);
-  const publicSiteUrl = (Deno.env.get("PUBLIC_SITE_URL")?.trim() || "https://www.jahknowspr.com").replace(/\/$/, "");
-  const businessName = input.businessName?.trim() || "your new business";
-  const contactName = input.contactName?.trim() || "there";
-  const pdfBytes = await buildStarterGuidePdf({ businessName });
-  const pdfBase64 = pdfBytesToBase64(pdfBytes);
-  const filename = `${businessName.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").slice(0, 80) || "brand"}-starter-guide.pdf`;
-
-  const html = `
-  <body style="margin:0;background:#F7F3EA;padding:28px 12px;font-family:Arial,sans-serif;color:#0A1A35;line-height:1.6;">
-    <div style="max-width:680px;margin:0 auto;background:#fff;border:1px solid #E8DFC8;border-radius:24px;overflow:hidden;">
-      <div style="height:8px;background:#0A1A35;"></div>
-      <div style="padding:34px 32px 28px;">
-        <p style="margin:0 0 14px;font-size:11px;letter-spacing:0.28em;text-transform:uppercase;color:#8C6C27;font-weight:700;">JahKnowsPR Firm / Brand Foundation</p>
-        <h1 style="font-family:Georgia,serif;margin:0 0 18px;font-size:36px;line-height:1.05;color:#0A1A35;">Your Starter Guide is attached</h1>
-        <p style="margin:0 0 14px;">Hi ${contactName},</p>
-        <p style="margin:0 0 14px;">You finished the questionnaire for <strong>${businessName}</strong>. Because there is no website or social media presence to review yet, we attached the Brand Foundation Starter Guide instead of a full research-heavy audit.</p>
-        <p style="margin:0 0 14px;">Use this guide to build the basics first: brand foundation, website direction, social profile setup, content direction, and trust signals.</p>
-        <p style="margin:0 0 18px;">Once your website or social media accounts are live, apply for the Free Brand Audit again so JahKnowsPR can review the actual public presence.</p>
-        <p style="margin:0 0 18px;"><a href="${publicSiteUrl}/free-audit" style="display:inline-block;background:#0A1A35;color:#fff;padding:13px 20px;border-radius:999px;text-decoration:none;font-weight:700;">Apply Again After Setup</a></p>
-        <p style="margin:24px 0 0;font-size:12px;color:#666;">JahKnowsPR Firm</p>
-      </div>
-    </div>
-  </body>`;
-
-  try {
-    const resend = new Resend(resendApiKey);
-    await resend.emails.send({
-      from: `${FROM_NAME} <${fromEmail}>`,
-      to: recipient,
-      subject: "Your Brand Foundation Starter Guide",
-      html,
-      attachments: [{ filename, content: pdfBase64 }],
-    });
-  } catch (error) {
-    console.warn("starter guide email failed", error);
-  }
-}
 
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -1163,10 +1115,23 @@ serve(async (req) => {
         safeRequestSocialResearch(audit.id),
       ]),
       ...(brandFoundationPipeline ? [
-        safeSendStarterGuideEmail({
-          email: p.email,
-          contactName: audit.contact_name,
-          businessName: audit.business_name,
+        autoSendGuideDeliveryEmail(supabase, {
+          id: audit.id,
+          audit_intake_id: audit.id,
+          lead_email_lower: leadEmailLower,
+          lead_key: leadKey,
+          contact_name: audit.contact_name,
+          business_name: audit.business_name,
+          website_link: presence.websiteUrl,
+          instagram: presence.instagramUrl,
+          facebook: presence.facebookUrl,
+          tiktok: presence.tiktokUrl,
+          other_socials: presence.otherPublicPages,
+          follow_up_status: "new",
+          metadata: {
+            report_mode: "starter_guide",
+            brand_stage_signals: brandStageSignals,
+          },
         }),
       ] : []),
       safeNotifyNewAuditEmail(supabase, {
@@ -1180,7 +1145,7 @@ serve(async (req) => {
       auditIntakeId: audit.id,
       leadKey,
       buyerKey,
-      nextStep: brandFoundationPipeline ? "brand_foundation" : "audit_review",
+      nextStep: brandFoundationPipeline ? "starter_guide_thank_you" : "audit_review",
       reportMode: brandFoundationPipeline ? "starter_guide" : "brand_diagnosis",
       startedAt: audit.started_at,
     }), {
