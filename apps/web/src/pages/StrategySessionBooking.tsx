@@ -45,6 +45,7 @@ import { DateTime } from "luxon";
 import { supabaseIsConfigured } from "@/integrations/supabase/client";
 import { trackBookingClick, trackFormStart, trackFormSubmit, trackStrategySessionView } from "@/lib/kora-analytics";
 import { isSquareClientConfigured, preloadSquarePaymentsSdk } from "@/lib/squarePaymentsSdk";
+import { scrollAppToTop, scrollFieldIntoViewOnFocus } from "@/lib/scrollAppToTop";
 const SUPPORT_ERROR_MESSAGE = "Something went wrong. Please contact support.";
 
 /**
@@ -143,6 +144,7 @@ export default function StrategySessionBooking() {
   /** Drives API range so navigating the calendar (e.g. April 2026) loads slots for that month. */
   const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
   const [selectedSlotIso, setSelectedSlotIso] = useState<string | null>(null);
+  const schedulingRef = useRef<HTMLDivElement>(null);
 
   const form = useForm<IntakeValues>({
     resolver: zodResolver(intakeSchema),
@@ -224,6 +226,15 @@ export default function StrategySessionBooking() {
   useEffect(() => {
     if (isSquareClientConfigured()) preloadSquarePaymentsSdk();
   }, []);
+
+  useEffect(() => {
+    scrollAppToTop();
+    if (step === 2) {
+      window.setTimeout(() => {
+        schedulingRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+      }, 50);
+    }
+  }, [step]);
 
   useEffect(() => {
     if (step !== 1) return;
@@ -327,6 +338,7 @@ export default function StrategySessionBooking() {
       setCalendarMonth(startOfMonth(selectedDay));
     }
     setStep(2);
+    scrollAppToTop();
   });
 
   const handleBookSession = () => {
@@ -364,6 +376,7 @@ export default function StrategySessionBooking() {
       return;
     }
     preloadSquarePaymentsSdk();
+    scrollAppToTop();
     navigate("/strategy-session/payment", { state: draft });
   };
 
@@ -418,7 +431,7 @@ export default function StrategySessionBooking() {
               <CardDescription>Short answers — we use this to prepare for your session.</CardDescription>
             </CardHeader>
             <CardContent>
-                <form onSubmit={onIntakeNext} className="space-y-4">
+                <form onSubmit={onIntakeNext} className="space-y-4" onFocusCapture={scrollFieldIntoViewOnFocus}>
                   <div className="grid sm:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
@@ -631,7 +644,7 @@ export default function StrategySessionBooking() {
         )}
 
         {step === 2 && (
-          <Card className="border shadow-sm">
+          <Card ref={schedulingRef} className="border shadow-sm scroll-mt-28">
             <CardHeader>
               <CardTitle>Choose date & time</CardTitle>
               <CardDescription>All Strategy sessions will be Tue-Thur 9am-5pm.</CardDescription>

@@ -176,6 +176,14 @@ serve(async (req) => {
       );
     }
 
+    const paymentSuccessBody = JSON.stringify({
+      ok: true,
+      squarePaymentId: paymentId,
+      buyerKey,
+      status: payStatus,
+    });
+
+    try {
     await supabase.from("buyer_identity_links").upsert([
       {
         canonical_buyer_key: buyerKey,
@@ -471,16 +479,14 @@ serve(async (req) => {
         },
       }),
     ]);
+    } catch (postPayErr) {
+      console.error("square-strategy-session-payment: post-payment bookkeeping failed:", postPayErr);
+    }
 
-    return new Response(
-      JSON.stringify({
-        ok: true,
-        squarePaymentId: paymentId,
-        buyerKey,
-        status: payStatus,
-      }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    return new Response(paymentSuccessBody, {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (e) {
     console.error(e);
     return new Response(

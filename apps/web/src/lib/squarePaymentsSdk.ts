@@ -4,17 +4,47 @@ export const SQUARE_SCRIPT_URL = "https://web.squarecdn.com/v1/square.js";
 
 let loadPromise: Promise<void> | null = null;
 
-export function isSquareClientConfigured(): boolean {
-  const applicationId = (import.meta.env.VITE_SQUARE_APPLICATION_ID || "").trim();
-  const locationId = (import.meta.env.VITE_SQUARE_LOCATION_ID || "").trim();
-  return Boolean(applicationId && locationId);
-}
-
-export function getSquareClientIds(): { applicationId: string; locationId: string } {
+function readSquareEnvIds(): { applicationId: string; locationId: string } {
   return {
     applicationId: (import.meta.env.VITE_SQUARE_APPLICATION_ID || "").trim(),
     locationId: (import.meta.env.VITE_SQUARE_LOCATION_ID || "").trim(),
   };
+}
+
+/** Reject placeholder / mistyped Vercel env values (e.g. literal "VITE_SQUARE_APPLICATION_ID"). */
+export function isValidSquareApplicationId(applicationId: string): boolean {
+  if (!applicationId) return false;
+  if (applicationId.startsWith("VITE_")) return false;
+  return applicationId.startsWith("sq0");
+}
+
+export function isValidSquareLocationId(locationId: string): boolean {
+  if (!locationId) return false;
+  if (locationId.startsWith("VITE_")) return false;
+  return /^[A-Z0-9]+$/i.test(locationId);
+}
+
+export function isSquareClientConfigured(): boolean {
+  const { applicationId, locationId } = readSquareEnvIds();
+  return isValidSquareApplicationId(applicationId) && isValidSquareLocationId(locationId);
+}
+
+export function getSquareClientIds(): { applicationId: string; locationId: string } {
+  return readSquareEnvIds();
+}
+
+export function describeSquareClientMisconfiguration(): string | null {
+  const { applicationId, locationId } = readSquareEnvIds();
+  if (!applicationId || !locationId) {
+    return "Square checkout is not configured. Add VITE_SQUARE_APPLICATION_ID and VITE_SQUARE_LOCATION_ID in Vercel Production, then redeploy.";
+  }
+  if (!isValidSquareApplicationId(applicationId)) {
+    return `Square Application ID looks wrong ("${applicationId.slice(0, 24)}…"). Use your Production Application ID from Square Developer (starts with sq0idp-).`;
+  }
+  if (!isValidSquareLocationId(locationId)) {
+    return "Square Location ID looks wrong. Use the same location ID as in Supabase SQUARE_LOCATION_ID.";
+  }
+  return null;
 }
 
 /** Start downloading square.js early (booking page, payment route, etc.). */

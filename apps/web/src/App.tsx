@@ -7,6 +7,8 @@ import { useEffect, useRef } from 'react';
 import { StructuredData } from '@/components/StructuredData';
 import { organizationSchema, websiteSchema } from '@/lib/structured-data';
 import { trackAIReferralVisit, trackPageView } from "@/lib/kora-analytics";
+import { scrollAppToTop } from "@/lib/scrollAppToTop";
+import { cn } from "@/lib/utils";
 
 function detectAIReferralSource(referrer: string): string | null {
   if (!referrer) return null;
@@ -22,12 +24,17 @@ function detectAIReferralSource(referrer: string): string | null {
 function App() {
   const location = useLocation();
   const isDashboard = location.pathname.startsWith('/dashboard');
+  const usesDocumentScroll =
+    !isDashboard &&
+    (location.pathname.startsWith("/strategy-session") ||
+      location.pathname.startsWith("/free-audit"));
+  const hideFooter =
+    location.pathname.startsWith("/strategy-session") ||
+    location.pathname.startsWith("/free-audit");
   const mainRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (mainRef.current) {
-      mainRef.current.scrollTo(0, 0);
-    }
+    scrollAppToTop();
   }, [location.pathname]);
 
   useEffect(() => {
@@ -81,19 +88,28 @@ function App() {
 
   return (
     <AuthProvider>
-      <div className="flex flex-col h-screen bg-background">
+      <div
+        className={cn(
+          "flex flex-col bg-background",
+          usesDocumentScroll ? "min-h-screen" : "h-screen",
+        )}
+      >
         {!isDashboard && <StructuredData id="site-core" data={[organizationSchema(), websiteSchema()]} />}
         {!isDashboard && (
           <header className="flex-shrink-0">
             <Navigation />
           </header>
         )}
-        <main 
+        <main
           ref={mainRef}
-          className="flex-grow h-full min-h-0 overflow-y-auto"
+          data-app-scroll
+          className={cn(
+            "flex-grow",
+            usesDocumentScroll ? "overflow-visible" : "h-full min-h-0 overflow-y-auto",
+          )}
         >
           <Outlet />
-          {!isDashboard && <Footer />}
+          {!isDashboard && !hideFooter && <Footer />}
         </main>
         {!isDashboard && <SubscriberPopup />}
       </div>

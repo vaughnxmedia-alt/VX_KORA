@@ -14,23 +14,35 @@ import {
   writePaymentProofToStorage,
 } from "@/features/strategy-session/strategySessionDraft";
 import { isComplimentaryStrategySessionPromo } from "@/features/strategy-session/strategySessionPromo";
-import { processSquareStrategySessionPayment } from "@/features/strategy-session/api";
 import {
+  messageFromFunctionInvokeError,
+  processSquareStrategySessionPayment,
+} from "@/features/strategy-session/api";
+import {
+  describeSquareClientMisconfiguration,
   getSquareClientIds,
   isSquareClientConfigured,
   loadSquarePaymentsSdk,
   preloadSquarePaymentsSdk,
 } from "@/lib/squarePaymentsSdk";
+import { scrollAppToTop } from "@/lib/scrollAppToTop";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 const SUPPORT_ERROR_MESSAGE = "Something went wrong. Please contact support.";
+
+function formatSquareMountError(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) return error.message.trim();
+  return "Could not load the card form. Check your connection and try again.";
+}
 
 export default function StrategySessionPayment() {
   const navigate = useNavigate();
   const location = useLocation();
   const [draft, setDraft] = useState<StrategySessionBookingDraft | null>(null);
   const [sdkReady, setSdkReady] = useState(false);
+  const [sdkError, setSdkError] = useState<string | null>(null);
+  const [sdkMountAttempt, setSdkMountAttempt] = useState(0);
   const [paying, setPaying] = useState(false);
   const cardMountedRef = useRef(false);
   const cardRef = useRef<{ destroy(): Promise<void> } | null>(null);
@@ -38,10 +50,15 @@ export default function StrategySessionPayment() {
 
   const { applicationId, locationId } = getSquareClientIds();
   const squareConfigured = isSquareClientConfigured();
+  const squareConfigError = describeSquareClientMisconfiguration();
 
   useEffect(() => {
     if (squareConfigured) preloadSquarePaymentsSdk();
   }, [squareConfigured]);
+
+  useEffect(() => {
+    scrollAppToTop();
+  }, []);
 
   useEffect(() => {
     const fromNav = location.state as StrategySessionBookingDraft | null;
@@ -67,9 +84,16 @@ export default function StrategySessionPayment() {
   }, [location.state, navigate]);
 
   const mountCard = useCallback(async () => {
-    if (!squareConfigured || !window.Square) return;
+    if (!squareConfigured) {
+      throw new Error("Square checkout is not configured for this site.");
+    }
+    if (!window.Square) {
+      throw new Error("Square payment script did not load.");
+    }
     const el = document.getElementById(containerId);
-    if (!el) return;
+    if (!el) {
+      throw new Error("Payment form container is not ready.");
+    }
     if (cardMountedRef.current && cardRef.current) {
       try {
         await cardRef.current.destroy();
@@ -89,6 +113,8 @@ export default function StrategySessionPayment() {
   useEffect(() => {
     if (!draft || !squareConfigured) return;
     let cancelled = false;
+    setSdkReady(false);
+    setSdkError(null);
     (async () => {
       try {
         await loadSquarePaymentsSdk();
@@ -98,23 +124,29 @@ export default function StrategySessionPayment() {
         });
         if (cancelled) return;
         await mountCard();
-        if (!cancelled) setSdkReady(true);
+        if (!cancelled) {
+          setSdkReady(true);
+          setSdkError(null);
+        }
       } catch (e) {
         if (!cancelled) {
-          console.error(e);
-          toast.error(SUPPORT_ERROR_MESSAGE);
+          const message = formatSquareMountError(e);
+          console.error("Square card mount failed:", e);
+          setSdkError(message);
+          toast.error(message);
         }
       }
     })();
     return () => {
       cancelled = true;
+      setSdkReady(false);
       if (cardRef.current) {
         cardRef.current.destroy().catch(() => {});
         cardRef.current = null;
       }
       cardMountedRef.current = false;
     };
-  }, [draft, mountCard, squareConfigured]);
+  }, [draft, mountCard, squareConfigured, sdkMountAttempt]);
 
   const whenLabel = useMemo(() => {
     if (!draft?.selectedSlotIso) return "—";
@@ -145,8 +177,9 @@ export default function StrategySessionPayment() {
         buyerEmail: draft.values.email,
       });
       if (!res.ok || !res.squarePaymentId) {
-        console.error("Strategy session payment failed:", res.error || "Unknown payment error");
-        toast.error(SUPPORT_ERROR_MESSAGE);
+        const detail = res.error?.trim() || "Payment could not be completed.";
+        console.error("Strategy session payment failed:", detail);
+        toast.error(detail);
         return;
       }
       writePaymentProofToStorage({ squarePaymentId: res.squarePaymentId });
@@ -154,7 +187,8 @@ export default function StrategySessionPayment() {
       navigate("/strategy-session/thank-you", { replace: true });
     } catch (e) {
       console.error("Strategy session payment exception:", e);
-      toast.error(SUPPORT_ERROR_MESSAGE);
+      const detail = e instanceof Error ? e.message : await messageFromFunctionInvokeError(e);
+      toast.error(detail || SUPPORT_ERROR_MESSAGE);
     } finally {
       setPaying(false);
     }
@@ -235,6 +269,9 @@ export default function StrategySessionPayment() {
               {!squareConfigured ? (
                 <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive space-y-2">
                   <p className="font-medium">Card payment is temporarily unavailable.</p>
+                  {squareConfigError ? (
+                    <p className="text-muted-foreground text-xs leading-relaxed">{squareConfigError}</p>
+                  ) : null}
                   <p className="text-muted-foreground">
                     Your session details are still saved on this device. Please try again in a few minutes, or email{" "}
                     <a
@@ -269,11 +306,29 @@ export default function StrategySessionPayment() {
                       aria-busy={!sdkReady}
                       aria-live="polite"
                     />
-                    {!sdkReady ? (
+                    {!sdkReady && !sdkError ? (
                       <p className="text-xs text-muted-foreground flex items-center gap-2">
                         <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
                         Loading secure payment fields…
                       </p>
+                    ) : null}
+                    {sdkError ? (
+                      <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm space-y-2">
+                        <p className="text-destructive font-medium">{sdkError}</p>
+                        <p className="text-muted-foreground text-xs">
+                          Confirm production Square credentials are set in Vercel (
+                          <code className="text-xs">VITE_SQUARE_APPLICATION_ID</code>,{" "}
+                          <code className="text-xs">VITE_SQUARE_LOCATION_ID</code>) and redeploy.
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSdkMountAttempt((n) => n + 1)}
+                        >
+                          Try loading card form again
+                        </Button>
+                      </div>
                     ) : null}
                   </div>
 
@@ -281,7 +336,7 @@ export default function StrategySessionPayment() {
                     variant="hero"
                     className="w-full"
                     size="lg"
-                    disabled={!sdkReady || paying}
+                    disabled={!sdkReady || paying || Boolean(sdkError)}
                     onClick={() => void handlePay()}
                   >
                     {paying ? (

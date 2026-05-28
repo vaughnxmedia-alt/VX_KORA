@@ -54,6 +54,12 @@ export async function messageFromFunctionInvokeError(error: unknown): Promise<st
             "or use the code from your card."
           );
         }
+        if (
+          (error.context.status === 402 || error.context.status === 400 || error.context.status === 409) &&
+          edgeDetail
+        ) {
+          return edgeDetail;
+        }
         if (import.meta.env.DEV) {
           return `${error.message}: ${edgeDetail}`;
         }
@@ -181,14 +187,18 @@ export async function processSquareStrategySessionPayment(input: {
     },
   });
   if (error) {
-    throw new Error(await messageFromFunctionInvokeError(error));
+    return { ok: false, error: await messageFromFunctionInvokeError(error) };
   }
-  return (data || {}) as {
+  const body = (data || {}) as {
     ok?: boolean;
     squarePaymentId?: string;
     status?: string;
     error?: string;
   };
+  if (body.error && !body.squarePaymentId) {
+    return { ok: false, error: body.error };
+  }
+  return body;
 }
 
 export async function processSquareTelegramSubscriptionPayment(input: {

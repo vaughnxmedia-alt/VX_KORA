@@ -12,7 +12,10 @@ if (!isVercelProduction) {
 const appId = (process.env.VITE_SQUARE_APPLICATION_ID || "").trim();
 const locationId = (process.env.VITE_SQUARE_LOCATION_ID || "").trim();
 
-if (appId && locationId) {
+const appOk = appId && appId.startsWith("sq0") && !appId.startsWith("VITE_");
+const locOk = locationId && !locationId.startsWith("VITE_");
+
+if (appOk && locOk) {
   process.exit(0);
 }
 
@@ -24,6 +27,9 @@ console.error(
     "  VITE_SQUARE_LOCATION_ID       (same Location ID as SQUARE_LOCATION_ID on Supabase)",
     "",
     "Set both in Vercel → Project → Settings → Environment Variables → Production, then redeploy.",
+    appId && !appOk
+      ? `  Current VITE_SQUARE_APPLICATION_ID is invalid (got "${appId.slice(0, 32)}…"). Use Production Application ID from Square (sq0idp-…).`
+      : "",
     "Supabase Edge secrets (SQUARE_ACCESS_TOKEN) do not replace these client-side vars.",
     "",
   ].join("\n"),
