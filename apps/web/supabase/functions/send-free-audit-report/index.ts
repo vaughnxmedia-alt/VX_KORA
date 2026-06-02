@@ -18,6 +18,7 @@ import {
 const bodySchema = z.object({
   auditId: z.string().uuid(),
   mode: z.enum(["preview", "send"]).default("send"),
+  emailType: z.enum(["audit_report", "strategy_session_cta"]).default("audit_report"),
   includeAudio: z.boolean().default(false),
   regenerate: z.boolean().default(false),
   forceGuideEmail: z.boolean().default(false),
@@ -26,6 +27,8 @@ const bodySchema = z.object({
 const FROM_NAME = "Jah Jah";
 const FROM_EMAIL = "welcome@jahknowspr.com";
 const PUBLIC_SITE_URL = Deno.env.get("PUBLIC_SITE_URL")?.replace(/\/$/, "") || "https://www.jahknowspr.com";
+const STRATEGY_SESSION_URL = `${PUBLIC_SITE_URL}/strategy-session`;
+const STRATEGY_SESSION_CTA_SUBJECT = "Next step: book your $150 Strategy Session";
 const PAGE = { width: 612, height: 792 };
 const BRAND = {
   navy: rgb(0.039, 0.102, 0.208),
@@ -962,6 +965,69 @@ function buildEmailHtml(report: FreeAuditReport, reportAudio: ReportAudio | null
   </body>`;
 }
 
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function normalizeEmail(value: unknown): string | null {
+  const email = String(value ?? "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;
+  return email;
+}
+
+function messageFromUnknown(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object") {
+    const record = error as Record<string, unknown>;
+    const message = record.message ?? record.error ?? record.details;
+    if (typeof message === "string" && message.trim()) return message;
+    try {
+      const serialized = JSON.stringify(record);
+      if (serialized && serialized !== "{}") return serialized;
+    } catch {
+      // keep fallback
+    }
+  }
+  return String(error || "Unknown error");
+}
+
+function buildStrategySessionCtaEmailHtml(report: Pick<FreeAuditReport, "contactName" | "businessName">): string {
+  const firstName = String(report.contactName || "there").trim().split(/\s+/)[0] || "there";
+  const businessLine = report.businessName
+    ? ` for <strong>${escapeHtml(report.businessName)}</strong>`
+    : "";
+  return `
+  <body style="margin:0;background:#F7F3EA;padding:28px 12px;font-family:Arial,sans-serif;color:#0A1A35;line-height:1.6;">
+    <div style="max-width:680px;margin:0 auto;background:#fff;border:1px solid #E8DFC8;border-radius:24px;overflow:hidden;">
+      <div style="height:8px;background:#0A1A35;"></div>
+      <div style="padding:34px 32px 28px;">
+        <p style="margin:0 0 14px;font-size:11px;letter-spacing:0.28em;text-transform:uppercase;color:#8C6C27;font-weight:700;">JahKnowsPR Firm / Strategy Session</p>
+        <h1 style="font-family:Georgia,serif;margin:0 0 18px;font-size:36px;line-height:1.05;color:#0A1A35;">Turn the diagnosis into a plan</h1>
+        <p style="margin:0 0 14px;">Hi ${escapeHtml(firstName)},</p>
+        <p style="margin:0 0 14px;">Based on the audit direction${businessLine}, the best next step is a focused <strong>$150 Strategy Session</strong>.</p>
+        <p style="margin:0 0 14px;">This is not another generic review. We use the session to look at the brand, offer, audience, public presence, and current growth activity, then decide what should happen next.</p>
+        <div style="margin:22px 0;padding:18px;border-left:4px solid #C59B3C;background:#F7F3EA;border-radius:0 16px 16px 0;">
+          <p style="margin:0 0 10px;font-weight:700;">In the session we will:</p>
+          <ul style="margin:0;padding-left:20px;">
+            <li>identify what is blocking clarity, trust, or conversion</li>
+            <li>review the public signals your audience is seeing</li>
+            <li>confirm the offer, CTA, and proof needed before more marketing spend</li>
+            <li>map the first moves toward 5x growth in 3 months</li>
+          </ul>
+        </div>
+        <p style="margin:0 0 16px;">You can choose your time and complete payment here:</p>
+        <p style="margin:0 0 20px;"><a href="${STRATEGY_SESSION_URL}" style="display:inline-block;background:#0A1A35;color:#fff;padding:13px 20px;border-radius:999px;text-decoration:none;font-weight:700;">Book the Strategy Session</a></p>
+        <p style="margin:0 0 14px;">After checkout, your request stays pending until our team confirms the time. You will receive the pending details first, then a final confirmation once the slot is approved.</p>
+        <p style="margin:24px 0 0;font-size:12px;color:#666;">JahKnowsPR Firm</p>
+      </div>
+    </div>
+  </body>`;
+}
+
 function jsonResponse(body: Record<string, unknown>, status: number, corsHeaders: Record<string, string>) {
   return new Response(JSON.stringify(body), {
     status,
@@ -1011,7 +1077,7 @@ serve(async (req) => {
       return jsonResponse({ error: "Forbidden" }, 403, corsHeaders);
     }
 
-    const { auditId, mode, includeAudio } = parsed.data;
+    const { auditId, mode, emailType, includeAudio } = parsed.data;
     const { data: audit, error: auditError } = await supabase
       .from("free_audits")
       .select("*")
@@ -1105,6 +1171,82 @@ serve(async (req) => {
       }, 400, corsHeaders);
     }
 
+    if (mode === "send" && emailType === "strategy_session_cta") {
+      const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+      if (!RESEND_API_KEY) {
+        return jsonResponse({ error: "RESEND_API_KEY is not configured" }, 500, corsHeaders);
+      }
+      const recipient = normalizeEmail(baseReport.recipient);
+      if (!recipient) {
+        return jsonResponse({ error: "This audit does not have a valid recipient email for the Strategy Session CTA." }, 400, corsHeaders);
+      }
+      const html = buildStrategySessionCtaEmailHtml(baseReport);
+      const resend = new Resend(RESEND_API_KEY);
+      const auditRecord = audit as Record<string, unknown>;
+      const generatedAt = new Date().toISOString();
+      let providerMessageId: string | null = null;
+      try {
+        const sendResult = await resend.emails.send({
+          from: `${FROM_NAME} <${FROM_EMAIL}>`,
+          to: recipient,
+          subject: STRATEGY_SESSION_CTA_SUBJECT,
+          html,
+        });
+        const resendError = (sendResult as { error?: unknown })?.error;
+        if (resendError) throw new Error(messageFromUnknown(resendError));
+        providerMessageId = (sendResult as { data?: { id?: string } })?.data?.id ?? null;
+      } catch (sendError) {
+        const message = messageFromUnknown(sendError);
+        await logOutboundEmail(supabase, {
+          messageType: "strategy_session_cta",
+          fromEmail: FROM_EMAIL,
+          toEmail: recipient,
+          subject: STRATEGY_SESSION_CTA_SUBJECT,
+          status: "failed",
+          errorMessage: message,
+          relatedTable: "free_audits",
+          relatedId: audit.id as string,
+          generatedBy: "system",
+          bodyHtml: html,
+        });
+        return jsonResponse({ error: `Strategy Session CTA email was not sent: ${message}` }, 502, corsHeaders);
+      }
+      await Promise.allSettled([
+        supabase
+          .from("free_audits")
+          .update({
+            follow_up_status: "follow_up_needed",
+            metadata: {
+              ...asObject(auditRecord.metadata),
+              strategy_session_cta_sent_at: generatedAt,
+            },
+          })
+          .eq("id", audit.id),
+        logOutboundEmail(supabase, {
+          messageType: "strategy_session_cta",
+          fromEmail: FROM_EMAIL,
+          toEmail: recipient,
+          subject: STRATEGY_SESSION_CTA_SUBJECT,
+          status: "sent",
+          providerMessageId,
+          relatedTable: "free_audits",
+          relatedId: audit.id as string,
+          generatedBy: "system",
+          bodyHtml: html,
+        }),
+      ]);
+      return jsonResponse({
+        ok: true,
+        mode,
+        emailType,
+        to: recipient,
+        report: baseReport,
+        reportMode: "brand_diagnosis",
+        strategySessionCtaSubject: STRATEGY_SESSION_CTA_SUBJECT,
+        strategySessionCtaEmailHtml: html,
+      }, 200, corsHeaders);
+    }
+
     const report = await personalizePdfAuditReport({
       report: baseReport,
       audit: audit as Record<string, unknown>,
@@ -1127,11 +1269,13 @@ serve(async (req) => {
     const pdfBytes = await buildReportPdf(report, template, supabase, []);
     const pdfBase64 = bytesToBase64(pdfBytes);
     const previewEmailHtml = buildEmailHtml(report, reportAudio, false);
+    const strategySessionCtaEmailHtml = buildStrategySessionCtaEmailHtml(report);
 
     if (mode === "preview") {
       return jsonResponse({
         ok: true,
         mode,
+        emailType,
         report,
         warnings: report.warnings,
         filename: report.filename,
@@ -1140,6 +1284,9 @@ serve(async (req) => {
         reportMode: "brand_diagnosis",
         audioBrief: reportAudio,
         emailHtml: previewEmailHtml,
+        auditEmailHtml: previewEmailHtml,
+        strategySessionCtaSubject: STRATEGY_SESSION_CTA_SUBJECT,
+        strategySessionCtaEmailHtml,
       }, 200, corsHeaders);
     }
 
@@ -1167,7 +1314,6 @@ serve(async (req) => {
       ],
     });
 
-    const auditRecord = audit as Record<string, unknown>;
     const auditIntakeId = typeof auditRecord.audit_intake_id === "string"
       ? auditRecord.audit_intake_id
       : String(audit.id);
@@ -1246,6 +1392,7 @@ serve(async (req) => {
 
     return jsonResponse({
       ok: true,
+      emailType,
       to: report.recipient,
       report,
       warnings: report.warnings,

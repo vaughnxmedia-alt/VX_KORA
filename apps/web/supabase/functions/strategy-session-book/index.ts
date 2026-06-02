@@ -13,7 +13,7 @@ import {
   safeRecordOutcome,
   safeUpsertFunnelAttribution,
 } from "../_shared/lls.ts";
-import { notifyAdminsStrategySessionPaidBooking } from "../_shared/strategy-session-admin-notify.ts";
+import { notifyStrategySessionBookingReceived } from "../_shared/strategy-session-admin-notify.ts";
 
 /** Optional override for tests / rotation — must match client UX for known complimentary codes. */
 const FREE_STRATEGY_SESSION_PROMO = Deno.env.get("STRATEGY_SESSION_FREE_PROMO") ?? "789586";
@@ -605,8 +605,9 @@ serve(async (req) => {
       }),
     ]);
 
-    if (payRow) {
-      await notifyAdminsStrategySessionPaidBooking(supabase, {
+    await notifyStrategySessionBookingReceived(
+      supabase,
+      {
         id: meetingId,
         full_name: p.fullName,
         business_name: p.businessName,
@@ -617,8 +618,9 @@ serve(async (req) => {
         session_type: p.sessionType,
         session_goal: p.sessionGoal,
         host_user_id: hostUserId,
-      });
-    }
+      },
+      { paid: Boolean(payRow), complimentary },
+    );
 
     /** Guest confirmation emails are sent from strategy-session-admin-confirm after team approval (Leads). */
     return new Response(

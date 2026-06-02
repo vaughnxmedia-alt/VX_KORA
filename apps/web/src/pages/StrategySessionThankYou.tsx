@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
 import { submitStrategySessionBooking } from "@/features/strategy-session/api";
 import {
   clearStrategySessionBookingStorage,
@@ -16,31 +15,10 @@ type Status = "loading" | "success" | "error" | "missing" | "missing_payment";
 const SUPPORT_ERROR_MESSAGE = "Something went wrong. Please contact support.";
 
 export default function StrategySessionThankYou() {
-  const navigate = useNavigate();
   const [status, setStatus] = useState<Status>("loading");
   const [meetingId, setMeetingId] = useState<string | undefined>();
   const [bookedWithPromo, setBookedWithPromo] = useState(false);
   const ran = useRef(false);
-
-  /** Logged-in team (admin/author) lands on Leads to confirm the booking; public guests stay on thank-you. */
-  useEffect(() => {
-    if (status !== "success") return;
-    let cancelled = false;
-    (async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (cancelled || !session?.user?.id) return;
-      const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", session.user.id);
-      const rs = (roles ?? []).map((r) => r.role);
-      if (rs.includes("admin") || rs.includes("author")) {
-        navigate("/dashboard/leads", { replace: true });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [status, navigate]);
 
   useEffect(() => {
     if (ran.current) return;
@@ -155,11 +133,11 @@ export default function StrategySessionThankYou() {
           <p className="text-foreground font-medium">
             {bookedWithPromo
               ? "Your complimentary session request was received — please wait for our email confirmation for your Strategy Session time."
-              : "Payment received — please wait for our email confirmation for your Strategy Session time."}
+              : "Payment received — your Strategy Session request is pending team confirmation."}
           </p>
           <p className="text-sm">
-            We&apos;ll confirm your slot and send details from our team. If you don&apos;t see an email within 24 hours,
-            check spam or reach out with your reference below.
+            Keep this page open long enough to copy your reference. We&apos;re emailing you now with the same pending
+            details, and our admin team has been notified to confirm your slot.
           </p>
         </div>
         {meetingId ? (

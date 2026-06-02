@@ -29,6 +29,7 @@ import {
 } from "@/components/dashboard/BookingConfirmationEmailDialog";
 import { SentEmailsPanel } from "@/components/dashboard/SentEmailsPanel";
 import { ShareLeadMagnetLinksDialog } from "@/components/dashboard/ShareLeadMagnetLinksDialog";
+import { StrategySessionUpsellEmailPreviewDialog } from "@/components/dashboard/StrategySessionUpsellEmailPreviewDialog";
 import { confirmStrategySessionBooking, generateLeadConfirmationDraft } from "@/features/strategy-session/api";
 import {
   BOOKING_KINDS,
@@ -237,7 +238,10 @@ export default function Leads() {
         <div className="max-w-2xl">
           <h1 className="text-3xl font-bold tracking-tight">Leads</h1>
         </div>
-        <ShareLeadMagnetLinksDialog />
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <StrategySessionUpsellEmailPreviewDialog />
+          <ShareLeadMagnetLinksDialog />
+        </div>
       </div>
 
       <Tabs defaultValue="pending" className="space-y-4">

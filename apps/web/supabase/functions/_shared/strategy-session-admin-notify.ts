@@ -1,5 +1,5 @@
 /**
- * Notify admins when a paid Strategy Session booking is received (pending approval in Leads).
+ * Notify the client + admins when a Strategy Session booking is received (pending approval in Leads).
  */
 import { Resend } from "npm:resend@2.0.0";
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -56,7 +56,7 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-export type StrategySessionPaidMeeting = {
+export type StrategySessionReceivedMeeting = {
   id: string;
   full_name?: string | null;
   business_name?: string | null;
@@ -69,9 +69,15 @@ export type StrategySessionPaidMeeting = {
   host_user_id?: string | null;
 };
 
-export async function notifyAdminsStrategySessionPaidBooking(
+type StrategySessionReceivedOptions = {
+  paid: boolean;
+  complimentary: boolean;
+};
+
+export async function notifyStrategySessionBookingReceived(
   supabase: SupabaseClient,
-  meeting: StrategySessionPaidMeeting,
+  meeting: StrategySessionReceivedMeeting,
+  options: StrategySessionReceivedOptions,
 ): Promise<void> {
   const resendApiKey = Deno.env.get("RESEND_API_KEY")?.trim();
   if (!resendApiKey) {
@@ -120,11 +126,47 @@ export async function notifyAdminsStrategySessionPaidBooking(
   }
 
   const sessionType = meeting.session_type === "in_person" ? "In person" : "Zoom";
-  const subject = `Paid Strategy Session — ${businessName} ($150)`;
-  const html = `
+  const paymentLabel = options.complimentary
+    ? "Complimentary session"
+    : options.paid
+      ? "Payment received ($150)"
+      : "Payment pending";
+
+  const clientSubject = "We received your Strategy Session request";
+  const clientHtml = `
 <div style="font-family: system-ui, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; line-height: 1.6; color: #0f172a;">
-  <h2 style="margin-bottom: 8px;">New paid Strategy Session booking</h2>
-  <p style="color: #475569; margin-top: 0;">Payment received. Confirm the time in Leads and send the client confirmation email.</p>
+  <h2 style="margin-bottom: 8px;">Your Strategy Session request was received</h2>
+  <p>Hi ${escapeHtml(fullName)},</p>
+  <p>Thank you for submitting your Strategy Session request for <strong>${escapeHtml(businessName)}</strong>.</p>
+  <div style="background: #f1f5f9; border-radius: 8px; padding: 16px; margin: 16px 0;">
+    <p style="margin: 0 0 8px;"><strong>Status:</strong> Pending team confirmation</p>
+    <p style="margin: 0 0 8px;"><strong>Payment:</strong> ${escapeHtml(paymentLabel)}</p>
+    <p style="margin: 0 0 8px;"><strong>Requested time:</strong> ${escapeHtml(dateFmt)} at ${escapeHtml(timeFmt)} (${escapeHtml(tz)})</p>
+    <p style="margin: 0 0 8px;"><strong>Format:</strong> ${escapeHtml(sessionType)}</p>
+    <p style="margin: 0;"><strong>Reference:</strong> ${escapeHtml(meeting.id)}</p>
+  </div>
+  <p>Our team will review the request, confirm availability, and send a follow-up email with final session details.</p>
+  <p>If you need to update anything, reply to this email with your reference number.</p>
+</div>`.trim();
+  const clientText = [
+    "Your Strategy Session request was received.",
+    "",
+    `Name: ${fullName}`,
+    `Business: ${businessName}`,
+    `Status: Pending team confirmation`,
+    `Payment: ${paymentLabel}`,
+    `Requested time: ${dateFmt} at ${timeFmt} (${tz})`,
+    `Format: ${sessionType}`,
+    `Reference: ${meeting.id}`,
+    "",
+    "Our team will confirm availability and send a follow-up email with final session details.",
+  ].join("\n");
+
+  const adminSubject = `${options.paid ? "Paid " : ""}Strategy Session — ${businessName}${options.paid ? " ($150)" : ""}`;
+  const adminHtml = `
+<div style="font-family: system-ui, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; line-height: 1.6; color: #0f172a;">
+  <h2 style="margin-bottom: 8px;">New Strategy Session booking</h2>
+  <p style="color: #475569; margin-top: 0;">${escapeHtml(paymentLabel)}. Confirm the time in Leads and send the client final confirmation email.</p>
   <div style="background: #f1f5f9; border-radius: 8px; padding: 16px; margin: 16px 0;">
     <p style="margin: 0 0 8px;"><strong>${escapeHtml(fullName)}</strong> — ${escapeHtml(businessName)}</p>
     <p style="margin: 0 0 8px;">${escapeHtml(guestEmail)} · ${escapeHtml(phone)}</p>
@@ -137,9 +179,10 @@ export async function notifyAdminsStrategySessionPaidBooking(
   <p><a href="${dashboardUrl}" style="display:inline-block;background:#0A1A35;color:#fff;padding:12px 18px;border-radius:999px;text-decoration:none;font-weight:600;">Open Leads — confirm booking</a></p>
 </div>`.trim();
 
-  const text = [
-    "New paid Strategy Session booking ($150)",
+  const adminText = [
+    "New Strategy Session booking",
     "",
+    `Payment: ${paymentLabel}`,
     `${fullName} — ${businessName}`,
     `${guestEmail} · ${phone}`,
     `When: ${dateFmt} at ${timeFmt} (${tz})`,
@@ -152,25 +195,48 @@ export async function notifyAdminsStrategySessionPaidBooking(
 
   try {
     const resend = new Resend(resendApiKey);
-    const result = await resend.emails.send({
+    if (guestEmail) {
+      const clientResult = await resend.emails.send({
+        from: `${FROM_NAME} <${fromEmail}>`,
+        to: guestEmail,
+        subject: clientSubject,
+        html: clientHtml,
+        text: clientText,
+      });
+      await logOutboundEmail(supabase, {
+        messageType: "strategy_session_request_received",
+        fromEmail,
+        toEmail: guestEmail,
+        subject: clientSubject,
+        status: "sent",
+        providerMessageId: (clientResult as { data?: { id?: string } })?.data?.id ?? null,
+        relatedTable: "meetings",
+        relatedId: meeting.id,
+        generatedBy: "system",
+        bodyHtml: clientHtml,
+        bodyText: clientText,
+      });
+    }
+
+    const adminResult = await resend.emails.send({
       from: `${FROM_NAME} <${fromEmail}>`,
       to: recipients,
-      subject,
-      html,
-      text,
+      subject: adminSubject,
+      html: adminHtml,
+      text: adminText,
     });
     await logOutboundEmail(supabase, {
       messageType: "strategy_session_paid_admin_alert",
       fromEmail,
       toEmail: recipients.join(","),
-      subject,
+      subject: adminSubject,
       status: "sent",
-      providerMessageId: (result as { data?: { id?: string } })?.data?.id ?? null,
+      providerMessageId: (adminResult as { data?: { id?: string } })?.data?.id ?? null,
       relatedTable: "meetings",
       relatedId: meeting.id,
       generatedBy: "system",
-      bodyHtml: html,
-      bodyText: text,
+      bodyHtml: adminHtml,
+      bodyText: adminText,
     });
   } catch (e) {
     console.error("strategy-session-admin-notify:", e);
@@ -178,14 +244,14 @@ export async function notifyAdminsStrategySessionPaidBooking(
       messageType: "strategy_session_paid_admin_alert",
       fromEmail,
       toEmail: recipients.join(","),
-      subject,
+      subject: adminSubject,
       status: "failed",
       errorMessage: e instanceof Error ? e.message : "Failed to send admin alert",
       relatedTable: "meetings",
       relatedId: meeting.id,
       generatedBy: "system",
-      bodyHtml: html,
-      bodyText: text,
+      bodyHtml: adminHtml,
+      bodyText: adminText,
     });
   }
 }

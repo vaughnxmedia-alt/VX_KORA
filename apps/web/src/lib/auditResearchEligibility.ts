@@ -1,4 +1,4 @@
-/** Full audit research requires a website and at least one social/public profile. */
+/** Full audit research requires at least two public sources (website and/or social/public profiles). */
 
 const EMPTY_MARKERS = new Set([
   "",
@@ -66,9 +66,26 @@ export function hasAnySocialPresence(presence: ResolvedPresence): boolean {
   );
 }
 
+function splitOtherPublicPages(value: string): string[] {
+  return value
+    .split(/[\n,]+/)
+    .map((item) => normalizePresenceUrl(item))
+    .filter(Boolean);
+}
+
+export function countResearchPresenceSources(presence: ResolvedPresence): number {
+  return [
+    presence.website,
+    presence.instagram,
+    presence.facebook,
+    presence.tiktok,
+    ...splitOtherPublicPages(presence.otherPublicPages),
+  ].filter(Boolean).length;
+}
+
 export function qualifiesForFullAuditResearch(audit: AuditPresenceFields): boolean {
   const presence = resolveAuditPresence(audit);
-  return hasWebsitePresence(presence) && hasAnySocialPresence(presence);
+  return countResearchPresenceSources(presence) >= 2;
 }
 
 export function usesStarterGuidePipeline(audit: AuditPresenceFields): boolean {
@@ -79,13 +96,14 @@ export type PresenceResearchGap = "website" | "social" | null;
 
 export function presenceResearchGap(audit: AuditPresenceFields): PresenceResearchGap {
   const presence = resolveAuditPresence(audit);
+  if (countResearchPresenceSources(presence) >= 2) return null;
   if (!hasWebsitePresence(presence)) return "website";
   if (!hasAnySocialPresence(presence)) return "social";
   return null;
 }
 
 export function presenceResearchGapLabel(gap: PresenceResearchGap): string {
-  if (gap === "website") return "Add a live website URL to unlock full audit research.";
-  if (gap === "social") return "Add at least one social or public profile URL (Instagram, Facebook, TikTok, or other).";
+  if (gap === "website") return "Add at least two public sources (social accounts and/or a website) to unlock full internal research.";
+  if (gap === "social") return "Add one more public source (Instagram, Facebook, TikTok, website, or other profile) to unlock full internal research.";
   return "";
 }

@@ -324,7 +324,7 @@ function evidenceFromSource(
       : sourceType === "public_profile" || sourceType === "public_data_provider"
         ? 0.78
         : sourceType === "business_discovery"
-          ? 0.66
+          ? 0.42
           : sourceType === "manual_admin_note"
             ? 0.72
             : 0.7;
@@ -411,6 +411,45 @@ function intakeEvidence(audit: AuditRecord): EvidenceInsert[] {
     }),
     evidence_category: item.category,
   }));
+}
+
+function manualAdminContextEvidence(audit: AuditRecord): EvidenceInsert[] {
+  const metadata = asObject(audit.metadata);
+  const context = asObject(metadata.admin_research_context);
+  const notes = cleanObservation(context.notes, 2500);
+  if (!notes) return [];
+  const source = normalizeSource(`admin-context:${audit.id}`, "unknown", "admin_research_context", "manual_admin_note") ?? {
+    field_name: "admin_research_context",
+    submitted_value: `admin-context:${audit.id}`,
+    platform: "unknown" as const,
+    canonical_url: `admin-context:${audit.id}`,
+    handle: null,
+    was_inferred: false,
+    confidence: 0.74,
+    source_type: "manual_admin_note" as const,
+    source_label: "Admin research context",
+    notes: ["Entered by an admin from phone, in-person, or desk research context."],
+  };
+  return [
+    {
+      ...evidenceFromSource(
+        audit,
+        { ...source, source_label: "Admin research context", canonical_url: `admin-context:${audit.id}` },
+        "manual_admin_note",
+        notes,
+        `Internal admin context: ${notes}`,
+        0.74,
+        {
+          based_only_on_admin_context: true,
+          agent_name: "Admin Context Agent",
+          observed_signal: notes.slice(0, 600),
+          strategic_interpretation: "Manual context is used as internal prep for diagnosis and strategy session readiness.",
+          suggested_audit_category: "strategy_context",
+          evidence_strength: "medium",
+        },
+      ),
+    },
+  ];
 }
 
 async function fetchWebsiteEvidence(audit: AuditRecord, source: NormalizedSource): Promise<EvidenceInsert[]> {
@@ -632,14 +671,14 @@ async function fetchOnlineResearchEvidence(audit: AuditRecord, keywordTerms: str
           "business_discovery",
           content,
           `Online research signal: ${result.title || source.source_label} shows public context around "${content.slice(0, 220)}".`,
-          typeof result.score === "number" ? Math.max(0.55, Math.min(0.86, result.score)) : 0.72,
+          typeof result.score === "number" ? Math.max(0.28, Math.min(0.62, result.score)) : 0.46,
           {
             provider: "tavily",
             result_rank: index + 1,
             search_query: queryParts.join(" "),
             agent_name: "Business Discovery Agent",
             observed_signal: `${result.title || source.source_label}: ${content.slice(0, 220)}`,
-            strategic_interpretation: "Third-party context validates market positioning and authority narratives.",
+            strategic_interpretation: "Third-party context is directional only; validate products, audience response, and buying behavior with direct sources before using it as strategy.",
             suggested_audit_category: "authority",
           },
         );
@@ -814,6 +853,13 @@ function strategicProfileEvidenceRows(audit: AuditRecord, profile: StrategicRese
     details: Record<string, unknown>;
   }> = [
     {
+      key: "growth_snapshot",
+      agent: "Growth Snapshot Agent",
+      category: "conversion",
+      summary: profile.growth_snapshot.offer_and_scale_read.recommended_5x_focus,
+      details: profile.growth_snapshot as unknown as Record<string, unknown>,
+    },
+    {
       key: "brand_architecture",
       agent: "Brand Architecture Agent",
       category: "positioning",
@@ -868,6 +914,13 @@ function strategicProfileEvidenceRows(audit: AuditRecord, profile: StrategicRese
       category: "conversion",
       summary: profile.conversion_path.conversion_path_summary,
       details: profile.conversion_path as unknown as Record<string, unknown>,
+    },
+    {
+      key: "intelligence_quality",
+      agent: "Evidence Quality Agent",
+      category: "trust_signals",
+      summary: profile.intelligence_quality.source_quality_summary,
+      details: profile.intelligence_quality as unknown as Record<string, unknown>,
     },
     {
       key: "content_to_revenue",
@@ -1013,7 +1066,12 @@ function buildAgentKnowledgeRows(
       summary: profile.strategist_summary.strategist_summary,
       confidence: profile.industry_profile.confidence,
       source_refs: refs,
-      metadata: { ...baseMetadata, strategist_summary: profile.strategist_summary },
+      metadata: {
+        ...baseMetadata,
+        strategist_summary: profile.strategist_summary,
+        intelligence_quality: profile.intelligence_quality,
+        growth_snapshot: profile.growth_snapshot,
+      },
     },
   ];
 }
@@ -1109,6 +1167,52 @@ function fallbackStrategicProfile(audit: AuditRecord): StrategicResearchProfile 
       missing_content_types: ["Proof content", "Sales content"],
       recommended_content_sequence: ["Awareness -> Proof -> Offer -> CTA"],
       platform_growth_opportunities: [],
+    },
+    intelligence_quality: {
+      source_strength: "low",
+      source_strength_score: 0.2,
+      source_quality_summary: "Fallback profile used: evidence is not strong enough to support confident business-growth claims.",
+      product_service_confidence: 0.2,
+      audience_reaction_confidence: 0.15,
+      buy_factor_confidence: 0.15,
+      product_service_keywords: [],
+      audience_reaction_signals: [],
+      buying_signals: [],
+      direct_sources: [],
+      weak_sources: [],
+      confidence_cap_reason: "Strategy agents fell back; validate products/services, audience reaction, and buy factors manually.",
+    },
+    growth_snapshot: {
+      growth_law: "Internal law: every client growth read must ladder toward 5x growth in 3 months across visibility, engagement, leads, conversion, revenue, and operational capacity.",
+      social_presence: {
+        has_social_accounts: false,
+        accounts: [],
+        missing_or_unverified_accounts: ["Social account metrics were not captured because the strategy agents fell back."],
+      },
+      website_presence: {
+        has_website: Boolean(audit.website_link),
+        url: audit.website_link,
+        pages_reviewed: 0,
+        messaging_observed: [],
+        products_or_services_observed: [],
+        data_gaps: ["Website content needs direct capture before strategy recommendations are trusted."],
+      },
+      offer_and_scale_read: {
+        observed_products_or_services: [],
+        current_growth_activity: [],
+        how_we_can_help_scale: [
+          "Confirm baseline metrics first.",
+          "Clarify the strongest offer and CTA.",
+          "Build a 90-day plan to scale visibility, engagement, leads, conversion, revenue, and delivery capacity together.",
+        ],
+        recommended_5x_focus: "Do not claim a 5x path until baseline revenue, leads, conversion rate, audience metrics, and capacity are confirmed.",
+        first_30_days: [
+          "Confirm social, website, revenue, lead, and capacity baselines.",
+          "Define one primary offer and one measurable CTA.",
+          "Collect proof of real audience demand before campaign expansion.",
+        ],
+        data_gaps: ["Baseline metrics missing.", "Products/services require owner confirmation.", "Audience reaction data missing."],
+      },
     },
     strategist_summary: {
       strategist_summary: "Strategist synthesis fallback: summary generated from limited validated evidence.",
@@ -1417,7 +1521,10 @@ serve(async (req) => {
     const ownedSources = normalizeAuditSources(auditRecord);
     let sources = [...ownedSources];
     const useMockData = parsed.data.useMockData || Deno.env.get("KORA_USE_MOCK_RESEARCH") === "true";
-    const evidenceRows: EvidenceInsert[] = [...intakeEvidence(auditRecord)];
+    const evidenceRows: EvidenceInsert[] = [
+      ...intakeEvidence(auditRecord),
+      ...manualAdminContextEvidence(auditRecord),
+    ];
 
     if (useMockData) {
       evidenceRows.push(...mockEvidence(auditRecord, sources));

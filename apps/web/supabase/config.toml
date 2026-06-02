@@ -44,7 +44,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.send-free-audit-report]
-verify_jwt = true
+verify_jwt = false
 
 [functions.send-guide-delivery]
 verify_jwt = true

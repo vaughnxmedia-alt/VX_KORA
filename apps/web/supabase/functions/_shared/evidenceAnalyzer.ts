@@ -320,7 +320,7 @@ export function analyzeEvidence(context: AuditContext, evidence: AuditSocialEvid
       audienceImplication: "Clear sequencing creates a coherent journey from first impression to action.",
       nextMove: String(strategistSummary.recommended_priority ?? "").trim() ||
         "Execute the top three moves from the approved findings in the next sprint.",
-      producedByAgent: "Human Strategist Summary",
+      producedByAgent: "Internal Strategy Brief",
       severity: "high",
     }),
   ];

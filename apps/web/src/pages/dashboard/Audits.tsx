@@ -65,6 +65,12 @@ import {
   GUIDE_DELIVERY_EMAIL_SUBJECT,
   GUIDE_DELIVERY_HUB_URL,
 } from "@/lib/guideDeliveryEmail";
+import {
+  countResearchPresenceSources,
+  presenceResearchGap,
+  presenceResearchGapLabel,
+  resolveAuditPresence,
+} from "@/lib/auditResearchEligibility";
 
 type AuditRow = {
   id: string;
@@ -108,6 +114,7 @@ type AestheticSignal = {
 type AuditReportFunctionResponse = {
   ok?: boolean;
   mode?: "preview" | "send";
+  emailType?: EmailPreviewMode;
   to?: string;
   report?: FreeAuditReportPreviewData;
   warnings?: FreeAuditReportWarning[];
@@ -116,8 +123,13 @@ type AuditReportFunctionResponse = {
   contentType?: string;
   audioBrief?: AuditAudioBrief | null;
   emailHtml?: string;
+  auditEmailHtml?: string;
+  strategySessionCtaSubject?: string;
+  strategySessionCtaEmailHtml?: string;
   reportMode?: "starter_guide" | "brand_diagnosis";
 };
+
+type EmailPreviewMode = "audit_report" | "strategy_session_cta";
 
 type PlainLanguageAudioBrief = {
   client_name?: string;
@@ -250,6 +262,44 @@ type AuditEvidenceReview = {
   strategist_summary?: Json | null;
 };
 
+type ManualResearchForm = {
+  website_link: string;
+  instagram: string;
+  facebook: string;
+  tiktok: string;
+  other_socials: string;
+  adminNotes: string;
+};
+
+const EMPTY_MANUAL_RESEARCH_FORM: ManualResearchForm = {
+  website_link: "",
+  instagram: "",
+  facebook: "",
+  tiktok: "",
+  other_socials: "",
+  adminNotes: "",
+};
+
+function adminResearchContext(audit: AuditRow | null): Record<string, unknown> {
+  if (!audit) return {};
+  return asLooseRecord(asRecord(audit.metadata).admin_research_context);
+}
+
+function manualResearchFormFromAudit(audit: AuditRow | null): ManualResearchForm {
+  if (!audit) return EMPTY_MANUAL_RESEARCH_FORM;
+  const metadata = asRecord(audit.metadata);
+  const inputs = asLooseRecord(metadata.report_inputs);
+  const context = asLooseRecord(metadata.admin_research_context);
+  return {
+    website_link: cleanText(inputs.website_url ?? audit.website_link, ""),
+    instagram: cleanText(inputs.instagram_url ?? audit.instagram, ""),
+    facebook: cleanText(inputs.facebook_url ?? audit.facebook, ""),
+    tiktok: cleanText(inputs.tiktok_url ?? audit.tiktok, ""),
+    other_socials: cleanText(inputs.other_public_pages ?? audit.other_socials, ""),
+    adminNotes: cleanText(context.notes, ""),
+  };
+}
+
 function uniqueEvidenceSources(evidence: AuditEvidenceReview["evidence"]) {
   const seen = new Set<string>();
   return evidence.filter((item) => {
@@ -287,6 +337,19 @@ function asLooseRecord(value: unknown): Record<string, unknown> {
 
 function asStringArrayLoose(value: unknown): string[] {
   return Array.isArray(value) ? value.map((item) => cleanText(item, "")).filter(Boolean) : [];
+}
+
+function asRecordArrayLoose(value: unknown): Array<Record<string, unknown>> {
+  return Array.isArray(value)
+    ? value.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object" && !Array.isArray(item)))
+    : [];
+}
+
+function metricValue(value: unknown): string {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(value);
+  }
+  return "Not captured";
 }
 
 function metricPercent(value: unknown): string {
@@ -581,6 +644,18 @@ async function functionErrorMessage(error: Error): Promise<string> {
   if (/ElevenLabs|concurrent|rate.?limit|too_many_concurrent_requests|429/i.test(detail)) {
     return "ElevenLabs is processing too many voice requests right now. Please wait a minute, then regenerate the audio brief.";
   }
+  if (/failed to send a request to the edge function/i.test(detail)) {
+    const raw = error && typeof error === "object"
+      ? JSON.stringify({
+        name: error.name,
+        message: error.message,
+        context: (error as { context?: unknown }).context,
+      })
+      : "";
+    return raw && raw !== "{}"
+      ? `Edge Function request failed before returning details. Raw error: ${raw}`
+      : detail;
+  }
   return detail;
 }
 
@@ -693,11 +768,86 @@ function publicAuditUrl(report: FreeAuditReportPreviewData): string {
   return `https://www.jahknowspr.com/audit/${publicAuditSlug(report.businessName)}`;
 }
 
-function fallbackEmailPreview(report: FreeAuditReportPreviewData, audio: AuditAudioBrief | null): string {
-  const audioBlock = audio?.audioUrl
-    ? `<div style="margin:20px 0;padding:18px;border:1px solid #E6C769;border-radius:18px;background:#F7F3EA;"><h2 style="font-family:Georgia,serif;margin:0 0 8px;color:#0A1A35;">Audio Strategy Brief</h2><p style="margin:0 0 12px;color:#0A1A35;">A personalized audio strategy brief is included with this diagnosis.</p><a href="${publicAuditUrl(report)}" style="display:inline-block;background:#0A1A35;color:#fff;padding:12px 18px;border-radius:999px;text-decoration:none;font-weight:bold;">Listen to Audio Brief</a><p style="font-size:12px;color:#666;margin:14px 0 0;">This audio was created using your audit data plus JahKnowsPR KORA assistants.</p></div>`
+function escapeEmailHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function buildAuditEmailPreviewHtml(report: FreeAuditReportPreviewData, audio: AuditAudioBrief | null): string {
+  const filingWarning = report.warnings.find((item) => /business filing required/i.test(item.title));
+  const warningBlock = filingWarning
+    ? `
+    <div style="margin:18px 0;padding:14px;border:1px solid #E6C769;border-radius:14px;background:#FFF8EA;">
+      <p style="margin:0 0 8px;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:#8C6C27;font-weight:700;">Important business setup note</p>
+      <p style="margin:0 0 8px;font-size:13px;color:#0A1A35;"><strong>${filingWarning.title}:</strong> ${filingWarning.detail}</p>
+    </div>`
     : "";
-  return `<body style="margin:0;background:#F7F3EA;font-family:Arial,sans-serif;color:#0A1A35;"><div style="max-width:680px;margin:0 auto;background:#fff;padding:36px;border-radius:24px;"><p style="letter-spacing:.24em;text-transform:uppercase;color:#C59B3C;font-weight:bold;font-size:12px;">JahKnowsPR Firm</p><h1 style="font-family:Georgia,serif;font-size:36px;line-height:1.05;margin:12px 0;">Your Brand Diagnosis is ready</h1><p>Hi ${report.contactName || "there"},</p><p>Your diagnosis for <strong>${report.businessName}</strong> is attached. The report breaks down what is blocking clarity, trust, and conversion.</p><p>${report.executiveSummary}</p>${audioBlock}<a href="https://www.jahknowspr.com/brand-strategy-session" style="display:inline-block;background:#0A1A35;color:#fff;padding:12px 18px;border-radius:999px;text-decoration:none;font-weight:bold;">Book Strategy Session</a></div></body>`;
+  const audioBlock = audio?.audioUrl
+    ? `
+    <div style="margin:24px 0;padding:20px;border:1px solid #E6C769;border-radius:18px;background:#F7F3EA;">
+      <p style="margin:0 0 8px;font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:#8C6C27;font-weight:700;">Private voice note</p>
+      <h2 style="font-family: Georgia, serif;margin:0 0 10px;color:#0A1A35;font-size:24px;line-height:1.15;">Audio Strategy Brief</h2>
+      <p style="margin:0 0 16px;color:#0A1A35;">I also included a personalized audio strategy brief that explains the diagnosis like a private strategist voice note.</p>
+      <p style="margin:0 0 14px;"><a href="${publicAuditUrl(report)}" style="display:inline-block;background:#0A1A35;color:#fff;padding:12px 18px;border-radius:999px;text-decoration:none;font-weight:700;">Listen to Audio Brief</a></p>
+      <p style="font-size:12px;color:#666;margin:0;">Note: this audio was created using your submitted audit data plus JahKnowsPR KORA assistants.</p>
+    </div>`
+    : "";
+  return `
+  <body style="margin:0;background:#F7F3EA;padding:28px 12px;font-family:Arial,sans-serif;color:#0A1A35;line-height:1.6;">
+    <div style="max-width:680px;margin:0 auto;background:#fff;border:1px solid #E8DFC8;border-radius:24px;overflow:hidden;">
+      <div style="height:8px;background:#0A1A35;"></div>
+      <div style="padding:34px 32px 28px;">
+        <p style="margin:0 0 14px;font-size:11px;letter-spacing:0.28em;text-transform:uppercase;color:#8C6C27;font-weight:700;">JahKnowsPR Firm / Brand Diagnosis</p>
+        <h1 style="font-family:Georgia,serif;margin:0 0 18px;font-size:38px;line-height:1.05;color:#0A1A35;">Your Brand Diagnosis is ready</h1>
+        <p style="margin:0 0 14px;">Hi ${report.contactName || "there"},</p>
+        <p style="margin:0 0 14px;">Your JahKnowsPR Free Audit for <strong>${report.businessName}</strong> is attached as a PDF diagnosis report.</p>
+        <div style="margin:20px 0;padding:18px;border-left:4px solid #C59B3C;background:#F7F3EA;border-radius:0 16px 16px 0;">
+          <p style="margin:0;color:#0A1A35;">${report.executiveSummary}</p>
+        </div>
+        ${audioBlock}
+        <p style="margin:0 0 16px;">If you're ready to turn the diagnosis into a strategy, book your Strategy Session here:</p>
+        <p style="margin:0 0 18px;"><a href="https://www.jahknowspr.com/brand-strategy-session" style="display:inline-block;background:#0A1A35;color:#fff;padding:13px 20px;border-radius:999px;text-decoration:none;font-weight:700;">Book Strategy Session</a></p>
+        ${warningBlock}
+        <p style="margin:24px 0 0;font-size:12px;color:#666;">JahKnowsPR Firm</p>
+      </div>
+    </div>
+  </body>`;
+}
+
+function buildStrategySessionCtaEmailPreviewHtml(report: FreeAuditReportPreviewData): string {
+  const firstName = String(report.contactName || "there").trim().split(/\s+/)[0] || "there";
+  const businessLine = report.businessName
+    ? ` for <strong>${escapeEmailHtml(report.businessName)}</strong>`
+    : "";
+  return `
+  <body style="margin:0;background:#F7F3EA;padding:28px 12px;font-family:Arial,sans-serif;color:#0A1A35;line-height:1.6;">
+    <div style="max-width:680px;margin:0 auto;background:#fff;border:1px solid #E8DFC8;border-radius:24px;overflow:hidden;">
+      <div style="height:8px;background:#0A1A35;"></div>
+      <div style="padding:34px 32px 28px;">
+        <p style="margin:0 0 14px;font-size:11px;letter-spacing:0.28em;text-transform:uppercase;color:#8C6C27;font-weight:700;">JahKnowsPR Firm / Strategy Session</p>
+        <h1 style="font-family:Georgia,serif;margin:0 0 18px;font-size:36px;line-height:1.05;color:#0A1A35;">Turn the diagnosis into a plan</h1>
+        <p style="margin:0 0 14px;">Hi ${escapeEmailHtml(firstName)},</p>
+        <p style="margin:0 0 14px;">Based on the audit direction${businessLine}, the best next step is a focused <strong>$150 Strategy Session</strong>.</p>
+        <p style="margin:0 0 14px;">This is not another generic review. We use the session to look at the brand, offer, audience, public presence, and current growth activity, then decide what should happen next.</p>
+        <div style="margin:22px 0;padding:18px;border-left:4px solid #C59B3C;background:#F7F3EA;border-radius:0 16px 16px 0;">
+          <p style="margin:0 0 10px;font-weight:700;">In the session we will:</p>
+          <ul style="margin:0;padding-left:20px;">
+            <li>identify what is blocking clarity, trust, or conversion</li>
+            <li>review the public signals your audience is seeing</li>
+            <li>confirm the offer, CTA, and proof needed before more marketing spend</li>
+            <li>map the first moves toward 5x growth in 3 months</li>
+          </ul>
+        </div>
+        <p style="margin:0 0 16px;">You can choose your time and complete payment here:</p>
+        <p style="margin:0 0 20px;"><a href="https://www.jahknowspr.com/strategy-session" style="display:inline-block;background:#0A1A35;color:#fff;padding:13px 20px;border-radius:999px;text-decoration:none;font-weight:700;">Book the Strategy Session</a></p>
+        <p style="margin:0 0 14px;">After checkout, your request stays pending until our team confirms the time. You will receive the pending details first, then a final confirmation once the slot is approved.</p>
+        <p style="margin:24px 0 0;font-size:12px;color:#666;">JahKnowsPR Firm</p>
+      </div>
+    </div>
+  </body>`;
 }
 
 export default function Audits() {
@@ -707,12 +857,14 @@ export default function Audits() {
   const [deleteTarget, setDeleteTarget] = useState<AuditRow | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewPayload, setPreviewPayload] = useState<AuditReportFunctionResponse | null>(null);
+  const [emailPreviewMode, setEmailPreviewMode] = useState<EmailPreviewMode>("audit_report");
   const [audioBrief, setAudioBrief] = useState<AuditAudioBrief | null>(null);
   const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [evidenceReview, setEvidenceReview] = useState<AuditEvidenceReview | null>(null);
   const [autoAudioAttemptedAuditId, setAutoAudioAttemptedAuditId] = useState<string | null>(null);
   const [audioVoicePreset, setAudioVoicePreset] = useState<"signature" | "storyteller" | "grounded">("signature");
+  const [manualResearchForm, setManualResearchForm] = useState<ManualResearchForm>(EMPTY_MANUAL_RESEARCH_FORM);
   const audioMode: AudioMode = "podcast_deep_dive";
   const [audioScriptDraft, setAudioScriptDraft] = useState("");
   const queryClient = useQueryClient();
@@ -768,6 +920,57 @@ export default function Audits() {
       toast.success("Audit status updated");
     },
     onError: (error: Error) => toast.error(error.message || "Could not update audit status"),
+  });
+
+  const saveManualResearchContext = useMutation({
+    mutationFn: async ({ audit, form }: { audit: AuditRow; form: ManualResearchForm }) => {
+      const metadata = asRecord(audit.metadata);
+      const reportInputs = asLooseRecord(metadata.report_inputs);
+      const existingContext = asLooseRecord(metadata.admin_research_context);
+      const trimmed = {
+        website_link: form.website_link.trim(),
+        instagram: form.instagram.trim(),
+        facebook: form.facebook.trim(),
+        tiktok: form.tiktok.trim(),
+        other_socials: form.other_socials.trim(),
+        adminNotes: form.adminNotes.trim(),
+      };
+
+      const { error } = await supabase
+        .from("free_audits")
+        .update({
+          website_link: trimmed.website_link || null,
+          instagram: trimmed.instagram || null,
+          facebook: trimmed.facebook || null,
+          tiktok: trimmed.tiktok || null,
+          other_socials: trimmed.other_socials || null,
+          metadata: {
+            ...metadata,
+            report_inputs: {
+              ...reportInputs,
+              website_url: trimmed.website_link || null,
+              instagram_url: trimmed.instagram || null,
+              facebook_url: trimmed.facebook || null,
+              tiktok_url: trimmed.tiktok || null,
+              other_public_pages: trimmed.other_socials || null,
+            },
+            admin_research_context: {
+              ...existingContext,
+              notes: trimmed.adminNotes || null,
+              updated_at: new Date().toISOString(),
+              source: "dashboard_manual_entry",
+            },
+          },
+        })
+        .eq("id", audit.id);
+      if (error) throw error;
+      return { auditId: audit.id };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["free-audit-submissions"] });
+      toast.success("Internal research context saved");
+    },
+    onError: (error: Error) => toast.error(error.message || "Could not save research context"),
   });
 
   const deleteAudit = useMutation({
@@ -827,6 +1030,7 @@ export default function Audits() {
         );
         return;
       }
+      setEmailPreviewMode("audit_report");
       setPreviewPayload(result);
       setAudioBrief(normalizeAudioBrief(result.audioBrief));
       setShowPdfPreview(Boolean(result.pdfBase64));
@@ -841,9 +1045,17 @@ export default function Audits() {
   });
 
   const sendReport = useMutation({
-    mutationFn: async ({ auditId, includeAudio }: { auditId: string; includeAudio: boolean }) => {
+    mutationFn: async ({
+      auditId,
+      includeAudio,
+      emailType,
+    }: {
+      auditId: string;
+      includeAudio: boolean;
+      emailType: EmailPreviewMode;
+    }) => {
       const { data, error } = await supabase.functions.invoke("send-free-audit-report", {
-        body: { auditId, mode: "send", includeAudio },
+        body: { auditId, mode: "send", includeAudio, emailType },
       });
       if (error) {
         throw new Error(await functionErrorMessage(error));
@@ -860,7 +1072,9 @@ export default function Audits() {
       toast.success(
         isGuide
           ? `Guide email sent${result?.to ? ` to ${result.to}` : ""}`
-          : `Audit report sent${result?.to ? ` to ${result.to}` : ""}`,
+          : result.emailType === "strategy_session_cta"
+            ? `Strategy Session CTA email sent${result?.to ? ` to ${result.to}` : ""}`
+            : `Audit report sent${result?.to ? ` to ${result.to}` : ""}`,
       );
     },
     onError: (error: Error) => toast.error(error.message || "Could not send audit report"),
@@ -1027,11 +1241,11 @@ export default function Audits() {
 
   useEffect(() => {
     const auditId = previewPayload?.report?.auditId;
-    if (!previewOpen || !auditId || audioBrief?.audioUrl || generateAudioBrief.isPending) return;
+    if (emailPreviewMode !== "audit_report" || !previewOpen || !auditId || audioBrief?.audioUrl || generateAudioBrief.isPending) return;
     if (autoAudioAttemptedAuditId === auditId) return;
     setAutoAudioAttemptedAuditId(auditId);
     generateAudioBrief.mutate({ auditId, voicePreset: audioVoicePreset, audioMode });
-  }, [audioBrief?.audioUrl, audioMode, audioVoicePreset, autoAudioAttemptedAuditId, generateAudioBrief, previewOpen, previewPayload?.report?.auditId]);
+  }, [audioBrief?.audioUrl, audioMode, audioVoicePreset, autoAudioAttemptedAuditId, emailPreviewMode, generateAudioBrief, previewOpen, previewPayload?.report?.auditId]);
 
   const runSocialResearch = useMutation({
     mutationFn: async (auditId: string) => {
@@ -1059,7 +1273,7 @@ export default function Audits() {
         if (guideEmail.guideEmail?.sent) {
           toast.success(`Guide email sent${guideEmail.guideEmail.to ? ` to ${guideEmail.guideEmail.to}` : ""}`);
         } else {
-          toast.info(result.message || "Full research requires a website and at least one social profile.");
+          toast.info(result.message || "Full internal research requires at least two public sources.");
         }
         if (result.evidence && result.findings) {
           setEvidenceReview({
@@ -1147,6 +1361,10 @@ export default function Audits() {
     : null;
 
   useEffect(() => {
+    setManualResearchForm(manualResearchFormFromAudit(selectedAudit));
+  }, [selectedAudit?.id]);
+
+  useEffect(() => {
     if (selectedAuditId || filteredAudits.length === 0) return;
     if (window.matchMedia("(min-width: 1024px)").matches) {
       setSelectedAuditId(filteredAudits[0].id);
@@ -1165,6 +1383,11 @@ export default function Audits() {
     : null;
   const selectedVisualInput = selectedAudit ? buildAuditVisualInput(selectedAudit) : null;
   const selectedSocialResearch = selectedAudit ? socialResearchSummary(selectedAudit.metadata) : null;
+  const selectedPresence = selectedAudit ? resolveAuditPresence(selectedAudit) : null;
+  const selectedResearchSourceCount = selectedPresence ? countResearchPresenceSources(selectedPresence) : 0;
+  const selectedResearchGap = selectedAudit ? presenceResearchGap(selectedAudit) : null;
+  const selectedResearchGapText = presenceResearchGapLabel(selectedResearchGap);
+  const selectedAdminContext = adminResearchContext(selectedAudit);
   const strategicReviewProfile = asLooseRecord(evidenceReview?.strategic_profile);
   const strategicSummaryCard = asLooseRecord(
     evidenceReview?.strategist_summary ?? strategicReviewProfile.strategist_summary,
@@ -1177,6 +1400,12 @@ export default function Audits() {
   const proofCard = asLooseRecord(strategicReviewProfile.proof_inventory);
   const conversionCard = asLooseRecord(strategicReviewProfile.conversion_path);
   const contentRevenueCard = asLooseRecord(strategicReviewProfile.content_to_revenue);
+  const intelligenceQualityCard = asLooseRecord(strategicReviewProfile.intelligence_quality);
+  const growthSnapshotCard = asLooseRecord(strategicReviewProfile.growth_snapshot);
+  const socialPresenceCard = asLooseRecord(growthSnapshotCard.social_presence);
+  const socialAccountCards = asRecordArrayLoose(socialPresenceCard.accounts);
+  const websitePresenceCard = asLooseRecord(growthSnapshotCard.website_presence);
+  const offerScaleCard = asLooseRecord(growthSnapshotCard.offer_and_scale_read);
   const audioChecks = audioBrief?.checks ?? null;
   const audioPlainBrief = audioBrief?.plainLanguageAudioBrief ?? null;
   const jargonTermsFound = audioChecks?.jargon_translation_check?.found_terms ?? [];
@@ -1226,6 +1455,23 @@ export default function Audits() {
   }, [selectedAudit?.id, selectedIsGuide, guideEmailWasSent]);
 
   const previewIsGuide = previewPayload?.reportMode === "starter_guide";
+  const showAudioSection = emailPreviewMode === "audit_report";
+  const auditEmailPreviewHtml = previewPayload?.report
+    ? audioBrief?.audioUrl && audioApproved !== false
+      ? buildAuditEmailPreviewHtml(previewPayload.report, audioBrief)
+      : audioApproved === false
+        ? buildAuditEmailPreviewHtml(previewPayload.report, null)
+      : previewPayload.auditEmailHtml || previewPayload.emailHtml || buildAuditEmailPreviewHtml(previewPayload.report, audioBrief)
+    : "";
+  const strategySessionCtaPreviewHtml = previewPayload?.report
+    ? previewPayload.strategySessionCtaEmailHtml || buildStrategySessionCtaEmailPreviewHtml(previewPayload.report)
+    : "";
+  const selectedEmailPreviewHtml = emailPreviewMode === "strategy_session_cta"
+    ? strategySessionCtaPreviewHtml
+    : auditEmailPreviewHtml;
+  const selectedEmailSubject = emailPreviewMode === "strategy_session_cta"
+    ? previewPayload?.strategySessionCtaSubject || "Next step: book your $150 Strategy Session"
+    : previewPayload?.report?.subject || "Your Brand Diagnosis is ready";
 
   const guidePreviewHtml = useMemo(() => {
     if (!previewIsGuide) return "";
@@ -1285,8 +1531,12 @@ export default function Audits() {
       warnings: localReport.warnings,
       filename: localReport.filename,
       audioBrief: localAudio,
-      emailHtml: fallbackEmailPreview(localReport, localAudio),
+      emailHtml: buildAuditEmailPreviewHtml(localReport, localAudio),
+      auditEmailHtml: buildAuditEmailPreviewHtml(localReport, localAudio),
+      strategySessionCtaSubject: "Next step: book your $150 Strategy Session",
+      strategySessionCtaEmailHtml: buildStrategySessionCtaEmailPreviewHtml(localReport),
     });
+    setEmailPreviewMode("audit_report");
     setShowPdfPreview(false);
     setPreviewOpen(true);
   }
@@ -1595,6 +1845,103 @@ export default function Audits() {
               </div>
 
               <div className="rounded-xl border bg-muted/20 p-3 text-sm">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-2 font-medium">
+                      <SearchCheck className="h-4 w-4 text-gold" />
+                      Internal research prep
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Add context from a call, in-person conversation, or desk research. Saved values are admin-only inputs.
+                    </p>
+                  </div>
+                  <Badge variant={selectedResearchSourceCount >= 2 ? "default" : "outline"}>
+                    {selectedResearchSourceCount}/2 sources
+                  </Badge>
+                </div>
+                <div className="space-y-3">
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <Input
+                      value={manualResearchForm.website_link}
+                      onChange={(e) => setManualResearchForm((current) => ({ ...current, website_link: e.target.value }))}
+                      placeholder="Website URL"
+                    />
+                    <Input
+                      value={manualResearchForm.instagram}
+                      onChange={(e) => setManualResearchForm((current) => ({ ...current, instagram: e.target.value }))}
+                      placeholder="Instagram URL or handle"
+                    />
+                    <Input
+                      value={manualResearchForm.facebook}
+                      onChange={(e) => setManualResearchForm((current) => ({ ...current, facebook: e.target.value }))}
+                      placeholder="Facebook URL or page"
+                    />
+                    <Input
+                      value={manualResearchForm.tiktok}
+                      onChange={(e) => setManualResearchForm((current) => ({ ...current, tiktok: e.target.value }))}
+                      placeholder="TikTok URL or handle"
+                    />
+                  </div>
+                  <Textarea
+                    value={manualResearchForm.other_socials}
+                    onChange={(e) => setManualResearchForm((current) => ({ ...current, other_socials: e.target.value }))}
+                    rows={2}
+                    placeholder="Other public profiles (LinkedIn, YouTube, press, portfolio) — one per line or comma-separated"
+                  />
+                  <Textarea
+                    value={manualResearchForm.adminNotes}
+                    onChange={(e) => setManualResearchForm((current) => ({ ...current, adminNotes: e.target.value }))}
+                    rows={3}
+                    placeholder="Internal notes from phone/in-person conversation, goals, pain points, referrals, or context to prep for a Strategy Session"
+                  />
+                  {selectedAdminContext.updated_at ? (
+                    <p className="text-xs text-muted-foreground">
+                      Last manual update: {formatDate(String(selectedAdminContext.updated_at))}
+                    </p>
+                  ) : null}
+                  {selectedResearchGapText ? (
+                    <p className="rounded-lg border border-dashed bg-background/70 p-2 text-xs text-muted-foreground">
+                      {selectedResearchGapText}
+                    </p>
+                  ) : (
+                    <p className="rounded-lg border border-gold/30 bg-gold/5 p-2 text-xs text-muted-foreground">
+                      Enough source context is available. Save changes, then run Signal Research.
+                    </p>
+                  )}
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => selectedAudit && saveManualResearchContext.mutate({ audit: selectedAudit, form: manualResearchForm })}
+                      disabled={!selectedAudit || saveManualResearchContext.isPending}
+                    >
+                      {saveManualResearchContext.isPending ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <FileText className="mr-2 h-4 w-4" />
+                      )}
+                      Save internal context
+                    </Button>
+                    <Button
+                      type="button"
+                      className="flex-1"
+                      onClick={() => selectedAudit && runSocialResearch.mutate(selectedAudit.id)}
+                      disabled={!selectedAudit || runSocialResearch.isPending || saveManualResearchContext.isPending || selectedResearchSourceCount < 2}
+                      title={selectedResearchSourceCount < 2 ? "Add at least two public sources first." : undefined}
+                    >
+                      {runSocialResearch.isPending ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <SearchCheck className="mr-2 h-4 w-4" />
+                      )}
+                      Run internal research
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border bg-muted/20 p-3 text-sm">
                 <div className="mb-2 flex items-center gap-2 font-medium">
                   <Palette className="h-4 w-4 text-gold" />
                   Aesthetic Intelligence
@@ -1858,37 +2205,189 @@ export default function Audits() {
                       </div>
                     </div>
 
-                    {Object.keys(strategicSummaryCard).length ? (
-                      <section className="rounded-xl border bg-muted/20 p-3 text-sm">
-                        <p className="font-medium">Human Strategist Summary</p>
-                        <p className="mt-2 leading-6 text-muted-foreground">
-                          {cleanText(strategicSummaryCard.strategist_summary, "No strategist summary generated yet.")}
-                        </p>
-                        <div className="mt-3 grid gap-2 md:grid-cols-3">
-                          <div className="rounded-lg bg-background/70 p-2">
-                            <p className="text-xs text-muted-foreground">Top opportunity</p>
-                            <p className="text-sm">{cleanText(strategicSummaryCard.top_opportunity, "Not available")}</p>
+                    {Object.keys(growthSnapshotCard).length ? (
+                      <section className="space-y-3 rounded-xl border border-gold/30 bg-gold/5 p-3 text-sm">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <p className="font-medium">5x Growth Snapshot</p>
+                            <p className="mt-1 leading-6 text-muted-foreground">
+                              {cleanText(growthSnapshotCard.growth_law, "Internal law: every client growth read must ladder toward 5x growth in 3 months.")}
+                            </p>
                           </div>
-                          <div className="rounded-lg bg-background/70 p-2">
-                            <p className="text-xs text-muted-foreground">Top risk</p>
-                            <p className="text-sm">{cleanText(strategicSummaryCard.top_risk, "Not available")}</p>
-                          </div>
-                          <div className="rounded-lg bg-background/70 p-2">
-                            <p className="text-xs text-muted-foreground">Recommended priority</p>
-                            <p className="text-sm">{cleanText(strategicSummaryCard.recommended_priority, "Not available")}</p>
+                          <div className="flex flex-wrap gap-2">
+                            <Badge variant={socialPresenceCard.has_social_accounts ? "default" : "outline"}>
+                              Social: {socialPresenceCard.has_social_accounts ? "Yes" : "No"}
+                            </Badge>
+                            <Badge variant={websitePresenceCard.has_website ? "default" : "outline"}>
+                              Website: {websitePresenceCard.has_website ? "Yes" : "No"}
+                            </Badge>
                           </div>
                         </div>
-                        {asStringArrayLoose(strategicSummaryCard.next_3_moves).length ? (
-                          <ol className="mt-3 list-decimal space-y-1 pl-5 text-muted-foreground">
-                            {asStringArrayLoose(strategicSummaryCard.next_3_moves).map((step) => (
-                              <li key={step}>{step}</li>
-                            ))}
-                          </ol>
+
+                        <div className="grid gap-3 lg:grid-cols-2">
+                          <div className="rounded-lg bg-background/80 p-3">
+                            <p className="font-medium">Social Accounts</p>
+                            {socialAccountCards.length ? (
+                              <div className="mt-2 space-y-2">
+                                {socialAccountCards.map((account) => (
+                                  <div key={`${account.platform}-${account.url}`} className="rounded-lg border bg-muted/20 p-2">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <p className="font-medium">
+                                        {cleanText(account.platform, "Social")} {cleanText(account.handle, "") ? `/ @${cleanText(account.handle, "")}` : ""}
+                                      </p>
+                                      <Badge variant="outline">{researchSourceLabel(cleanText(account.source_type, "public_profile"))}</Badge>
+                                    </div>
+                                    <p className="mt-1 break-all text-xs text-muted-foreground">{cleanText(account.url, "URL not captured")}</p>
+                                    <div className="mt-2 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
+                                      <span>Followers: {metricValue(account.followers)}</span>
+                                      <span>Following: {metricValue(account.following)}</span>
+                                      <span>Posts: {metricValue(account.posts)}</span>
+                                      <span>Reviewed: {metricValue(account.recent_posts_reviewed)}</span>
+                                      <span>Avg likes: {metricValue(account.average_likes)}</span>
+                                      <span>Avg comments: {metricValue(account.average_comments)}</span>
+                                    </div>
+                                    <p className="mt-2 text-xs text-muted-foreground">
+                                      Comments: {asStringArrayLoose(account.comment_themes).join(" / ") || "Not captured"}
+                                    </p>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                      Owner replies: {cleanText(account.user_response_behavior, "Not captured")}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="mt-2 text-muted-foreground">No social accounts captured yet.</p>
+                            )}
+                          </div>
+
+                          <div className="space-y-3">
+                            <div className="rounded-lg bg-background/80 p-3">
+                              <p className="font-medium">Website</p>
+                              <p className="mt-1 break-all text-xs text-muted-foreground">
+                                {cleanText(websitePresenceCard.url, websitePresenceCard.has_website ? "URL not captured" : "No website captured")}
+                              </p>
+                              <p className="mt-2 text-xs">Pages reviewed: {metricValue(websitePresenceCard.pages_reviewed)}</p>
+                              <p className="mt-2 text-xs text-muted-foreground">
+                                Messaging: {asStringArrayLoose(websitePresenceCard.messaging_observed).join(" / ") || "Not captured"}
+                              </p>
+                              <p className="mt-2 text-xs text-muted-foreground">
+                                Products/services: {asStringArrayLoose(websitePresenceCard.products_or_services_observed).join(", ") || "Not captured"}
+                              </p>
+                            </div>
+
+                            <div className="rounded-lg bg-background/80 p-3">
+                              <p className="font-medium">How We Help Scale</p>
+                              <p className="mt-2 text-muted-foreground">
+                                {cleanText(offerScaleCard.recommended_5x_focus, "Confirm baseline metrics, then build the 90-day 5x growth plan.")}
+                              </p>
+                              <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-muted-foreground">
+                                {asStringArrayLoose(offerScaleCard.how_we_can_help_scale).map((item) => (
+                                  <li key={item}>{item}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid gap-3 md:grid-cols-3">
+                          <div className="rounded-lg bg-background/80 p-3">
+                            <p className="text-xs font-medium text-muted-foreground">Observed Products / Services</p>
+                            <p className="mt-1 text-xs">{asStringArrayLoose(offerScaleCard.observed_products_or_services).join(", ") || "Not captured"}</p>
+                          </div>
+                          <div className="rounded-lg bg-background/80 p-3">
+                            <p className="text-xs font-medium text-muted-foreground">Current Growth Activity</p>
+                            <p className="mt-1 text-xs">{asStringArrayLoose(offerScaleCard.current_growth_activity).join(" / ") || "Not captured"}</p>
+                          </div>
+                          <div className="rounded-lg bg-background/80 p-3">
+                            <p className="text-xs font-medium text-muted-foreground">First 30 Days</p>
+                            <ol className="mt-1 list-decimal space-y-1 pl-4 text-xs">
+                              {asStringArrayLoose(offerScaleCard.first_30_days).map((item) => (
+                                <li key={item}>{item}</li>
+                              ))}
+                            </ol>
+                          </div>
+                        </div>
+
+                        {[
+                          ...asStringArrayLoose(socialPresenceCard.missing_or_unverified_accounts),
+                          ...asStringArrayLoose(websitePresenceCard.data_gaps),
+                          ...asStringArrayLoose(offerScaleCard.data_gaps),
+                        ].length ? (
+                          <div className="rounded-lg border border-dashed bg-background/80 p-3">
+                            <p className="text-xs font-medium text-muted-foreground">Still Need To Verify</p>
+                            <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-muted-foreground">
+                              {[
+                                ...asStringArrayLoose(socialPresenceCard.missing_or_unverified_accounts),
+                                ...asStringArrayLoose(websitePresenceCard.data_gaps),
+                                ...asStringArrayLoose(offerScaleCard.data_gaps),
+                              ].slice(0, 12).map((gap) => (
+                                <li key={gap}>{gap}</li>
+                              ))}
+                            </ul>
+                          </div>
                         ) : null}
+                      </section>
+                    ) : (
+                      <section className="rounded-xl border border-dashed bg-muted/20 p-3 text-sm text-muted-foreground">
+                        Rerun Signal Research to generate the simplified 5x Growth Snapshot.
+                      </section>
+                    )}
+
+                    {Object.keys(intelligenceQualityCard).length ? (
+                      <section className="rounded-xl border bg-muted/20 p-3 text-sm">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <p className="font-medium">Evidence Confidence</p>
+                            <p className="mt-1 leading-6 text-muted-foreground">
+                              {cleanText(intelligenceQualityCard.source_quality_summary, "No quality summary generated yet.")}
+                            </p>
+                          </div>
+                          <Badge variant={cleanText(intelligenceQualityCard.source_strength, "low") === "high" ? "default" : "outline"}>
+                            {statusLabel(cleanText(intelligenceQualityCard.source_strength, "low"))} source strength
+                          </Badge>
+                        </div>
+                        <div className="mt-3 grid gap-2 md:grid-cols-3">
+                          <div className="rounded-lg bg-background/70 p-2">
+                            <p className="text-xs text-muted-foreground">Products/services</p>
+                            <p className="text-lg font-semibold">{metricPercent(intelligenceQualityCard.product_service_confidence)}</p>
+                          </div>
+                          <div className="rounded-lg bg-background/70 p-2">
+                            <p className="text-xs text-muted-foreground">Audience reaction</p>
+                            <p className="text-lg font-semibold">{metricPercent(intelligenceQualityCard.audience_reaction_confidence)}</p>
+                          </div>
+                          <div className="rounded-lg bg-background/70 p-2">
+                            <p className="text-xs text-muted-foreground">Buy factors</p>
+                            <p className="text-lg font-semibold">{metricPercent(intelligenceQualityCard.buy_factor_confidence)}</p>
+                          </div>
+                        </div>
                       </section>
                     ) : null}
 
-                    <section className="grid gap-3 md:grid-cols-2">
+                    <details className="rounded-xl border bg-background/70 p-3 text-sm">
+                      <summary className="cursor-pointer font-medium">Detailed agent outputs</summary>
+                      {Object.keys(strategicSummaryCard).length ? (
+                        <section className="mt-3 rounded-xl border bg-muted/20 p-3">
+                          <p className="font-medium">Internal Strategy Brief</p>
+                          <p className="mt-2 leading-6 text-muted-foreground">
+                            {cleanText(strategicSummaryCard.strategist_summary, "No strategist summary generated yet.")}
+                          </p>
+                          <div className="mt-3 grid gap-2 md:grid-cols-3">
+                            <div className="rounded-lg bg-background/70 p-2">
+                              <p className="text-xs text-muted-foreground">Top opportunity</p>
+                              <p className="text-sm">{cleanText(strategicSummaryCard.top_opportunity, "Not available")}</p>
+                            </div>
+                            <div className="rounded-lg bg-background/70 p-2">
+                              <p className="text-xs text-muted-foreground">Top risk</p>
+                              <p className="text-sm">{cleanText(strategicSummaryCard.top_risk, "Not available")}</p>
+                            </div>
+                            <div className="rounded-lg bg-background/70 p-2">
+                              <p className="text-xs text-muted-foreground">Recommended priority</p>
+                              <p className="text-sm">{cleanText(strategicSummaryCard.recommended_priority, "Not available")}</p>
+                            </div>
+                          </div>
+                        </section>
+                      ) : null}
+                    <section className="mt-3 grid gap-3 md:grid-cols-2">
                       <div className="rounded-xl border bg-background/70 p-3 text-sm">
                         <p className="font-medium">Brand Architecture</p>
                         <p className="mt-2 text-muted-foreground">{cleanText(brandArchitectureCard.brand_architecture_notes, "No brand architecture notes yet.")}</p>
@@ -1970,6 +2469,7 @@ export default function Audits() {
                         ) : null}
                       </div>
                     </section>
+                    </details>
 
                     <section className="rounded-xl border bg-muted/20 p-3 text-sm">
                       <p className="font-medium">Data sources used</p>
@@ -2108,25 +2608,47 @@ export default function Audits() {
                 <FreeAuditReportPreview report={previewPayload.report} />
               ) : null}
 
-              {previewPayload.emailHtml || previewPayload.report ? (
+              {selectedEmailPreviewHtml || previewPayload.report ? (
                 <div className="rounded-2xl border bg-card p-4">
-                  <div className="mb-3 flex items-center gap-2 font-semibold">
-                    <Send className="h-4 w-4 text-gold" />
-                    Next: Email Preview
+                  <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 font-semibold">
+                        <Send className="h-4 w-4 text-gold" />
+                        Email Preview
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Send exactly the email shown here. Audit Email includes the PDF; Strategy Session CTA Only sends no attachment.
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">Subject: {selectedEmailSubject}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={emailPreviewMode === "audit_report" ? "default" : "outline"}
+                        onClick={() => setEmailPreviewMode("audit_report")}
+                      >
+                        Audit Email
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={emailPreviewMode === "strategy_session_cta" ? "default" : "outline"}
+                        onClick={() => setEmailPreviewMode("strategy_session_cta")}
+                      >
+                        Strategy Session CTA Only
+                      </Button>
+                    </div>
                   </div>
                   <iframe
-                    title="Client email preview"
-                    srcDoc={
-                      previewPayload.emailHtml ||
-                      (previewPayload.report
-                        ? fallbackEmailPreview(previewPayload.report, audioBrief)
-                        : "")
-                    }
+                    title={emailPreviewMode === "strategy_session_cta" ? "Strategy Session CTA email preview" : "Audit email preview"}
+                    srcDoc={selectedEmailPreviewHtml}
                     className="h-96 w-full rounded-xl border bg-white"
                   />
                 </div>
               ) : null}
 
+              {showAudioSection ? (
               <div className="rounded-2xl border bg-card p-4">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div>
@@ -2356,6 +2878,7 @@ export default function Audits() {
                   </div>
                 )}
               </div>
+              ) : null}
             </div>
             )
           ) : (
@@ -2422,12 +2945,11 @@ export default function Audits() {
                     previewPayload?.report?.auditId &&
                     sendReport.mutate({
                       auditId: previewPayload.report.auditId,
-                      includeAudio: true,
+                      includeAudio: emailPreviewMode === "audit_report" && Boolean(audioBrief?.audioUrl && audioApproved !== false),
+                      emailType: emailPreviewMode,
                     })}
                   disabled={
                     !previewPayload?.report?.auditId ||
-                    !audioBrief?.audioUrl ||
-                    audioApproved === false ||
                     sendReport.isPending
                   }
                 >
@@ -2436,7 +2958,13 @@ export default function Audits() {
                   ) : (
                     <Send className="mr-2 h-4 w-4" />
                   )}
-                  {sendReport.isPending ? "Sending..." : "Send PDF + Audio"}
+                  {sendReport.isPending
+                    ? "Sending..."
+                    : emailPreviewMode === "strategy_session_cta"
+                      ? "Send Strategy Session CTA"
+                      : audioBrief?.audioUrl && audioApproved !== false
+                        ? "Send Audit Email + Audio"
+                        : "Send Audit Email"}
                 </Button>
               </>
             )}
