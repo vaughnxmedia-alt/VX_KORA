@@ -52,6 +52,7 @@ import {
   type FreeAuditReportPreviewData,
   type FreeAuditReportWarning,
 } from "@/features/audit-visuals/FreeAuditReportPreview";
+import { AuditPdfPreviewPanel } from "@/features/audit-visuals/AuditPdfPreviewPanel";
 import {
   buildAuditIntakeFieldRows,
   followUpShortLabel,
@@ -2048,7 +2049,7 @@ export default function Audits() {
       ) : null}
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-h-[92vh] w-[calc(100vw-2rem)] max-w-6xl overflow-y-auto sm:w-full">
+        <DialogContent className="max-h-[92vh] w-[calc(100vw-2rem)] max-w-6xl overflow-x-hidden overflow-y-auto sm:w-full">
           <DialogHeader>
             <DialogTitle>{previewIsGuide ? "Guide email preview" : "Audit PDF Preview"}</DialogTitle>
             <DialogDescription>
@@ -2542,40 +2543,40 @@ export default function Audits() {
                       <p className="font-medium">Findings generated</p>
                       <div className="max-h-96 space-y-2 overflow-y-auto pr-1">
                         {evidenceReview.findings.map((finding) => (
-                          <div key={finding.id} className="rounded-xl border bg-background/70 p-3 text-sm">
+                          <div key={finding.id} className="overflow-hidden rounded-xl border bg-background/70 p-3 text-sm">
                             {(() => {
                               const metadata = asLooseRecord(finding.metadata);
                               return (
                                 <>
                                   <div className="flex flex-wrap items-start justify-between gap-2">
-                                    <div>
-                                      <p className="font-medium">{finding.finding_title}</p>
+                                    <div className="min-w-0">
+                                      <p className="break-words font-medium">{finding.finding_title}</p>
                                       <p className="text-xs text-muted-foreground">
                                         Category: {statusLabel(finding.finding_category)} | Severity: {statusLabel(finding.severity)} | Agent: {cleanText(finding.produced_by_agent || metadata.produced_by_agent, "Research Agent")}
                                       </p>
                                     </div>
                                     {finding.report_ready ? <Badge>Approved</Badge> : <Badge variant="outline">Pending review</Badge>}
                                   </div>
-                                  <p className="mt-2 leading-6 text-muted-foreground">
+                                  <p className="mt-2 break-words leading-6 text-muted-foreground">
                                     {cleanAdminCopy(cleanText(finding.diagnosis || metadata.diagnosis, finding.finding_summary))}
                                   </p>
-                                  <p className="mt-2 text-xs text-muted-foreground">
+                                  <p className="mt-2 break-words text-xs leading-5 text-muted-foreground sm:text-sm sm:leading-6">
                                     <span className="font-medium text-foreground">Evidence summary:</span>{" "}
                                     {cleanAdminCopy(cleanText(finding.evidence_summary || metadata.evidence_summary, "Not provided"))}
                                   </p>
-                                  <p className="mt-1 text-xs text-muted-foreground">
+                                  <p className="mt-1 break-words text-xs leading-5 text-muted-foreground sm:text-sm sm:leading-6">
                                     <span className="font-medium text-foreground">Business implication:</span>{" "}
                                     {cleanText(finding.business_implication || metadata.business_implication, "Not provided")}
                                   </p>
-                                  <p className="mt-1 text-xs text-muted-foreground">
+                                  <p className="mt-1 break-words text-xs leading-5 text-muted-foreground sm:text-sm sm:leading-6">
                                     <span className="font-medium text-foreground">Revenue implication:</span>{" "}
                                     {cleanText(finding.revenue_implication || metadata.revenue_implication, "Not provided")}
                                   </p>
-                                  <p className="mt-1 text-xs text-muted-foreground">
+                                  <p className="mt-1 break-words text-xs leading-5 text-muted-foreground sm:text-sm sm:leading-6">
                                     <span className="font-medium text-foreground">Audience implication:</span>{" "}
                                     {cleanText(finding.audience_implication || metadata.audience_implication, "Not provided")}
                                   </p>
-                                  <p className="mt-2 text-xs font-medium">Next move: {finding.recommended_action}</p>
+                                  <p className="mt-2 break-words text-xs font-medium leading-5 sm:text-sm sm:leading-6">Next move: {finding.recommended_action}</p>
                                 </>
                               );
                             })()}
@@ -2593,17 +2594,14 @@ export default function Audits() {
                 )}
               </div>
 
-              {showPdfPreview && pdfPreviewUrl ? (
-                <object
-                  title={`${previewPayload.report?.businessName ?? "Audit"} PDF preview`}
-                  data={pdfPreviewUrl}
-                  type="application/pdf"
-                  className="h-[64vh] w-full rounded-2xl border bg-muted"
-                >
-                  <div className="flex h-full items-center justify-center p-6 text-center text-sm text-muted-foreground">
-                    PDF preview could not be embedded. Use Download PDF to open the generated file.
-                  </div>
-                </object>
+              {showPdfPreview && pdfPreviewUrl && previewPayload.report ? (
+                <AuditPdfPreviewPanel
+                  pdfUrl={pdfPreviewUrl}
+                  title={`${previewPayload.report.businessName} PDF preview`}
+                  filename={previewPayload.filename || previewPayload.report.filename || "audit-diagnosis.pdf"}
+                  report={previewPayload.report}
+                  onDownload={handleDownloadPreview}
+                />
               ) : previewPayload.report ? (
                 <FreeAuditReportPreview report={previewPayload.report} />
               ) : null}
