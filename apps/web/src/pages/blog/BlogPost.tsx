@@ -6,6 +6,7 @@ import { Calendar, Clock, ArrowLeft, ArrowRight, User, Share2, Bookmark, Eye, He
 import { supabase } from "@/integrations/supabase/client";
 import MDEditor from '@uiw/react-md-editor';
 import { useToast } from "@/components/ui/use-toast";
+import { BlogCoverImage } from "@/components/blog/BlogCoverImage";
 import rehypeSlug from 'rehype-slug';
 import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import rehypeSanitize from "rehype-sanitize";
@@ -608,18 +609,18 @@ const BlogPost = () => {
 
       {/* Cover Image with Gradient Overlay */}
       {post.cover_image_url && (
-        <div className="relative w-full overflow-hidden aspect-[940/788] sm:aspect-auto sm:h-[400px] md:h-[480px]">
-          <img
-            src={post.cover_image_url}
-            alt={post.title}
-            className="absolute inset-0 h-full w-full object-cover object-center"
-          />
+        <BlogCoverImage
+          src={post.cover_image_url}
+          alt={post.title}
+          variant="article"
+          priority
+        >
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
-        </div>
+        </BlogCoverImage>
       )}
 
       {/* Main Content Area */}
-      <article className={`relative ${post.cover_image_url ? '-mt-20 sm:-mt-32' : 'pt-16'}`}>
+      <article className={`relative ${post.cover_image_url ? '-mt-16 sm:-mt-24 md:-mt-32' : 'pt-16'}`}>
         
         {/* Article Header */}
         <header className="blog-editorial-container text-center mb-16 relative z-10">
@@ -859,20 +860,17 @@ const BlogPost = () => {
                     )
                   }
                 >
-                 <div className="aspect-[940/788] rounded-xl overflow-hidden bg-muted/30 mb-4 relative shadow-sm">
-                   {relatedPost.cover_image_url ? (
-                     <img 
-                       src={relatedPost.cover_image_url} 
-                       alt={relatedPost.title}
-                       className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                     />
-                   ) : (
-                     <div className="absolute inset-0 bg-gradient-to-br from-secondary to-muted dark:from-background dark:to-muted group-hover:scale-105 transition-transform duration-500" />
-                   )}
-                    <Badge variant="secondary" className="absolute top-3 left-3 bg-background/80 backdrop-blur-sm">
+                 <BlogCoverImage
+                   src={relatedPost.cover_image_url}
+                   alt={relatedPost.title}
+                   variant="related"
+                   hoverZoom
+                   className="mb-4 rounded-xl shadow-sm"
+                 >
+                    <Badge variant="secondary" className="absolute left-3 top-3 bg-background/80 backdrop-blur-sm">
                       {relatedPost.category}
                     </Badge>
-                  </div>
+                  </BlogCoverImage>
                   
                   <h3 className="text-lg font-bold text-primary mb-2 group-hover:text-gold-dark transition-colors line-clamp-2">
                     {relatedPost.title}

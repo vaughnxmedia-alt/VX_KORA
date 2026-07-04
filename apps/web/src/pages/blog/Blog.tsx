@@ -7,6 +7,7 @@ import { Clock, ArrowRight, X, User, Flame, Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { FeaturedInsightsCarousel } from "@/features/blog/FeaturedInsightsCarousel";
+import { BlogCoverImage } from "@/components/blog/BlogCoverImage";
 import { deriveBriefHomepageLayout } from "@/lib/brief-homepage-promotion";
 import { filterLiveBriefPosts } from "@/lib/brief-listing";
 import { normalizeBlogPostCategory, GUIDES_CATEGORY_NAME } from "@/lib/blog-categories";
@@ -406,21 +407,19 @@ const Blog = () => {
                 </span>
               </div>
               <div className="group cursor-pointer" onClick={() => openBriefPost(editorsPick)}>
-                <div className="rounded-xl sm:rounded-2xl overflow-hidden bg-muted relative mb-4 sm:mb-6 shadow-xl shadow-primary/10 dark:shadow-none aspect-[940/788] w-full">
-                  {editorsPick.cover_image_url ? (
-                    <img
-                      src={editorsPick.cover_image_url}
-                      alt={editorsPick.title}
-                      className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700"
-                    />
-                  ) : (
-                    <div className="absolute inset-0 bg-muted" />
-                  )}
+                <BlogCoverImage
+                  src={editorsPick.cover_image_url}
+                  alt={editorsPick.title}
+                  variant="hero"
+                  hoverZoom
+                  priority
+                  className="mb-4 rounded-xl shadow-xl shadow-primary/10 dark:shadow-none sm:mb-6 sm:rounded-2xl"
+                >
                   <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 via-transparent to-accent/10" />
-                  <Badge className="absolute top-3 left-3 sm:top-6 sm:left-6 text-xs sm:text-sm py-1 sm:py-1.5 px-2.5 sm:px-4 shadow-lg backdrop-blur-md bg-background/90 text-foreground hover:bg-background/100 z-10 border-gold/30">
+                  <Badge className="absolute top-3 left-3 z-10 border-gold/30 bg-background/90 px-2.5 py-1 text-xs text-foreground shadow-lg backdrop-blur-md hover:bg-background/100 sm:top-6 sm:left-6 sm:px-4 sm:py-1.5 sm:text-sm">
                     {editorsPick.category}
                   </Badge>
-                </div>
+                </BlogCoverImage>
                 <div className="space-y-3 sm:space-y-4">
                   <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold leading-[1.1] text-primary group-hover:text-gold-dark transition-colors">
                     {editorsPick.title}
@@ -516,23 +515,18 @@ const Blog = () => {
                   className="group cursor-pointer"
                   onClick={() => openBriefPost(article)}
                 >
-                  <div className="aspect-[940/788] rounded-xl sm:rounded-2xl overflow-hidden bg-muted/30 relative mb-3 sm:mb-4 border shadow-sm group-hover:shadow-md transition-all duration-300">
-                    <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 via-transparent to-accent/5 group-hover:scale-105 transition-transform duration-500" />
-                    
-                    {article.cover_image_url ? (
-                      <img
-                        src={article.cover_image_url}
-                        alt={article.title}
-                        className="absolute inset-0 object-cover object-center w-full h-full group-hover:scale-105 transition-transform duration-500"
-                      />
-                    ) : (
-                      <div className="absolute inset-0 bg-muted" />
-                    )}
-                    
-                    <Badge className="absolute top-3 left-3 sm:top-4 sm:left-4 text-xs shadow-sm backdrop-blur-md bg-background/90 text-foreground hover:bg-background/100 border-gold/30">
+                  <BlogCoverImage
+                    src={article.cover_image_url}
+                    alt={article.title}
+                    variant="card"
+                    hoverZoom
+                    className="mb-3 rounded-xl border shadow-sm transition-all duration-300 group-hover:shadow-md sm:mb-4 sm:rounded-2xl"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 via-transparent to-accent/5" />
+                    <Badge className="absolute left-3 top-3 z-10 border-gold/30 bg-background/90 text-xs text-foreground shadow-sm backdrop-blur-md hover:bg-background/100 sm:left-4 sm:top-4">
                       {article.category}
                     </Badge>
-                  </div>
+                  </BlogCoverImage>
                   
                   <h3 className="text-lg sm:text-xl font-bold text-primary group-hover:text-gold-dark transition-colors leading-tight mb-1.5 sm:mb-2">{article.title}</h3>
                   <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed mb-2 sm:mb-0">{article.description}</p>

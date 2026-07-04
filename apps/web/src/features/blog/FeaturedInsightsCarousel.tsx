@@ -7,6 +7,7 @@ import {
   CarouselItem,
   type CarouselApi,
 } from "@/components/ui/carousel";
+import { BlogCoverImage } from "@/components/blog/BlogCoverImage";
 import type { BriefPromotionPost } from "@/lib/brief-homepage-promotion";
 import { cn } from "@/lib/utils";
 
@@ -88,17 +89,13 @@ export function FeaturedInsightsCarousel({
           {slides.map((slide) => (
             <CarouselItem key={`${slide.category}-${slide.article.id}`} className="pl-0">
               <article className="overflow-hidden">
-                <div className="relative aspect-[940/788] w-full overflow-hidden rounded-xl bg-muted sm:rounded-2xl">
-                  {slide.article.cover_image_url ? (
-                    <img
-                      src={slide.article.cover_image_url}
-                      alt={slide.article.title}
-                      className="absolute inset-0 h-full w-full object-cover object-center"
-                    />
-                  ) : (
-                    <div className="absolute inset-0 bg-gradient-to-br from-primary/15 via-muted to-gold/10" />
-                  )}
-
+                <BlogCoverImage
+                  src={slide.article.cover_image_url}
+                  alt={slide.article.title}
+                  variant="carousel"
+                  priority
+                  className="rounded-xl sm:rounded-2xl"
+                >
                   {slides.length > 1 && (
                     <>
                       <Button
@@ -123,7 +120,7 @@ export function FeaturedInsightsCarousel({
                       </Button>
                     </>
                   )}
-                </div>
+                </BlogCoverImage>
 
                 <div className="px-1 pt-6 text-center sm:px-2 sm:pt-8">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-gold-dark">
