@@ -865,6 +865,11 @@ const BlogPost = () => {
                    alt={relatedPost.title}
                    variant="related"
                    hoverZoom
+                   onClick={() =>
+                     navigate(
+                       `/the-brief/${encodeURIComponent(buildBlogPathSegment(relatedPost))}`,
+                     )
+                   }
                    className="mb-4 rounded-xl shadow-sm"
                  >
                     <Badge variant="secondary" className="absolute left-3 top-3 bg-background/80 backdrop-blur-sm">

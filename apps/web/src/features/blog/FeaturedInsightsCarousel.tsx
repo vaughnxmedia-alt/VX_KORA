@@ -94,6 +94,8 @@ export function FeaturedInsightsCarousel({
                   alt={slide.article.title}
                   variant="carousel"
                   priority
+                  hoverZoom
+                  onClick={() => onReadArticle(slide.article)}
                   className="rounded-xl sm:rounded-2xl"
                 >
                   {slides.length > 1 && (
@@ -104,7 +106,10 @@ export function FeaturedInsightsCarousel({
                         size="icon"
                         aria-label="Previous featured insight"
                         className="absolute left-2 top-1/2 z-10 h-9 w-9 -translate-y-1/2 rounded-full border-background/50 bg-background/90 shadow-md backdrop-blur-sm hover:bg-background sm:left-4 sm:h-10 sm:w-10"
-                        onClick={() => api?.scrollPrev()}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          api?.scrollPrev();
+                        }}
                       >
                         <ArrowLeft className="h-4 w-4" />
                       </Button>
@@ -114,7 +119,10 @@ export function FeaturedInsightsCarousel({
                         size="icon"
                         aria-label="Next featured insight"
                         className="absolute right-2 top-1/2 z-10 h-9 w-9 -translate-y-1/2 rounded-full border-background/50 bg-background/90 shadow-md backdrop-blur-sm hover:bg-background sm:right-4 sm:h-10 sm:w-10"
-                        onClick={() => api?.scrollNext()}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          api?.scrollNext();
+                        }}
                       >
                         <ArrowRight className="h-4 w-4" />
                       </Button>

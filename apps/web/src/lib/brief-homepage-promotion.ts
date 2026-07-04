@@ -13,6 +13,9 @@ export type FeaturedInsightSlot = {
   article: BriefPromotionPost | null;
 };
 
+/** Maximum articles shown in the Trending section on The Brief. */
+export const MAX_TRENDING_ARTICLES = 3;
+
 function publishInstantMs(p: BriefPromotionPost): number {
   if (p.publish_scheduled_at) return new Date(p.publish_scheduled_at).getTime();
   return new Date(p.published_date).getTime();
@@ -119,12 +122,14 @@ export function deriveBriefHomepageLayout<T extends BriefPromotionPost>(
   const inCategory = (article: T) =>
     selectedCategory === "All" || article.category === selectedCategory;
 
-  const trendingArticles = live.filter(
-    (article) =>
-      inCategory(article) &&
-      article.promo_trending &&
-      !excludeIds.has(article.id),
-  );
+  const trendingArticles = live
+    .filter(
+      (article) =>
+        inCategory(article) &&
+        article.promo_trending &&
+        !excludeIds.has(article.id),
+    )
+    .slice(0, MAX_TRENDING_ARTICLES);
 
   for (const article of trendingArticles) {
     excludeIds.add(article.id);

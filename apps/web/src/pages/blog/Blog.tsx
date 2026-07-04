@@ -413,6 +413,7 @@ const Blog = () => {
                   variant="hero"
                   hoverZoom
                   priority
+                  onClick={() => openBriefPost(editorsPick)}
                   className="mb-4 rounded-xl shadow-xl shadow-primary/10 dark:shadow-none sm:mb-6 sm:rounded-2xl"
                 >
                   <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 via-transparent to-accent/10" />
@@ -520,6 +521,7 @@ const Blog = () => {
                     alt={article.title}
                     variant="card"
                     hoverZoom
+                    onClick={() => openBriefPost(article)}
                     className="mb-3 rounded-xl border shadow-sm transition-all duration-300 group-hover:shadow-md sm:mb-4 sm:rounded-2xl"
                   >
                     <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 via-transparent to-accent/5" />

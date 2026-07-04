@@ -28,6 +28,7 @@ type BlogCoverImageProps = {
   imageClassName?: string;
   hoverZoom?: boolean;
   priority?: boolean;
+  onClick?: () => void;
   children?: ReactNode;
 };
 
@@ -43,12 +44,21 @@ export function BlogCoverImage({
   imageClassName,
   hoverZoom = false,
   priority = false,
+  onClick,
   children,
 }: BlogCoverImageProps) {
   const hasImage = Boolean(src?.trim());
+  const isInteractive = Boolean(onClick);
 
   return (
-    <div className={cn(getBlogCoverFrameClass(variant), "bg-muted", className)}>
+    <div
+      className={cn(
+        getBlogCoverFrameClass(variant),
+        "bg-muted",
+        isInteractive && "group/cover",
+        className,
+      )}
+    >
       {hasImage ? (
         <img
           src={src!}
@@ -64,7 +74,11 @@ export function BlogCoverImage({
           }
           className={cn(
             "absolute inset-0 h-full w-full object-cover object-center",
-            hoverZoom && "transition-transform duration-500 group-hover:scale-105",
+            hoverZoom &&
+              "transition-transform duration-500 group-hover:scale-105 group-hover/cover:scale-105",
+            isInteractive &&
+              !hoverZoom &&
+              "transition-transform duration-500 group-hover/cover:scale-105",
             imageClassName,
           )}
         />
@@ -72,10 +86,24 @@ export function BlogCoverImage({
         <div
           className={cn(
             "absolute inset-0 bg-gradient-to-br from-primary/15 via-muted to-gold/10",
-            hoverZoom && "transition-transform duration-500 group-hover:scale-105",
+            hoverZoom &&
+              "transition-transform duration-500 group-hover:scale-105 group-hover/cover:scale-105",
+            isInteractive &&
+              !hoverZoom &&
+              "transition-transform duration-500 group-hover/cover:scale-105",
           )}
         />
       )}
+
+      {isInteractive && (
+        <button
+          type="button"
+          className="absolute inset-0 z-[1] cursor-pointer border-0 bg-transparent p-0"
+          aria-label={`Read article: ${alt}`}
+          onClick={onClick}
+        />
+      )}
+
       {children}
     </div>
   );
