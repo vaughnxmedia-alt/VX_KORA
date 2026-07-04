@@ -90,6 +90,7 @@ const CreativeHubPage = React.lazy(() =>
 const LogisticsPage = React.lazy(() => import('./pages/dashboard/LogisticsPage'));
 const IntelligenceFilters = React.lazy(() => import('./pages/dashboard/IntelligenceFilters'));
 const Sources = React.lazy(() => import('./pages/dashboard/Sources'));
+const SponsorshipDatabase = React.lazy(() => import('./pages/dashboard/SponsorshipDatabase'));
 const GetInspiredPage = React.lazy(() =>
   import('@/features/inspired/GetInspiredPage').then((module) => ({ default: module.GetInspiredPage })),
 );
@@ -272,6 +273,11 @@ createRoot(document.getElementById('root')!).render(
                     <Route path="sources" element={
                         <ProtectedRoute allowedRoles={['admin']}>
                           <Sources />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="sponsor-hub" element={
+                        <ProtectedRoute allowedRoles={['admin']}>
+                          <SponsorshipDatabase />
                         </ProtectedRoute>
                     } />
                 </Route>

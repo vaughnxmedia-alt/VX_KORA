@@ -1498,6 +1498,66 @@ export type Database = {
         }
         Relationships: []
       }
+      sponsors_database: {
+        Row: {
+          best_fit_for: string[]
+          business_name: string
+          contact_person: string | null
+          created_at: string
+          created_by: string | null
+          email: string | null
+          id: string
+          industry: string | null
+          interest_level: string
+          last_contact_date: string | null
+          location: string | null
+          next_follow_up_date: string | null
+          notes: string | null
+          phone: string | null
+          status: string
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          best_fit_for?: string[]
+          business_name: string
+          contact_person?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          industry?: string | null
+          interest_level?: string
+          last_contact_date?: string | null
+          location?: string | null
+          next_follow_up_date?: string | null
+          notes?: string | null
+          phone?: string | null
+          status?: string
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          best_fit_for?: string[]
+          business_name?: string
+          contact_person?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          industry?: string | null
+          interest_level?: string
+          last_contact_date?: string | null
+          location?: string | null
+          next_follow_up_date?: string | null
+          notes?: string | null
+          phone?: string | null
+          status?: string
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
       subscribers: {
         Row: {
           access_token: string | null
