@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
+import { Link } from "react-router-dom";
 import {
   Building2,
   Edit3,
   Handshake,
+  Inbox,
   MoreHorizontal,
   Plus,
   Search,
@@ -363,10 +365,18 @@ export default function SponsorshipDatabase() {
               nonprofit initiatives, and future strategic partnerships.
             </p>
           </div>
-          <Button onClick={openCreateDialog} className="shrink-0">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Sponsor
-          </Button>
+          <div className="flex flex-wrap gap-2 shrink-0">
+            <Button variant="outline" asChild>
+              <Link to="/dashboard/sponsor-requests">
+                <Inbox className="mr-2 h-4 w-4" />
+                Sponsor Requests
+              </Link>
+            </Button>
+            <Button onClick={openCreateDialog}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Sponsor
+            </Button>
+          </div>
         </div>
       </div>
 

@@ -64,6 +64,9 @@ verify_jwt = false
 [functions.free-audit-submit]
 verify_jwt = false
 
+[functions.sponsor-hub-request]
+verify_jwt = false
+
 [functions.free-audit-complete]
 verify_jwt = false
 

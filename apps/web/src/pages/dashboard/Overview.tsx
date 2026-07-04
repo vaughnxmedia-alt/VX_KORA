@@ -21,9 +21,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutDashboard, Megaphone, AlertCircle, TrendingUp, FileText } from "lucide-react";
+import { Link } from "react-router-dom";
+import { LayoutDashboard, Megaphone, AlertCircle, TrendingUp, FileText, Handshake } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -136,6 +138,19 @@ export default function Overview() {
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
+    },
+  });
+
+  const { data: pendingSponsorRequests = 0 } = useQuery({
+    queryKey: ["dashboard-pending-sponsor-requests"],
+    enabled: role === "admin",
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("sponsor_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending_review");
+      if (error) throw error;
+      return count ?? 0;
     },
   });
 
@@ -260,6 +275,26 @@ export default function Overview() {
           {role === "client" ? "Read-only dashboard." : "Operational intelligence at a glance."}
         </p>
       </div>
+
+      {role === "admin" && pendingSponsorRequests > 0 ? (
+        <Card className="border-gold/30 bg-gold/5 shadow-sm">
+          <CardContent className="flex flex-col gap-4 py-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 font-semibold text-primary">
+                <Handshake className="h-5 w-5 text-gold" />
+                New Strategic Sponsor Hub requests
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {pendingSponsorRequests} organization{pendingSponsorRequests === 1 ? "" : "s"} submitted a request to be
+                added to the Sponsor Hub and {pendingSponsorRequests === 1 ? "is" : "are"} pending review.
+              </p>
+            </div>
+            <Button asChild>
+              <Link to="/dashboard/sponsor-requests">Review Sponsor Requests</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {/* Top Metrics */}
       <section>

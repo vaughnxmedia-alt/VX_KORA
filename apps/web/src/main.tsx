@@ -91,6 +91,8 @@ const LogisticsPage = React.lazy(() => import('./pages/dashboard/LogisticsPage')
 const IntelligenceFilters = React.lazy(() => import('./pages/dashboard/IntelligenceFilters'));
 const Sources = React.lazy(() => import('./pages/dashboard/Sources'));
 const SponsorshipDatabase = React.lazy(() => import('./pages/dashboard/SponsorshipDatabase'));
+const SponsorRequests = React.lazy(() => import('./pages/dashboard/SponsorRequests'));
+const StrategicSponsorHubRequest = React.lazy(() => import('./pages/StrategicSponsorHubRequest'));
 const GetInspiredPage = React.lazy(() =>
   import('@/features/inspired/GetInspiredPage').then((module) => ({ default: module.GetInspiredPage })),
 );
@@ -185,6 +187,7 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="/kora" element={<KoraExternalRedirect />} />
                 <Route path="/kora/*" element={<KoraWildcardRedirect />} />
                 <Route path="/brand-blueprint" element={<BrandBlueprint />} />
+                <Route path="/strategic-sponsor-hub/request" element={<StrategicSponsorHubRequest />} />
                 <Route path="/payment" element={<Payment />} />
                 
                 {/* === DASHBOARD ROUTES === */}
@@ -278,6 +281,11 @@ createRoot(document.getElementById('root')!).render(
                     <Route path="sponsor-hub" element={
                         <ProtectedRoute allowedRoles={['admin']}>
                           <SponsorshipDatabase />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="sponsor-requests" element={
+                        <ProtectedRoute allowedRoles={['admin']}>
+                          <SponsorRequests />
                         </ProtectedRoute>
                     } />
                 </Route>

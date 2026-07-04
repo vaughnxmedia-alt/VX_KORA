@@ -1511,9 +1511,11 @@ export type Database = {
           interest_level: string
           last_contact_date: string | null
           location: string | null
+          logo_url: string | null
           next_follow_up_date: string | null
           notes: string | null
           phone: string | null
+          source_request_id: string | null
           status: string
           updated_at: string
           website: string | null
@@ -1530,9 +1532,11 @@ export type Database = {
           interest_level?: string
           last_contact_date?: string | null
           location?: string | null
+          logo_url?: string | null
           next_follow_up_date?: string | null
           notes?: string | null
           phone?: string | null
+          source_request_id?: string | null
           status?: string
           updated_at?: string
           website?: string | null
@@ -1549,9 +1553,98 @@ export type Database = {
           interest_level?: string
           last_contact_date?: string | null
           location?: string | null
+          logo_url?: string | null
           next_follow_up_date?: string | null
           notes?: string | null
           phone?: string | null
+          source_request_id?: string | null
+          status?: string
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
+      sponsor_requests: {
+        Row: {
+          additional_comments: string | null
+          admin_notified_at: string | null
+          annual_sponsorship_budget: string | null
+          business_name: string
+          city: string | null
+          community_initiatives: string | null
+          company_description: string | null
+          contact_name: string
+          created_at: string
+          email: string
+          geographic_areas_served: string | null
+          id: string
+          industry: string | null
+          job_title: string | null
+          linkedin: string | null
+          logo_url: string | null
+          phone: string | null
+          preferred_opportunities: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          sponsors_database_id: string | null
+          sponsorship_types: string[]
+          state: string | null
+          status: string
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          additional_comments?: string | null
+          admin_notified_at?: string | null
+          annual_sponsorship_budget?: string | null
+          business_name: string
+          city?: string | null
+          community_initiatives?: string | null
+          company_description?: string | null
+          contact_name: string
+          created_at?: string
+          email: string
+          geographic_areas_served?: string | null
+          id?: string
+          industry?: string | null
+          job_title?: string | null
+          linkedin?: string | null
+          logo_url?: string | null
+          phone?: string | null
+          preferred_opportunities?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sponsors_database_id?: string | null
+          sponsorship_types?: string[]
+          state?: string | null
+          status?: string
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          additional_comments?: string | null
+          admin_notified_at?: string | null
+          annual_sponsorship_budget?: string | null
+          business_name?: string
+          city?: string | null
+          community_initiatives?: string | null
+          company_description?: string | null
+          contact_name?: string
+          created_at?: string
+          email?: string
+          geographic_areas_served?: string | null
+          id?: string
+          industry?: string | null
+          job_title?: string | null
+          linkedin?: string | null
+          logo_url?: string | null
+          phone?: string | null
+          preferred_opportunities?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sponsors_database_id?: string | null
+          sponsorship_types?: string[]
+          state?: string | null
           status?: string
           updated_at?: string
           website?: string | null

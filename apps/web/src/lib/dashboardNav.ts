@@ -25,6 +25,7 @@ import {
   Truck,
   SearchCheck,
   Handshake,
+  Inbox,
 } from "lucide-react";
 
 export interface NavItem {
@@ -99,6 +100,13 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
         icon: Handshake,
         adminOnly: true,
       },
+      {
+        key: "sponsor-requests",
+        title: "Sponsor Requests",
+        url: "/dashboard/sponsor-requests",
+        icon: Inbox,
+        adminOnly: true,
+      },
     ],
   },
   {
@@ -129,6 +137,7 @@ export const ADMIN_ONLY_KEYS = [
   "sources",
   "strategy-session-calendar",
   "sponsor-hub",
+  "sponsor-requests",
 ];
 export const ADMIN_TAB_KEY = "admin";
 

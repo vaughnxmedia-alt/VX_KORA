@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Clock, ArrowLeft, ArrowRight, User, Share2, Bookmark, Eye, Heart, Sparkles } from "lucide-react";
+import { Calendar, Clock, ArrowLeft, ArrowRight, User, Share2, Bookmark, Eye, Heart, Sparkles, Handshake } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import MDEditor from '@uiw/react-md-editor';
 import { useToast } from "@/components/ui/use-toast";
@@ -44,6 +44,97 @@ const AUTHOR_PROFILE_IMAGES: Record<string, string> = {
 
 const getAuthorProfileImage = (authorName: string) =>
   AUTHOR_PROFILE_IMAGES[authorName.trim().toLowerCase()] ?? null;
+
+function isSponsorshipBlogPost(post: BlogPostType | null, routeParam?: string) {
+  if (!post) return false;
+  const segment = buildBlogPathSegment(post).toLowerCase();
+  const param = routeParam?.trim().toLowerCase().replace(/^\/+|\/+$/g, "") ?? "";
+  const title = post.title.toLowerCase();
+  return (
+    segment.includes("sponsorship-is-more-than-a-logo") ||
+    param.includes("sponsorship-is-more-than-a-logo") ||
+    title.includes("sponsorship is more than a logo")
+  );
+}
+
+function splitMarkdownAfterFirstBlock(content: string) {
+  const trimmed = content.trim();
+  const separator = trimmed.search(/\n\s*\n/);
+  if (separator === -1) {
+    return { first: trimmed, rest: "" };
+  }
+  return {
+    first: trimmed.slice(0, separator).trim(),
+    rest: trimmed.slice(separator).trim(),
+  };
+}
+
+function SponsorHubInlineCta({ onClick }: { onClick: () => void }) {
+  return (
+    <aside className="my-10 not-prose max-w-none">
+      <div className="relative overflow-hidden rounded-2xl border border-[#D8C28B]/25 bg-gradient-to-r from-[#F7F3EA]/90 via-white to-[#F7F3EA]/35 shadow-[0_10px_40px_rgba(10,26,53,0.05)]">
+        <div className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-[#E6C769] via-[#C59B3C] to-[#8C6C27]" />
+        <div className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-6 sm:py-5">
+          <div className="flex items-start gap-3.5 sm:items-center">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#D8C28B]/35 bg-[#F7F3EA]/80 text-[#8C6C27] shadow-sm">
+              <Handshake className="h-4 w-4" />
+            </div>
+            <p className="text-[0.95rem] leading-7 text-[hsl(220,20%,28%)]">
+              Want to be considered for future sponsorship opportunities?
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onClick}
+            className="shrink-0 rounded-full border-[#C59B3C]/45 bg-white/95 px-5 font-semibold text-primary shadow-sm hover:border-[#C59B3C] hover:bg-[#F7F3EA] hover:text-primary"
+          >
+            Request to Be Added
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function SponsorHubArticleCta({ onClick }: { onClick: () => void }) {
+  return (
+    <aside className="not-prose mt-16 max-w-none">
+      <div className="blog-section-break mb-10">
+        <span className="blog-section-break-dot" />
+      </div>
+      <div className="relative overflow-hidden rounded-[1.75rem] border border-[#D8C28B]/35 bg-[#0A1A35] text-white shadow-[0_24px_70px_rgba(10,26,53,0.16)]">
+        <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-[#E6C769]/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-8 -left-8 h-28 w-28 rounded-full bg-[#C59B3C]/10 blur-2xl" />
+        <div className="absolute bottom-0 left-0 h-1 w-full bg-gradient-to-r from-[#8C6C27] via-[#E6C769] to-[#C59B3C]" />
+        <div className="relative px-6 py-10 text-center sm:px-10 sm:py-12">
+          <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full border border-[#E6C769]/30 bg-[#E6C769]/10 text-[#E6C769]">
+            <Handshake className="h-5 w-5" />
+          </div>
+          <p className="text-[0.65rem] font-bold uppercase tracking-[0.32em] text-[#E6C769]">
+            Strategic Sponsor Hub
+          </p>
+          <h3 className="mx-auto mt-4 max-w-2xl font-serif text-2xl font-bold leading-tight text-white sm:text-[1.85rem] sm:leading-snug">
+            Interested in being included in JahKnowsPR Firm&apos;s Strategic Sponsor Hub?
+          </h3>
+          <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-white/72 sm:text-[0.98rem]">
+            Submit a request to be considered when sponsorship opportunities align with your organization&apos;s
+            interests and community focus.
+          </p>
+          <Button
+            size="lg"
+            onClick={onClick}
+            className="mt-8 rounded-full bg-gold px-8 py-6 text-base font-bold text-primary shadow-lg shadow-gold/25 transition-all hover:scale-[1.02] hover:bg-gold/90"
+          >
+            <Handshake className="mr-2 h-5 w-5" />
+            Request to Be Added to Our Sponsor Hub
+          </Button>
+        </div>
+      </div>
+    </aside>
+  );
+}
 
 // Comprehensive SEO function for individual blog post
 const updateBlogPostSEO = (post: BlogPostType) => {
@@ -468,6 +559,10 @@ const BlogPost = () => {
   }
 
   const authorProfileImage = getAuthorProfileImage(post.author_name);
+  const isSponsorPost = isSponsorshipBlogPost(post, id);
+  const sponsorRequestPath = "/strategic-sponsor-hub/request";
+  const markdownPlugins = [[rehypeSanitize], [rehypeSlug], [rehypeAutolinkHeadings, { behavior: "prepend" }]] as const;
+  const sponsorshipContent = isSponsorPost ? splitMarkdownAfterFirstBlock(post.content) : null;
 
   return (
     <div className="min-h-screen bg-background blog-editorial">
@@ -629,10 +724,27 @@ const BlogPost = () => {
             " 
             data-color-mode="light"
             onClick={handleMarkdownLinkClick}>
-            <MDEditor.Markdown 
-              source={post.content} 
-              rehypePlugins={[[rehypeSanitize], [rehypeSlug], [rehypeAutolinkHeadings, { behavior: 'prepend' }]]}
-            />
+            {isSponsorPost && sponsorshipContent?.rest ? (
+              <>
+                <MDEditor.Markdown
+                  source={sponsorshipContent.first}
+                  rehypePlugins={[...markdownPlugins]}
+                />
+                <SponsorHubInlineCta onClick={() => navigate(sponsorRequestPath)} />
+                <MDEditor.Markdown
+                  source={sponsorshipContent.rest}
+                  rehypePlugins={[...markdownPlugins]}
+                />
+              </>
+            ) : (
+              <MDEditor.Markdown
+                source={post.content}
+                rehypePlugins={[...markdownPlugins]}
+              />
+            )}
+            {isSponsorPost && !sponsorshipContent?.rest ? (
+              <SponsorHubInlineCta onClick={() => navigate(sponsorRequestPath)} />
+            ) : null}
           </div>
 
           {/* Gallery Section */}
@@ -655,6 +767,10 @@ const BlogPost = () => {
               </div>
             </div>
           )}
+
+          {isSponsorPost ? (
+            <SponsorHubArticleCta onClick={() => navigate(sponsorRequestPath)} />
+          ) : null}
 
           {/* Article End Treatment */}
           <div className="blog-article-end">
