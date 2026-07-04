@@ -87,7 +87,7 @@ function SponsorHubInlineCta({ onClick }: { onClick: () => void }) {
             variant="outline"
             size="sm"
             onClick={onClick}
-            className="shrink-0 rounded-full border-[#C59B3C]/45 bg-white/95 px-5 font-semibold text-primary shadow-sm hover:border-[#C59B3C] hover:bg-[#F7F3EA] hover:text-primary"
+            className="w-full shrink-0 rounded-full border-[#C59B3C]/45 bg-white/95 px-5 font-semibold text-primary shadow-sm hover:border-[#C59B3C] hover:bg-[#F7F3EA] hover:text-primary sm:w-auto"
           >
             Request to Be Added
             <ArrowRight className="ml-2 h-4 w-4" />
@@ -100,22 +100,22 @@ function SponsorHubInlineCta({ onClick }: { onClick: () => void }) {
 
 function SponsorHubArticleCta({ onClick }: { onClick: () => void }) {
   return (
-    <aside className="not-prose mt-16 max-w-none">
+    <aside className="not-prose mt-16 max-w-none min-w-0">
       <div className="blog-section-break mb-10">
         <span className="blog-section-break-dot" />
       </div>
-      <div className="relative overflow-hidden rounded-[1.75rem] border border-[#D8C28B]/35 bg-[#0A1A35] text-white shadow-[0_24px_70px_rgba(10,26,53,0.16)]">
+      <div className="relative w-full max-w-full overflow-hidden rounded-[1.75rem] border border-[#D8C28B]/35 bg-[#0A1A35] text-white shadow-[0_24px_70px_rgba(10,26,53,0.16)]">
         <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-[#E6C769]/20 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-8 -left-8 h-28 w-28 rounded-full bg-[#C59B3C]/10 blur-2xl" />
         <div className="absolute bottom-0 left-0 h-1 w-full bg-gradient-to-r from-[#8C6C27] via-[#E6C769] to-[#C59B3C]" />
-        <div className="relative px-6 py-10 text-center sm:px-10 sm:py-12">
+        <div className="relative px-4 py-8 text-center sm:px-10 sm:py-12">
           <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full border border-[#E6C769]/30 bg-[#E6C769]/10 text-[#E6C769]">
             <Handshake className="h-5 w-5" />
           </div>
           <p className="text-[0.65rem] font-bold uppercase tracking-[0.32em] text-[#E6C769]">
             Strategic Sponsor Hub
           </p>
-          <h3 className="mx-auto mt-4 max-w-2xl font-serif text-2xl font-bold leading-tight text-white sm:text-[1.85rem] sm:leading-snug">
+          <h3 className="mx-auto mt-4 max-w-2xl font-serif text-xl font-bold leading-tight text-white sm:text-[1.85rem] sm:leading-snug">
             Interested in being included in JahKnowsPR Firm&apos;s Strategic Sponsor Hub?
           </h3>
           <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-white/72 sm:text-[0.98rem]">
@@ -125,9 +125,9 @@ function SponsorHubArticleCta({ onClick }: { onClick: () => void }) {
           <Button
             size="lg"
             onClick={onClick}
-            className="mt-8 rounded-full bg-gold px-8 py-6 text-base font-bold text-primary shadow-lg shadow-gold/25 transition-all hover:scale-[1.02] hover:bg-gold/90"
+            className="mt-8 h-auto w-full max-w-full whitespace-normal rounded-full bg-gold px-4 py-4 text-sm font-bold leading-snug text-primary shadow-lg shadow-gold/25 transition-all hover:bg-gold/90 sm:w-auto sm:px-8 sm:py-6 sm:text-base sm:hover:scale-[1.02]"
           >
-            <Handshake className="mr-2 h-5 w-5" />
+            <Handshake className="mr-2 h-5 w-5 shrink-0" />
             Request to Be Added to Our Sponsor Hub
           </Button>
         </div>
