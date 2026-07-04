@@ -59,8 +59,15 @@ export function pickFeaturedInsightsByCategory<T extends BriefPromotionPost>(
     if (shufflePool.length > 0) {
       return {
         category,
-        article: pickRandom(shufflePool.sort(byPublishedDesc), random),
+        article: pickRandom(shufflePool, random),
       };
+    }
+
+    const featuredPool = inCategory.filter(
+      (article) => article.promo_featured ?? article.is_featured,
+    );
+    if (featuredPool.length > 0) {
+      return { category, article: [...featuredPool].sort(byFeaturePriority)[0]! };
     }
 
     const withPriority = inCategory.filter((article) => article.feature_priority != null);
@@ -70,6 +77,19 @@ export function pickFeaturedInsightsByCategory<T extends BriefPromotionPost>(
 
     return { category, article: [...inCategory].sort(byPublishedDesc)[0]! };
   });
+}
+
+/** Fisher–Yates shuffle so Featured Insights slide order varies on each page load. */
+export function shuffleFeaturedInsightSlots(
+  slots: FeaturedInsightSlot[],
+  random: () => number = Math.random,
+): FeaturedInsightSlot[] {
+  const copy = [...slots];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j]!, copy[i]!];
+  }
+  return copy;
 }
 
 export function deriveBriefHomepageLayout<T extends BriefPromotionPost>(
@@ -84,7 +104,10 @@ export function deriveBriefHomepageLayout<T extends BriefPromotionPost>(
   const editorsPick = showHomepagePromos ? pickEditorsPickHero(articles) : undefined;
 
   const featuredInsights = showHomepagePromos
-    ? pickFeaturedInsightsByCategory(articles, featuredInsightCategories, random)
+    ? shuffleFeaturedInsightSlots(
+        pickFeaturedInsightsByCategory(articles, featuredInsightCategories, random),
+        random,
+      )
     : [];
 
   const excludeIds = new Set<string>();

@@ -1,14 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Clock, ArrowRight, X, User, Flame, Sparkles, Star } from "lucide-react";
+import { Clock, ArrowRight, X, User, Flame, Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
+import { FeaturedInsightsCarousel } from "@/features/blog/FeaturedInsightsCarousel";
 import { deriveBriefHomepageLayout } from "@/lib/brief-homepage-promotion";
 import { filterLiveBriefPosts } from "@/lib/brief-listing";
-import { normalizeBlogPostCategory } from "@/lib/blog-categories";
+import { normalizeBlogPostCategory, GUIDES_CATEGORY_NAME } from "@/lib/blog-categories";
 import { useBlogCategories } from "@/hooks/useBlogCategories";
 import {
   buildBlogPathSegment,
@@ -132,6 +133,7 @@ const Blog = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const articlesPerPage = 6;
   const { categories: managedCategories } = useBlogCategories();
+  const homepageShuffleRandom = useRef(Math.random);
 
   const fetchBlogPosts = useCallback(async () => {
       const { data, error } = await supabase
@@ -193,10 +195,25 @@ const Blog = () => {
 
   const { editorsPick, featuredInsights, trendingArticles, gridArticles } = useMemo(
     () =>
-      deriveBriefHomepageLayout(articles, featuredInsightCategories, selectedCategory),
+      deriveBriefHomepageLayout(
+        articles,
+        featuredInsightCategories,
+        selectedCategory,
+        homepageShuffleRandom.current,
+      ),
     [articles, featuredInsightCategories, selectedCategory],
   );
+
+  const featuredInsightSlides = useMemo(
+    () =>
+      featuredInsights.flatMap((slot) =>
+        slot.article ? [{ category: slot.category, article: slot.article }] : [],
+      ),
+    [featuredInsights],
+  );
   const isAllCategory = selectedCategory === "All";
+  const isGuidesCategory = selectedCategory === GUIDES_CATEGORY_NAME;
+  const showEducationalSeries = isAllCategory || isGuidesCategory;
 
   const totalPages = Math.ceil(gridArticles.length / articlesPerPage);
   const paginatedArticles = gridArticles.slice(
@@ -236,6 +253,49 @@ const Blog = () => {
       element?.scrollIntoView({ behavior: 'smooth' });
     }
   };
+
+  const renderEducationalSeriesSection = (includeAnswers = false) => (
+    <div id="educational-series" className="mt-12 scroll-mt-24 space-y-8 sm:mt-16">
+      <div className="text-center">
+        <p className="text-sm font-semibold uppercase tracking-[0.25em] text-gold-dark">Educational Series</p>
+        <h2 className="mt-3 text-2xl font-bold tracking-tight text-primary sm:text-4xl">
+          Build the foundation before you build the brand<span className="text-gold">.</span>
+        </h2>
+      </div>
+
+      <section className="rounded-3xl border bg-[#F7F3EA] p-6 shadow-sm md:p-8">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <Badge variant="outline" className="border-gold/40 text-gold-dark">The Perfect Startup</Badge>
+            <h2 className="mt-3 text-2xl font-bold tracking-tight text-primary">Before the logo, before the launch, get the foundation right.</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+              Browse JahKnowsPR's state-by-state startup education series for founders building with structure, clarity, and confidence.
+            </p>
+          </div>
+          <Button onClick={() => navigate("/the-brief/the-perfect-startup")} className="shrink-0">
+            Browse State Guides
+          </Button>
+        </div>
+      </section>
+
+      <section className="rounded-3xl border bg-[#EAF3F7] p-6 shadow-sm md:p-8">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <Badge variant="outline" className="border-sky-500/40 text-sky-700">The Making of a Brand</Badge>
+            <h2 className="mt-3 text-2xl font-bold tracking-tight text-primary">Before the audience grows, make the brand clear.</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+              Read the JahKnowsPR brand-building series for founders shaping their presence, message, trust signals, and digital foundation.
+            </p>
+          </div>
+          <Button onClick={() => navigate(GUIDE_HUB_PATH)} className="shrink-0">
+            Browse Brand Guides
+          </Button>
+        </div>
+      </section>
+
+      {includeAnswers && renderAnswersSection()}
+    </div>
+  );
 
   const renderAnswersSection = () => (
     <section className="rounded-3xl border bg-muted/20 p-6 sm:p-8">
@@ -308,7 +368,7 @@ const Blog = () => {
       )}
 
       {/* Modern Hero Section with Split Layout */}
-      <section className="relative py-8 sm:py-12 lg:py-16 px-4 sm:px-6 overflow-hidden bg-secondary dark:bg-background border-b">
+      <section className="relative pt-8 pb-6 sm:pt-12 sm:pb-8 lg:pt-16 lg:pb-10 px-4 sm:px-6 overflow-hidden bg-secondary dark:bg-background border-b">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,hsl(45_70%_65%_/_0.08),transparent)]"></div>
         <div className="max-w-7xl mx-auto relative z-10">
           
@@ -346,12 +406,12 @@ const Blog = () => {
                 </span>
               </div>
               <div className="group cursor-pointer" onClick={() => openBriefPost(editorsPick)}>
-                <div className="rounded-xl sm:rounded-2xl overflow-hidden bg-muted relative mb-4 sm:mb-6 shadow-xl shadow-primary/10 dark:shadow-none aspect-[4/3] sm:aspect-[940/788] w-full">
+                <div className="rounded-xl sm:rounded-2xl overflow-hidden bg-muted relative mb-4 sm:mb-6 shadow-xl shadow-primary/10 dark:shadow-none aspect-[940/788] w-full">
                   {editorsPick.cover_image_url ? (
                     <img
                       src={editorsPick.cover_image_url}
                       alt={editorsPick.title}
-                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                      className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700"
                     />
                   ) : (
                     <div className="absolute inset-0 bg-muted" />
@@ -376,60 +436,21 @@ const Blog = () => {
         </div>
       </section>
 
-      {isAllCategory && featuredInsights.some((slot) => slot.article) && (
-        <section className="py-10 sm:py-14 px-4 sm:px-6 border-b bg-background">
+      {isAllCategory && featuredInsightSlides.length > 0 && (
+        <section className="pt-5 pb-10 sm:pt-6 sm:pb-12 px-4 sm:px-6 border-b bg-background">
           <div className="max-w-7xl mx-auto">
-            <div className="mb-8 sm:mb-10 text-center">
-              <div className="mb-2 flex items-center justify-center gap-2">
-                <Sparkles className="h-5 w-5 text-gold" />
-                <p className="text-sm font-semibold uppercase tracking-[0.25em] text-gold-dark">
-                  Featured Insights
-                </p>
-              </div>
-              <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-primary">
+            <div className="mb-6 sm:mb-8 text-center">
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-gold-dark">
+                Featured Insights
+              </p>
+              <h2 className="mt-3 text-2xl sm:text-4xl font-bold tracking-tight text-primary">
                 One standout from each lane<span className="text-gold">.</span>
               </h2>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5 sm:gap-6">
-              {featuredInsights.map((slot) => (
-                <div key={slot.category} className="min-h-[280px]">
-                  {slot.article ? (
-                    <div
-                      className="group h-full cursor-pointer rounded-2xl border bg-card p-4 shadow-sm transition-all hover:-translate-y-1 hover:border-primary/30 hover:shadow-md"
-                      onClick={() => openBriefPost(slot.article!)}
-                    >
-                      <div className="aspect-[4/3] rounded-xl overflow-hidden bg-muted relative mb-4">
-                        {slot.article.cover_image_url ? (
-                          <img
-                            src={slot.article.cover_image_url}
-                            alt={slot.article.title}
-                            className="absolute inset-0 h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
-                          />
-                        ) : (
-                          <div className="absolute inset-0 bg-muted" />
-                        )}
-                      </div>
-                      <Badge variant="outline" className="mb-3 border-gold/30 text-gold-dark">
-                        {slot.category}
-                      </Badge>
-                      <h3 className="text-base font-bold leading-tight text-primary group-hover:text-gold-dark line-clamp-3">
-                        {slot.article.title}
-                      </h3>
-                      <p className="mt-2 text-sm text-muted-foreground line-clamp-2">
-                        {slot.article.description}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="flex h-full items-center justify-center rounded-2xl border border-dashed bg-muted/20 p-6 text-center">
-                      <div>
-                        <p className="text-sm font-semibold text-primary">{slot.category}</p>
-                        <p className="mt-2 text-xs text-muted-foreground">No live brief yet</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+            <FeaturedInsightsCarousel
+              slides={featuredInsightSlides}
+              onReadArticle={openBriefPost}
+            />
           </div>
         </section>
       )}
@@ -495,14 +516,14 @@ const Blog = () => {
                   className="group cursor-pointer"
                   onClick={() => openBriefPost(article)}
                 >
-                  <div className="aspect-[4/3] sm:aspect-[940/788] rounded-xl sm:rounded-2xl overflow-hidden bg-muted/30 relative mb-3 sm:mb-4 border shadow-sm group-hover:shadow-md transition-all duration-300">
+                  <div className="aspect-[940/788] rounded-xl sm:rounded-2xl overflow-hidden bg-muted/30 relative mb-3 sm:mb-4 border shadow-sm group-hover:shadow-md transition-all duration-300">
                     <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 via-transparent to-accent/5 group-hover:scale-105 transition-transform duration-500" />
                     
                     {article.cover_image_url ? (
                       <img
                         src={article.cover_image_url}
                         alt={article.title}
-                        className="absolute inset-0 object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
+                        className="absolute inset-0 object-cover object-center w-full h-full group-hover:scale-105 transition-transform duration-500"
                       />
                     ) : (
                       <div className="absolute inset-0 bg-muted" />
@@ -562,48 +583,7 @@ const Blog = () => {
           </>
         ) : renderAnswersSection()}
 
-        {isAllCategory && (
-          <div id="educational-series" className="mt-12 scroll-mt-24 space-y-8 sm:mt-16">
-            <div className="text-center">
-              <p className="text-sm font-semibold uppercase tracking-[0.25em] text-gold-dark">Educational Series</p>
-              <h2 className="mt-3 text-2xl font-bold tracking-tight text-primary sm:text-4xl">
-                Build the foundation before you build the brand<span className="text-gold">.</span>
-              </h2>
-            </div>
-
-            <section className="rounded-3xl border bg-[#F7F3EA] p-6 shadow-sm md:p-8">
-              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <Badge variant="outline" className="border-gold/40 text-gold-dark">The Perfect Startup</Badge>
-                  <h2 className="mt-3 text-2xl font-bold tracking-tight text-primary">Before the logo, before the launch, get the foundation right.</h2>
-                  <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                    Browse JahKnowsPR's state-by-state startup education series for founders building with structure, clarity, and confidence.
-                  </p>
-                </div>
-                <Button onClick={() => navigate("/the-brief/the-perfect-startup")} className="shrink-0">
-                  Browse State Guides
-                </Button>
-              </div>
-            </section>
-
-            <section className="rounded-3xl border bg-[#EAF3F7] p-6 shadow-sm md:p-8">
-              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <Badge variant="outline" className="border-sky-500/40 text-sky-700">The Making of a Brand</Badge>
-                  <h2 className="mt-3 text-2xl font-bold tracking-tight text-primary">Before the audience grows, make the brand clear.</h2>
-                  <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                    Read the JahKnowsPR brand-building series for founders shaping their presence, message, trust signals, and digital foundation.
-                  </p>
-                </div>
-                <Button onClick={() => navigate(GUIDE_HUB_PATH)} className="shrink-0">
-                  Browse Brand Guides
-                </Button>
-              </div>
-            </section>
-
-            {renderAnswersSection()}
-          </div>
-        )}
+        {showEducationalSeries && renderEducationalSeriesSection(isAllCategory)}
       </div>
 
       <section className="border-t bg-muted/20 px-4 py-12 sm:px-6">

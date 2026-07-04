@@ -608,18 +608,18 @@ const BlogPost = () => {
 
       {/* Cover Image with Gradient Overlay */}
       {post.cover_image_url && (
-        <div className="relative w-full h-[400px] md:h-[480px] overflow-hidden">
+        <div className="relative w-full overflow-hidden aspect-[940/788] sm:aspect-auto sm:h-[400px] md:h-[480px]">
           <img
             src={post.cover_image_url}
             alt={post.title}
-            className="w-full h-full object-cover"
+            className="absolute inset-0 h-full w-full object-cover object-center"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
         </div>
       )}
 
       {/* Main Content Area */}
-      <article className={`relative ${post.cover_image_url ? '-mt-32' : 'pt-16'}`}>
+      <article className={`relative ${post.cover_image_url ? '-mt-20 sm:-mt-32' : 'pt-16'}`}>
         
         {/* Article Header */}
         <header className="blog-editorial-container text-center mb-16 relative z-10">

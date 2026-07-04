@@ -1,5 +1,8 @@
 export const BLOG_UNCATEGORIZED = "Uncategorized";
 
+/** Admin-managed Brief category (slug: resources). */
+export const GUIDES_CATEGORY_NAME = "Guides";
+
 /** Legacy post.category values mapped to current admin-managed names. */
 export const LEGACY_CATEGORY_ALIASES: Record<string, string> = {
   "Brand Authority": "Visionary Highlight",
