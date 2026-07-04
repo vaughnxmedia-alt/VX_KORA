@@ -4,7 +4,8 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 const MIN_PASSWORD_LEN = 8;
 
 function parseOwnerEmails(): string[] {
-  const raw = (Deno.env.get("APP_OWNER_EMAILS") || "justicevaughn7@gmail.com").trim();
+  const raw = (Deno.env.get("APP_OWNER_EMAILS") ||
+    "justicevaughn7@gmail.com,jocelyncavinessbrigman@gmail.com").trim();
   return raw
     .split(/[,;]+/)
     .map((s) => s.trim().toLowerCase())

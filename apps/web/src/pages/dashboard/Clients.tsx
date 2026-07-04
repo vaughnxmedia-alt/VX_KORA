@@ -62,7 +62,7 @@ import { cn } from "@/lib/utils";
 import { TabPermissionsDialog } from "@/components/dashboard/TabPermissionsDialog";
 import { ClientOpsHoverCard } from "@/components/dashboard/ClientOpsHoverCard";
 import { fetchCustomersTelegramIntakeComplete } from "@/lib/brandIdentityScope";
-import { isSuperOpsUser, isAppOwnerJustice } from "@/lib/super-ops";
+import { isSuperOpsUser, isAppOwner } from "@/lib/super-ops";
 import { useAuth } from "@/components/AuthProvider";
 import type { Enums } from "@/integrations/supabase/types";
 
@@ -137,7 +137,7 @@ export default function Clients() {
     currentUserProfile?.sessionEmail,
     currentUserProfile?.full_name,
   );
-  const isAppOwner = isAppOwnerJustice(
+  const isAppOwnerUser = isAppOwner(
     currentUserProfile?.sessionEmail ?? sessionUser?.email ?? null,
   );
   const ownerSessionId = sessionUser?.id ?? null;
@@ -479,7 +479,7 @@ export default function Clients() {
   }, [clientUsers, customers]);
 
   const ownersCardRows =
-    isAppOwner && ownerSessionId
+    isAppOwnerUser && ownerSessionId
       ? [
           admins.find((a) => a.user_id === ownerSessionId) ?? {
             user_id: ownerSessionId,
@@ -492,7 +492,7 @@ export default function Clients() {
       : [];
 
   const adminsForTable =
-    isAppOwner && ownerSessionId ? admins.filter((a) => a.user_id !== ownerSessionId) : admins;
+    isAppOwnerUser && ownerSessionId ? admins.filter((a) => a.user_id !== ownerSessionId) : admins;
 
   const roleAndJobForAuthUser = (uid: string | null | undefined) => {
     if (!uid) return { role: null as Enums<"user_role"> | null, job_title: null as string | null };
@@ -538,7 +538,7 @@ export default function Clients() {
         </div>
       ) : (
         <>
-          {isAppOwner && ownersCardRows.length > 0 && (
+          {isAppOwnerUser && ownersCardRows.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -687,7 +687,7 @@ export default function Clients() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              {isAppOwner ? (
+                              {isAppOwnerUser ? (
                                 <DropdownMenuItem
                                   onClick={() =>
                                     setPermissionsTarget({
@@ -700,7 +700,7 @@ export default function Clients() {
                                   Sidebar permissions
                                 </DropdownMenuItem>
                               ) : null}
-                              {isAppOwner ? <DropdownMenuSeparator /> : null}
+                              {isAppOwnerUser ? <DropdownMenuSeparator /> : null}
                               <DropdownMenuItem
                                 className="text-destructive focus:text-destructive"
                                 onClick={() => setAdminToRemove(admin)}
@@ -791,7 +791,7 @@ export default function Clients() {
                                 <User className="w-4 h-4 mr-2" />
                                 Edit Information
                               </DropdownMenuItem>
-                              {isAppOwner ? (
+                              {isAppOwnerUser ? (
                                 <>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
@@ -933,7 +933,7 @@ export default function Clients() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                {isAppOwner && customer.user_id?.trim() ? (
+                                {isAppOwnerUser && customer.user_id?.trim() ? (
                                   <DropdownMenuItem
                                     onClick={() =>
                                       setPermissionsTarget({
@@ -949,7 +949,7 @@ export default function Clients() {
                                     Sidebar permissions
                                   </DropdownMenuItem>
                                 ) : null}
-                                {isAppOwner && customer.user_id?.trim() ? <DropdownMenuSeparator /> : null}
+                                {isAppOwnerUser && customer.user_id?.trim() ? <DropdownMenuSeparator /> : null}
                                 <DropdownMenuItem
                                   className="text-destructive focus:text-destructive"
                                   onClick={() => setClientToDelete(customer)}

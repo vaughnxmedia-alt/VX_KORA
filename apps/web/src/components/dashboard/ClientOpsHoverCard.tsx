@@ -24,7 +24,7 @@ import { format } from "date-fns";
 import { SETTINGS_ACCOUNT_LINK_STATE, SETTINGS_PROFILE_HREF } from "@/lib/mandatory-profile-fields";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/components/AuthProvider";
-import { isAppOwnerJustice } from "@/lib/super-ops";
+import { isAppOwner } from "@/lib/super-ops";
 
 type UserRole = Enums<"user_role">;
 
@@ -593,7 +593,7 @@ export function ClientOpsHoverCard({
   children,
 }: ClientOpsHoverCardProps) {
   const { session } = useAuth();
-  const appOwnerCanManageCredentials = isAppOwnerJustice(session?.user?.email ?? null);
+  const appOwnerCanManageCredentials = isAppOwner(session?.user?.email ?? null);
   const viewerUserId = session?.user?.id ?? null;
   const viewerSessionEmail = session?.user?.email ?? null;
   const [open, setOpen] = useState(false);

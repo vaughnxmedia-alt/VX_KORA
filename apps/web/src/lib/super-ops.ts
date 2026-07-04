@@ -11,7 +11,11 @@ const APP_OWNER_ENV_KEY = "VITE_APP_OWNER_EMAILS";
 /** Same display names as Clients “settings” allowlist; used when env emails are not set. */
 export const SUPER_OPS_FALLBACK_FULL_NAMES = ["Justice Vaughn", "Jocelyn Vaughn"] as const;
 
-const DEFAULT_APP_OWNER_EMAILS = ["justicevaughn7@gmail.com"] as const;
+/** Co-owners with full dashboard access (Mission Control, credentials, tab permissions). */
+export const DEFAULT_APP_OWNER_EMAILS = [
+  "justicevaughn7@gmail.com",
+  "jocelyncavinessbrigman@gmail.com",
+] as const;
 
 export function parseAppOwnerEmailsFromEnv(): string[] {
   const raw = (import.meta.env[APP_OWNER_ENV_KEY] as string | undefined)?.trim();
@@ -23,10 +27,15 @@ export function parseAppOwnerEmailsFromEnv(): string[] {
   return parsed.length > 0 ? parsed : [...DEFAULT_APP_OWNER_EMAILS];
 }
 
-/** App owner (Justice): password + Auth email updates for any user; must match Edge Function secret `APP_OWNER_EMAILS`. */
-export function isAppOwnerJustice(sessionEmail: string | null | undefined): boolean {
+/** App owners: password + Auth email updates, Mission Control, full sidebar, tab permission management. */
+export function isAppOwner(sessionEmail: string | null | undefined): boolean {
   if (!sessionEmail?.trim()) return false;
   return parseAppOwnerEmailsFromEnv().includes(sessionEmail.trim().toLowerCase());
+}
+
+/** @deprecated Prefer {@link isAppOwner}. */
+export function isAppOwnerJustice(sessionEmail: string | null | undefined): boolean {
+  return isAppOwner(sessionEmail);
 }
 
 export function parseSuperOpsEmailsFromEnv(): string[] {

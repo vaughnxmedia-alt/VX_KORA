@@ -8,7 +8,7 @@ import {
   type NavGroup,
   type NavItem,
 } from "@/lib/dashboardNav";
-import { isAppOwnerJustice, isSuperOpsUser } from "@/lib/super-ops";
+import { isAppOwner, isSuperOpsUser } from "@/lib/super-ops";
 
 export type VisibleNavGroup = {
   label: string;
@@ -35,7 +35,7 @@ export function useDashboardNav() {
 
   const ALLOWED_ADMIN_TAB_USERS = ["Justice Vaughn", "Jocelyn Vaughn"];
   const canSeeAdminTab = ALLOWED_ADMIN_TAB_USERS.includes(currentUserProfile?.full_name || "");
-  const isDashboardOwner = isAppOwnerJustice(user?.email ?? null);
+  const isDashboardOwner = isAppOwner(user?.email ?? null);
   const hasFullNavAccess =
     isDashboardOwner ||
     isSuperOpsUser(user?.email ?? null, currentUserProfile?.full_name ?? null);

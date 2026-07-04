@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/components/AuthProvider";
-import { isAppOwnerJustice } from "@/lib/super-ops";
+import { isAppOwner } from "@/lib/super-ops";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -49,7 +49,7 @@ function AccountProfileForm() {
   const { session } = useAuth();
   const userId = session?.user?.id ?? null;
   const sessionEmail = session?.user?.email ?? null;
-  const appOwner = isAppOwnerJustice(sessionEmail);
+  const appOwner = isAppOwner(sessionEmail);
   const queryClient = useQueryClient();
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
