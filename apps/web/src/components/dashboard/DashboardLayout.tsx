@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { HomeIcon } from "lucide-react";
 import { RatingPopup } from "@/components/RatingPopup";
+import { DashboardMobileQuickNav } from "./DashboardMobileQuickNav";
 import { DashboardProfileAlertBanner } from "@/components/dashboard/DashboardProfileAlertBanner";
 import { useActiveDay } from "@/hooks/useActiveDay";
 import { useAuth } from "@/components/AuthProvider";
@@ -94,6 +95,14 @@ export default function DashboardLayout() {
       logistics: "Logistics",
       "get-inspired": "Get Inspired",
       inspired: "Get Inspired",
+      "sponsor-hub": "Sponsor Hub",
+      "sponsor-requests": "Sponsor Requests",
+      audits: "Audits",
+      sources: "Intelligence Sources",
+      reports: "Reports",
+      links: "Links",
+      assets: "Asset Library",
+      subscribers: "Subscribers",
     };
 
     return segments.map((segment, index) => {
@@ -112,11 +121,11 @@ export default function DashboardLayout() {
       <div className="flex w-full min-h-svh bg-background">
         <DashboardSidebar />
         <main className="flex-1 flex flex-col min-w-0">
-          <header className="flex h-14 items-center gap-2 border-b bg-background px-4 lg:h-[60px] sticky top-0 z-10">
+          <header className="sticky top-0 z-10 flex h-14 items-center gap-2 border-b bg-background px-4 lg:h-[60px]">
             <SidebarTrigger />
-            <Separator orientation="vertical" className="h-6 mx-2" />
-            <Breadcrumb>
-              <BreadcrumbList>
+            <Separator orientation="vertical" className="mx-2 h-6" />
+            <Breadcrumb className="min-w-0 flex-1">
+              <BreadcrumbList className="flex-nowrap overflow-hidden">
                 <div key="/" className="flex items-center">
                   <BreadcrumbItem className="mr-1">
                     <BreadcrumbLink href={"/"}>
@@ -126,22 +135,25 @@ export default function DashboardLayout() {
                   <BreadcrumbSeparator />
                 </div>
                 {breadcrumbs.map((item) => (
-                  <div key={item.url} className="flex items-center">
-                    <BreadcrumbItem className="mr-1">
+                  <div key={item.url} className={`flex items-center ${!item.isLast ? "hidden sm:flex" : ""}`}>
+                    <BreadcrumbItem className="mr-1 min-w-0">
                       {item.isLast ? (
-                        <BreadcrumbPage className="text-muted-foreground/50">
+                        <BreadcrumbPage className="truncate text-muted-foreground/50">
                           {item.title}
                         </BreadcrumbPage>
                       ) : (
-                        <BreadcrumbLink href={item.url}>{item.title}</BreadcrumbLink>
+                        <BreadcrumbLink href={item.url} className="truncate">
+                          {item.title}
+                        </BreadcrumbLink>
                       )}
                     </BreadcrumbItem>
-                    {!item.isLast && <BreadcrumbSeparator />}
+                    {!item.isLast && <BreadcrumbSeparator className="hidden sm:block" />}
                   </div>
                 ))}
               </BreadcrumbList>
             </Breadcrumb>
           </header>
+          <DashboardMobileQuickNav />
           <DashboardProfileAlertBanner />
           <div className="flex-1 p-4 md:p-6 lg:p-8">
             <Outlet />

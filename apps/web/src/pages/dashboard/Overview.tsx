@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
-import { LayoutDashboard, Megaphone, AlertCircle, TrendingUp, FileText, Handshake, Inbox } from "lucide-react";
+import { LayoutDashboard, Megaphone, AlertCircle, TrendingUp, FileText, Handshake } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -294,46 +294,6 @@ export default function Overview() {
             </Button>
           </CardContent>
         </Card>
-      ) : null}
-
-      {role === "admin" ? (
-        <section>
-          <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-            <Handshake className="h-5 w-5" />
-            Strategic Sponsor Hub
-          </h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Card className="shadow-sm">
-              <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
-                <div className="space-y-1">
-                  <p className="font-semibold text-primary">Sponsor Hub</p>
-                  <p className="text-sm text-muted-foreground">
-                    Manage approved organizations and track sponsorship partner outreach.
-                  </p>
-                </div>
-                <Button asChild variant="outline" className="w-full shrink-0 sm:w-auto">
-                  <Link to="/dashboard/sponsor-hub">Open Sponsor Hub</Link>
-                </Button>
-              </CardContent>
-            </Card>
-            <Card className="shadow-sm">
-              <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
-                <div className="space-y-1">
-                  <p className="font-semibold text-primary">Sponsor Requests</p>
-                  <p className="text-sm text-muted-foreground">
-                    Review inbound requests from the public site before adding them to the hub.
-                  </p>
-                </div>
-                <Button asChild variant="outline" className="w-full shrink-0 sm:w-auto">
-                  <Link to="/dashboard/sponsor-requests">
-                    <Inbox className="mr-2 h-4 w-4" />
-                    Review Requests
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        </section>
       ) : null}
 
       {/* Top Metrics */}

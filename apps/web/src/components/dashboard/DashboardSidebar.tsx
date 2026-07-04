@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { Gauge, Sparkles } from "lucide-react";
 import {
   Sidebar,
@@ -12,29 +12,16 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar";
-import { useAuth } from "@/components/AuthProvider";
 import { useNavigate, useLocation } from "react-router-dom";
-import { cleanupAuthState } from "@/lib/auth-utils";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { AccountNavigation } from "@/components/AccountNavigation";
 import { Logo } from "@/components/Logo";
-import {
-  DASHBOARD_NAV_GROUPS,
-  ADMIN_ONLY_KEYS,
-  ADMIN_TAB_KEY,
-} from "@/lib/dashboardNav";
-import { isAppOwnerJustice } from "@/lib/super-ops";
+import { isNavItemActive, useDashboardNav } from "@/hooks/useDashboardNav";
 
-/**
- * Mission Control admin app (see apps/mission-control/vite.config.ts).
- * Local dev defaults to port 5174 (apps/web often runs on 5173 — do not point MC there).
- * Production requires VITE_MISSION_CONTROL_URL on the host (e.g. Vercel); rebuild after changing env.
- */
 function normalizeMissionControlOrigin(url: string): string {
   const trimmed = url.replace(/\/$/, "");
-  // Common mistake: copy the main site dev port (5173) instead of Mission Control (5174).
   return trimmed.replace(/^(https?:\/\/127\.0\.0\.1):5173(?=$|[/:])/i, "$1:5174").replace(
     /^(https?:\/\/localhost):5173(?=$|[/:])/i,
     "$1:5174",
@@ -49,98 +36,34 @@ function resolveMissionControlUrl(): string | undefined {
 }
 
 export function DashboardSidebar() {
-  const { user, role } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-
-  const handleLogout = async () => {
-    try {
-      cleanupAuthState();
-      try {
-        await supabase.auth.signOut({ scope: "global" });
-      } catch (err) {
-        console.log("Global signout failed, continuing with cleanup");
-      }
-      toast({
-        title: "Signed out successfully",
-        description: "You have been logged out.",
-      });
-      window.location.href = "/";
-    } catch (error) {
-      console.error("Error signing out:", error);
-      window.location.href = "/";
-    }
-  };
-
-  const ALLOWED_ADMIN_TAB_USERS = ["Justice Vaughn", "Jocelyn Vaughn"];
-
-  const { data: currentUserProfile } = useQuery({
-    queryKey: ["current-user-profile-sidebar"],
-    queryFn: async () => {
-      if (!user?.id) return null;
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", user.id)
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user?.id,
-  });
-
-  const canSeeAdminTab = ALLOWED_ADMIN_TAB_USERS.includes(
-    currentUserProfile?.full_name || ""
-  );
-
-  const isDashboardOwner = isAppOwnerJustice(user?.email ?? null);
+  const { isMobile, openMobile, setOpenMobile } = useSidebar();
+  const { visibleNavGroups, isItemVisible, isDashboardOwner, user } = useDashboardNav();
   const missionControlUrl = resolveMissionControlUrl();
 
-  const { data: userPermissions } = useQuery({
-    queryKey: ["user-tab-permissions", user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
-      const { data, error } = await supabase
-        .from("user_tab_permissions")
-        .select("tab_key, is_visible")
-        .eq("user_id", user.id);
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!user?.id,
-  });
+  useEffect(() => {
+    if (!isMobile || !openMobile) return;
+    const timer = window.setTimeout(() => {
+      document
+        .querySelector('[data-sidebar="menu-button"][data-active="true"]')
+        ?.scrollIntoView({ block: "center" });
+    }, 100);
+    return () => window.clearTimeout(timer);
+  }, [isMobile, openMobile, location.pathname]);
 
-  const isItemVisible = (itemKey: string, adminOnly?: boolean) => {
-    if (isDashboardOwner) return true;
-    if (itemKey === ADMIN_TAB_KEY) return canSeeAdminTab;
-
-    const hasExplicitTabPolicy = (userPermissions?.length ?? 0) > 0;
-    if (hasExplicitTabPolicy) {
-      const permission = userPermissions?.find((p) => p.tab_key === itemKey);
-      const allowed = permission
-        ? permission.is_visible
-        : !ADMIN_ONLY_KEYS.includes(itemKey);
-      if (!allowed) return false;
-      if (role === "client" && adminOnly && ADMIN_ONLY_KEYS.includes(itemKey)) {
-        return false;
-      }
-      return true;
-    }
-
-    if (role === "admin" || role === "author") return true;
-    if (adminOnly && ADMIN_ONLY_KEYS.includes(itemKey)) return false;
-    const permission = userPermissions?.find((p) => p.tab_key === itemKey);
-    if (permission) return permission.is_visible;
-    return !ADMIN_ONLY_KEYS.includes(itemKey);
+  const handleNavigate = (url: string) => {
+    navigate(url);
+    if (isMobile) setOpenMobile(false);
   };
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader>
+      <SidebarHeader className="shrink-0">
         <div
-          className="flex items-center gap-2 px-2 py-2 cursor-pointer hover:bg-sidebar-accent/50 rounded-lg transition-colors"
-          onClick={() => navigate("/dashboard")}
+          className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 transition-colors hover:bg-sidebar-accent/50"
+          onClick={() => handleNavigate("/dashboard")}
         >
           <Logo showText={false} className="h-8 w-8" />
           <div className="grid flex-1 text-left text-sm leading-tight">
@@ -149,50 +72,38 @@ export function DashboardSidebar() {
           </div>
         </div>
       </SidebarHeader>
-      <SidebarContent>
-        {DASHBOARD_NAV_GROUPS.map((group) => {
-          const visibleItems = group.items.filter((item) =>
-            isItemVisible(item.key, item.adminOnly)
-          );
-          if (visibleItems.length === 0) return null;
-          return (
-            <SidebarGroup key={group.label}>
-              <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {visibleItems.map((item) => (
-                    <SidebarMenuItem key={item.key}>
-                      <SidebarMenuButton
-                        asChild
-                        isActive={
-                          item.url === "/dashboard"
-                            ? location.pathname === "/dashboard" ||
-                              location.pathname === "/dashboard/overview"
-                            : location.pathname === item.url ||
-                              location.pathname.startsWith(`${item.url}/`)
-                        }
-                        tooltip={item.title}
+      <SidebarContent className="pb-4">
+        {visibleNavGroups.map((group) => (
+          <SidebarGroup key={group.label}>
+            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((item) => (
+                  <SidebarMenuItem key={item.key}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isNavItemActive(location.pathname, item)}
+                      tooltip={item.title}
+                    >
+                      <a
+                        href={item.url}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleNavigate(item.url);
+                        }}
                       >
-                        <a
-                          href={item.url}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            navigate(item.url);
-                          }}
-                        >
-                          <item.icon />
-                          <span>{item.title}</span>
-                        </a>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          );
-        })}
+                        <item.icon />
+                        <span>{item.title}</span>
+                      </a>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="shrink-0 pb-4">
         <SidebarMenu>
           {isDashboardOwner && (
             <SidebarMenuItem>
@@ -238,7 +149,7 @@ export function DashboardSidebar() {
                   href="/dashboard/get-inspired"
                   onClick={(e) => {
                     e.preventDefault();
-                    navigate("/dashboard/get-inspired");
+                    handleNavigate("/dashboard/get-inspired");
                   }}
                 >
                   <Sparkles className="text-amber-400/90" />
