@@ -8,10 +8,18 @@ export function isBlogPostPubliclyLive(params: {
   publishScheduledAt?: string | null | undefined;
   status?: string | null;
   isHidden?: boolean | null;
+  publicationStatus?: string | null;
 }): boolean {
-  if (params.isHidden === true) return false;
-  const st = (params.status ?? "published").toLowerCase();
-  if (st !== "published") return false;
+  const pubStatus = params.publicationStatus?.toLowerCase();
+  if (pubStatus === "archived" || pubStatus === "draft") return false;
+  if (pubStatus === "live") {
+    // Live posts still require a publish date and schedule gate when applicable.
+  } else if (params.isHidden === true) return false;
+
+  const st = pubStatus === "live" || pubStatus === "scheduled"
+    ? "published"
+    : (params.status ?? "published").toLowerCase();
+  if (st !== "published" && pubStatus !== "scheduled" && pubStatus !== "live") return false;
   const raw = params.publishedDate?.trim();
   if (!raw) return false;
 

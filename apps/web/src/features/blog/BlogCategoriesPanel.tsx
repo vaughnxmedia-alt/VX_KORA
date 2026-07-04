@@ -57,12 +57,14 @@ type CategoryFormState = {
   name: string;
   slug: string;
   is_active: boolean;
+  featured_insights_eligible: boolean;
 };
 
 const emptyForm = (): CategoryFormState => ({
   name: "",
   slug: "",
   is_active: true,
+  featured_insights_eligible: false,
 });
 
 export function BlogCategoriesPanel({
@@ -84,7 +86,7 @@ export function BlogCategoriesPanel({
     setLoading(true);
     const { data, error } = await supabase
       .from("blog_categories")
-      .select("id, name, slug, display_order, is_active, created_at, updated_at")
+      .select("id, name, slug, display_order, is_active, featured_insights_eligible, created_at, updated_at")
       .order("display_order", { ascending: true })
       .order("name", { ascending: true });
 
@@ -120,6 +122,7 @@ export function BlogCategoriesPanel({
       name: category.name,
       slug: category.slug,
       is_active: category.is_active,
+      featured_insights_eligible: category.featured_insights_eligible ?? false,
     });
     setSlugTouched(true);
     setEditorOpen(true);
@@ -185,9 +188,10 @@ export function BlogCategoriesPanel({
             name,
             slug,
             is_active: form.is_active,
+            featured_insights_eligible: form.featured_insights_eligible,
           })
           .eq("id", editingCategory.id)
-          .select("id, name, slug, display_order, is_active, created_at, updated_at")
+          .select("id, name, slug, display_order, is_active, featured_insights_eligible, created_at, updated_at")
           .single();
 
         if (error) throw error;
@@ -212,9 +216,10 @@ export function BlogCategoriesPanel({
             name,
             slug,
             is_active: form.is_active,
+            featured_insights_eligible: form.featured_insights_eligible,
             display_order: nextOrder,
           })
-          .select("id, name, slug, display_order, is_active, created_at, updated_at")
+          .select("id, name, slug, display_order, is_active, featured_insights_eligible, created_at, updated_at")
           .single();
         if (error) throw error;
         if (!data) throw new Error("Category insert did not return a row.");
@@ -348,6 +353,7 @@ export function BlogCategoriesPanel({
                   <TableHead>Name</TableHead>
                   <TableHead>Slug</TableHead>
                   <TableHead>Order</TableHead>
+                  <TableHead>Featured Insights</TableHead>
                   <TableHead>Posts</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-[180px] text-right">Actions</TableHead>
@@ -356,7 +362,7 @@ export function BlogCategoriesPanel({
               <TableBody>
                 {sortedCategories.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
                       No categories yet. Add your first category to get started.
                     </TableCell>
                   </TableRow>
@@ -368,6 +374,11 @@ export function BlogCategoriesPanel({
                         {category.slug}
                       </TableCell>
                       <TableCell>{category.display_order}</TableCell>
+                      <TableCell>
+                        <Badge variant={category.featured_insights_eligible ? "default" : "secondary"}>
+                          {category.featured_insights_eligible ? "Yes" : "No"}
+                        </Badge>
+                      </TableCell>
                       <TableCell>{postCountsByCategory[category.name] ?? 0}</TableCell>
                       <TableCell>
                         <Badge variant={category.is_active ? "default" : "secondary"}>
@@ -456,6 +467,21 @@ export function BlogCategoriesPanel({
                   setForm((prev) => ({ ...prev, slug: slugifyCategoryName(event.target.value) }));
                 }}
                 placeholder="public-relations"
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-lg border px-3 py-3">
+              <div>
+                <Label htmlFor="category-featured-insights">Featured Insights slot</Label>
+                <p className="text-xs text-muted-foreground">
+                  Show one rotating card for this category on The Brief homepage.
+                </p>
+              </div>
+              <Switch
+                id="category-featured-insights"
+                checked={form.featured_insights_eligible}
+                onCheckedChange={(checked) =>
+                  setForm((prev) => ({ ...prev, featured_insights_eligible: checked }))
+                }
               />
             </div>
             <div className="flex items-center justify-between rounded-lg border px-3 py-3">

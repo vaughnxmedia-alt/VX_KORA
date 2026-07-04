@@ -1,4 +1,5 @@
 import { isBlogPostPubliclyLive } from "@/lib/blog-publish-schedule";
+import { resolvePublicationStatus } from "@/lib/blog-publication-status";
 
 /** Fields needed to build Featured / Hot / grid sections on The Brief. */
 export type BriefListingPost = {
@@ -13,9 +14,15 @@ export type BriefListingPost = {
   author_name: string;
   cover_image_url?: string;
   status?: string | null;
+  publication_status?: string | null;
   is_hidden?: boolean | null;
   is_featured?: boolean | null;
   is_hot_topic?: boolean | null;
+  promo_featured?: boolean | null;
+  promo_editors_pick?: boolean | null;
+  promo_trending?: boolean | null;
+  promo_homepage_shuffle?: boolean | null;
+  feature_priority?: number | null;
 };
 
 function publishInstantMs<T extends BriefListingPost>(p: T): number {
@@ -28,20 +35,21 @@ function byPublishedDesc<T extends BriefListingPost>(a: T, b: T) {
 }
 
 export function filterLiveBriefPosts<T extends BriefListingPost>(articles: T[]): T[] {
-  return articles.filter((a) =>
-    isBlogPostPubliclyLive({
+  return articles.filter((a) => {
+    if (resolvePublicationStatus(a) !== "live") return false;
+    return isBlogPostPubliclyLive({
       publishedDate: a.published_date,
       publishScheduledAt: a.publish_scheduled_at,
-      status: a.status,
-      isHidden: a.is_hidden,
-    })
-  );
+      status: "published",
+      isHidden: false,
+      publicationStatus: "live",
+    });
+  });
 }
 
 /**
- * Featured: optional single hero in category (or site-wide when All). If none flagged, newest live in pool.
- * Hot: optional strip under hero (live + hot, same category rules, excludes hero).
- * Grid: remaining live posts in pool (excludes hero and hot).
+ * @deprecated Prefer deriveBriefHomepageLayout for The Brief homepage.
+ * Kept for category-filtered views and Events page reuse.
  */
 export function deriveBriefPageSections<T extends BriefListingPost>(
   articlesFromApi: T[],
@@ -53,13 +61,13 @@ export function deriveBriefPageSections<T extends BriefListingPost>(
     selectedCategory === "All" || a.category === selectedCategory;
 
   const pool = live.filter(inCategory);
-  const featuredInPool = pool.filter((a) => a.is_featured).sort(byPublishedDesc);
+  const featuredInPool = pool.filter((a) => a.promo_featured ?? a.is_featured).sort(byPublishedDesc);
   const heroArticle = featuredInPool[0] ?? pool[0];
 
   const heroId = heroArticle?.id;
 
   const hotArticles = live
-    .filter((a) => inCategory(a) && a.is_hot_topic && a.id !== heroId)
+    .filter((a) => inCategory(a) && (a.promo_trending ?? a.is_hot_topic) && a.id !== heroId)
     .sort(byPublishedDesc);
 
   const hotIds = new Set(hotArticles.map((a) => a.id));

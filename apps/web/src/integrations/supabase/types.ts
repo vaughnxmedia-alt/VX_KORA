@@ -351,6 +351,7 @@ export type Database = {
         Row: {
           created_at: string
           display_order: number
+          featured_insights_eligible: boolean
           id: string
           is_active: boolean
           name: string
@@ -360,6 +361,7 @@ export type Database = {
         Insert: {
           created_at?: string
           display_order?: number
+          featured_insights_eligible?: boolean
           id?: string
           is_active?: boolean
           name: string
@@ -369,6 +371,7 @@ export type Database = {
         Update: {
           created_at?: string
           display_order?: number
+          featured_insights_eligible?: boolean
           id?: string
           is_active?: boolean
           name?: string
@@ -387,12 +390,18 @@ export type Database = {
           created_at: string | null
           description: string | null
           excerpt: string | null
+          feature_priority: number | null
           gallery_image_urls: Json | null
           icon_name: string | null
           id: string
           is_featured: boolean | null
           is_hidden: boolean
           is_hot_topic: boolean | null
+          promo_editors_pick: boolean
+          promo_featured: boolean
+          promo_homepage_shuffle: boolean
+          promo_trending: boolean
+          publication_status: string
           publish_scheduled_at: string | null
           published_at: string | null
           published_date: string | null
@@ -416,12 +425,18 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           excerpt?: string | null
+          feature_priority?: number | null
           gallery_image_urls?: Json | null
           icon_name?: string | null
           id?: string
           is_featured?: boolean | null
           is_hidden?: boolean
           is_hot_topic?: boolean | null
+          promo_editors_pick?: boolean
+          promo_featured?: boolean
+          promo_homepage_shuffle?: boolean
+          promo_trending?: boolean
+          publication_status?: string
           publish_scheduled_at?: string | null
           published_at?: string | null
           published_date?: string | null
@@ -445,12 +460,18 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           excerpt?: string | null
+          feature_priority?: number | null
           gallery_image_urls?: Json | null
           icon_name?: string | null
           id?: string
           is_featured?: boolean | null
           is_hidden?: boolean
           is_hot_topic?: boolean | null
+          promo_editors_pick?: boolean
+          promo_featured?: boolean
+          promo_homepage_shuffle?: boolean
+          promo_trending?: boolean
+          publication_status?: string
           publish_scheduled_at?: string | null
           published_at?: string | null
           published_date?: string | null

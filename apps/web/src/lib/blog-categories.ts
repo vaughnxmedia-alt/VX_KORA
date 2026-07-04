@@ -17,6 +17,7 @@ export type BlogCategoryRecord = {
   slug: string;
   display_order: number;
   is_active: boolean;
+  featured_insights_eligible?: boolean;
   created_at?: string;
   updated_at?: string | null;
 };

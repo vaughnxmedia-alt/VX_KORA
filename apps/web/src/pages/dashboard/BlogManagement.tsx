@@ -92,7 +92,14 @@ import { useAuth } from "@/components/AuthProvider";
 import { useBlogCategories } from "@/hooks/useBlogCategories";
 import { BlogCategoriesPanel } from "@/features/blog/BlogCategoriesPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { isAppOwner } from "@/lib/super-ops";
+import {
+  buildPublicationPayload,
+  PUBLICATION_STATUS_LABELS,
+  PROMOTION_TAG_LABELS,
+  resolvePublicationStatus,
+  publicationStatusBadgeClass,
+  type PublicationStatus,
+} from "@/lib/blog-publication-status";
 
 type BlogPost = {
   id?: string;
@@ -111,6 +118,12 @@ type BlogPost = {
   author_name: string | null;
   is_featured: boolean | null;
   is_hot_topic: boolean | null;
+  publication_status?: PublicationStatus | null;
+  promo_featured?: boolean | null;
+  promo_editors_pick?: boolean | null;
+  promo_trending?: boolean | null;
+  promo_homepage_shuffle?: boolean | null;
+  feature_priority?: number | null;
   is_hidden: boolean | null;
   icon_name: string | null;
   tags: string[] | null;
@@ -229,6 +242,12 @@ const BlogManagement = () => {
 
   // Form States
   const [categoryValue, setCategoryValue] = useState("");
+  const [publicationStatusValue, setPublicationStatusValue] = useState<PublicationStatus>("draft");
+  const [promoFeatured, setPromoFeatured] = useState(false);
+  const [promoEditorsPick, setPromoEditorsPick] = useState(false);
+  const [promoTrending, setPromoTrending] = useState(false);
+  const [promoHomepageShuffle, setPromoHomepageShuffle] = useState(false);
+  const [featurePriority, setFeaturePriority] = useState<string>("");
   const [isFeatured, setIsFeatured] = useState(false);
   const [isHotTopic, setIsHotTopic] = useState(false);
   
@@ -304,7 +323,13 @@ const BlogManagement = () => {
     setSelectedPost(post);
     setContentValue(post.content || "");
     setCategoryValue(post.category || "");
-    setIsFeatured(!!post.is_featured);
+    setPublicationStatusValue(resolvePublicationStatus(post));
+    setPromoFeatured(!!(post.promo_featured ?? post.is_featured));
+    setPromoEditorsPick(!!post.promo_editors_pick);
+    setPromoTrending(!!(post.promo_trending ?? post.is_hot_topic));
+    setPromoHomepageShuffle(!!post.promo_homepage_shuffle);
+    setFeaturePriority(post.feature_priority ? String(post.feature_priority) : "");
+    setIsFeatured(!!(post.promo_featured ?? post.is_featured));
     setIsHotTopic(!!post.is_hot_topic);
     // New CMS fields
     setSlugValue(post.slug || "");
@@ -365,9 +390,10 @@ const BlogManagement = () => {
 
   const handleToggleHidden = async (post: BlogPost) => {
     const newHiddenStatus = !post.is_hidden;
+    const publication_status: PublicationStatus = newHiddenStatus ? "archived" : "live";
     const { error } = await supabase
       .from("blog_posts")
-      .update({ is_hidden: newHiddenStatus })
+      .update({ is_hidden: newHiddenStatus, publication_status })
       .match({ id: post.id });
 
     if (error) {
@@ -415,76 +441,90 @@ const BlogManagement = () => {
     setMenuBusyPostId(null);
   };
 
-  const handleMenuSetFeatured = async (post: BlogPost, featured: boolean) => {
+  const handleMenuSetEditorsPick = async (post: BlogPost, enabled: boolean) => {
     const id = post.id;
     if (!id) return;
     setMenuBusyPostId(id);
-    if (featured) {
+    if (enabled) {
       const { error: clearErr } = await supabase
         .from("blog_posts")
-        .update({ is_featured: false })
-        .eq("is_featured", true);
+        .update({ promo_editors_pick: false })
+        .eq("promo_editors_pick", true);
       if (clearErr) {
         toast({
-          title: "Could not update featured post",
+          title: "Could not update Editor's Pick",
           description: clearErr.message,
           variant: "destructive",
         });
         setMenuBusyPostId(null);
         return;
       }
-      const { error } = await supabase
-        .from("blog_posts")
-        .update({ is_featured: true })
-        .eq("id", id);
-      if (error) {
-        toast({
-          title: "Could not set featured",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        toast({ title: "This post is now the featured brief" });
-        fetchBlogPosts();
-      }
-    } else {
-      const { error } = await supabase
-        .from("blog_posts")
-        .update({ is_featured: false })
-        .eq("id", id);
-      if (error) {
-        toast({
-          title: "Could not remove featured",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        toast({ title: "Featured highlight removed" });
-        fetchBlogPosts();
-      }
     }
-    setMenuBusyPostId(null);
-  };
-
-  const handleMenuToggleHot = async (post: BlogPost) => {
-    const id = post.id;
-    if (!id) return;
-    setMenuBusyPostId(id);
-    const next = !post.is_hot_topic;
     const { error } = await supabase
       .from("blog_posts")
-      .update({ is_hot_topic: next })
+      .update({ promo_editors_pick: enabled })
       .eq("id", id);
     if (error) {
       toast({
-        title: "Could not update hot topic",
+        title: enabled ? "Could not set Editor's Pick" : "Could not remove Editor's Pick",
         description: error.message,
         variant: "destructive",
       });
     } else {
       toast({
-        title: next ? "Added to hot topics" : "Removed from hot topics",
+        title: enabled ? "This post is now Editor's Pick" : "Editor's Pick removed",
       });
+      fetchBlogPosts();
+    }
+    setMenuBusyPostId(null);
+  };
+
+  const handleMenuToggleTrending = async (post: BlogPost) => {
+    const id = post.id;
+    if (!id) return;
+    setMenuBusyPostId(id);
+    const next = !(post.promo_trending ?? post.is_hot_topic);
+    const { error } = await supabase
+      .from("blog_posts")
+      .update({ promo_trending: next, is_hot_topic: next })
+      .eq("id", id);
+    if (error) {
+      toast({
+        title: "Could not update trending tag",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: next ? "Added to trending" : "Removed from trending",
+      });
+      fetchBlogPosts();
+    }
+    setMenuBusyPostId(null);
+  };
+
+  const handleMenuSetPublicationStatus = async (post: BlogPost, next: PublicationStatus) => {
+    const id = post.id;
+    if (!id) return;
+    if (resolvePublicationStatus(post) === next) return;
+    setMenuBusyPostId(id);
+    const payload = buildPublicationPayload(next, {
+      publishMode: post.publish_scheduled_at ? "schedule" : "publish_now",
+      publishedDateYmd:
+        post.published_date?.slice(0, 10) ??
+        DateTime.now().setZone(BLOG_PUBLISH_TIMEZONE).toFormat("yyyy-MM-dd"),
+      publishScheduledAt: post.publish_scheduled_at ?? null,
+      publishedAtIso: next === "live" ? new Date().toISOString() : null,
+    });
+    const { error } = await supabase.from("blog_posts").update(payload).eq("id", id);
+    if (error) {
+      toast({
+        title: "Could not update publication status",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({ title: `Publication status set to ${PUBLICATION_STATUS_LABELS[next]}` });
       fetchBlogPosts();
     }
     setMenuBusyPostId(null);
@@ -577,9 +617,18 @@ const BlogManagement = () => {
     const scheduleDay = publishedDate ?? new Date(nowEt.year, nowEt.month - 1, nowEt.day);
     const effectiveTime = publishMode === "publish_now" ? nowEt.toFormat("HH:mm") : publishTimeEt;
     const { publishScheduledAt, publishedDateYmd } = buildPublishScheduledAtIso(scheduleDay, effectiveTime);
-    const effectiveStatus: "draft" | "published" =
-      publishMode === "schedule" || publishMode === "publish_now" ? "published" : statusValue;
-    
+    const effectivePublicationStatus = publicationStatusValue;
+
+    const publicationFields = buildPublicationPayload(effectivePublicationStatus, {
+      publishMode,
+      publishedDateYmd,
+      publishScheduledAt: publishMode === "schedule" ? publishScheduledAt : null,
+      publishedAtIso:
+        effectivePublicationStatus === "live" && publishMode === "publish_now"
+          ? new Date().toISOString()
+          : null,
+    });
+
     const postData: Partial<BlogPost> = {
       title,
       slug: finalSlug,
@@ -594,31 +643,37 @@ const BlogManagement = () => {
       video_type: videoType,
       cover_image_url: coverImageUrl || null,
       gallery_image_urls: galleryImageUrls.length > 0 ? galleryImageUrls : null,
-      status: effectiveStatus,
-      published_at: effectiveStatus === "published" && publishMode === "publish_now" ? new Date().toISOString() : null,
+      ...publicationFields,
+      published_at:
+        effectivePublicationStatus === "live" && publishMode === "publish_now"
+          ? new Date().toISOString()
+          : null,
       tags: (formData.get("tags") as string)
         .split(",")
         .map((tag) => tag.trim())
         .filter(Boolean),
       published_date: publishedDateYmd,
-      publish_scheduled_at: publishMode === "schedule" ? publishScheduledAt : null,
-      is_featured: isFeatured,
-      is_hot_topic: isHotTopic,
-      is_hidden: selectedPost?.is_hidden ?? false,
+      promo_featured: promoFeatured,
+      promo_editors_pick: promoEditorsPick,
+      promo_trending: promoTrending,
+      promo_homepage_shuffle: promoHomepageShuffle,
+      feature_priority: featurePriority ? Number(featurePriority) : null,
+      is_featured: promoFeatured,
+      is_hot_topic: promoTrending,
       icon_name: 'Newspaper',
     };
 
     setIsSaving(true);
 
-    if (isFeatured) {
-      const { error: clearFeaturedError } = await supabase
+    if (promoEditorsPick) {
+      const { error: clearEditorsPickError } = await supabase
         .from("blog_posts")
-        .update({ is_featured: false })
-        .eq("is_featured", true);
-      if (clearFeaturedError) {
+        .update({ promo_editors_pick: false })
+        .eq("promo_editors_pick", true);
+      if (clearEditorsPickError) {
         toast({
-          title: "Could not clear other featured posts",
-          description: clearFeaturedError.message,
+          title: "Could not clear other Editor's Pick posts",
+          description: clearEditorsPickError.message,
           variant: "destructive",
         });
         setIsSaving(false);
@@ -714,6 +769,12 @@ const BlogManagement = () => {
     setSelectedPost(null);
     setContentValue("");
     setCategoryValue("");
+    setPublicationStatusValue("draft");
+    setPromoFeatured(false);
+    setPromoEditorsPick(false);
+    setPromoTrending(false);
+    setPromoHomepageShuffle(false);
+    setFeaturePriority("");
     setIsFeatured(false);
     setIsHotTopic(false);
     // Reset new CMS fields
@@ -927,12 +988,13 @@ const BlogManagement = () => {
                       publishedDate: post.published_date,
                       publishScheduledAt: post.publish_scheduled_at,
                     });
-                    const isLive = isBlogPostPubliclyLive({
-                      publishedDate: post.published_date,
-                      publishScheduledAt: post.publish_scheduled_at,
-                      status: post.status,
-                      isHidden: post.is_hidden,
-                    });
+                    const publicationStatus = resolvePublicationStatus(post);
+                    const promotionTags = [
+                      post.promo_editors_pick ? "Editor's Pick" : null,
+                      post.promo_featured ?? post.is_featured ? "Featured" : null,
+                      post.promo_trending ?? post.is_hot_topic ? "Trending" : null,
+                      post.promo_homepage_shuffle ? "Shuffle" : null,
+                    ].filter(Boolean);
                     return (
                     <TableRow key={post.id} className="group">
                       <TableCell className="py-4">
@@ -956,46 +1018,27 @@ const BlogManagement = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-2">
-                          {!post.is_hidden &&
-                            (isLive ? (
-                              <Badge
-                                variant="outline"
-                                className="rounded-full text-[10px] px-2 py-0 h-5 border-emerald-200 bg-emerald-50 text-emerald-800"
-                              >
-                                Live
-                              </Badge>
-                            ) : scheduleLabel ? (
-                              <Badge
-                                variant="outline"
-                                className="rounded-full text-[10px] px-2 py-0.5 min-h-[22px] h-auto max-w-[200px] whitespace-normal text-left leading-snug border-sky-200 bg-sky-50 text-sky-900"
-                                title={scheduleLabel}
-                              >
-                                {scheduleLabel}
-                              </Badge>
-                            ) : (
-                              <Badge
-                                variant="outline"
-                                className="rounded-full text-[10px] px-2 py-0 h-5 border-slate-300 bg-slate-100 text-slate-700"
-                              >
-                                Draft
-                              </Badge>
-                            ))}
-                          {post.is_featured && (
-                            <Badge variant="default" className="bg-accent text-accent-foreground border-accent text-[10px] px-1.5 py-0 h-5">
-                              FEATURED
+                          <Badge
+                            variant="outline"
+                            className={`rounded-full text-[10px] px-2 py-0 h-5 ${publicationStatusBadgeClass(publicationStatus)}`}
+                            title={publicationStatus === "scheduled" ? scheduleLabel ?? undefined : undefined}
+                          >
+                            {PUBLICATION_STATUS_LABELS[publicationStatus]}
+                          </Badge>
+                          {promotionTags.map((tag) => (
+                            <Badge
+                              key={tag}
+                              variant="outline"
+                              className="text-[10px] px-1.5 py-0 h-5 border-gold/30 bg-gold/10 text-gold-dark"
+                            >
+                              {tag}
                             </Badge>
-                          )}
-                          {post.is_hot_topic && (
-                            <Badge variant="outline" className="text-orange-600 border-orange-200 bg-orange-50 text-[10px] px-1.5 py-0 h-5">
-                              HOT
+                          ))}
+                          {post.feature_priority ? (
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
+                              P{post.feature_priority}
                             </Badge>
-                          )}
-                          {post.is_hidden && (
-                            <Badge variant="outline" className="text-muted-foreground border-muted bg-muted/50 text-[10px] px-1.5 py-0 h-5">
-                              <EyeOff className="h-3 w-3 mr-1" />
-                              HIDDEN
-                            </Badge>
-                          )}
+                          ) : null}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -1047,55 +1090,49 @@ const BlogManagement = () => {
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-                                Status
+                                Publication
                               </DropdownMenuLabel>
-                              <DropdownMenuItem
-                                disabled={
-                                  menuBusyPostId === post.id ||
-                                  (post.status || "draft") === "published"
-                                }
-                                onClick={() => handleUpdateStatus(post, "published")}
-                              >
-                                <CheckCircle2 className="h-4 w-4 mr-2" />
-                                Mark as published
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                disabled={
-                                  menuBusyPostId === post.id ||
-                                  (post.status || "draft") === "draft"
-                                }
-                                onClick={() => handleUpdateStatus(post, "draft")}
-                              >
-                                <PenLine className="h-4 w-4 mr-2" />
-                                Revert to draft
-                              </DropdownMenuItem>
+                              {(["draft", "scheduled", "live", "archived"] as PublicationStatus[]).map((status) => (
+                                <DropdownMenuItem
+                                  key={status}
+                                  disabled={
+                                    menuBusyPostId === post.id ||
+                                    publicationStatus === status
+                                  }
+                                  onClick={() => handleMenuSetPublicationStatus(post, status)}
+                                >
+                                  {PUBLICATION_STATUS_LABELS[status]}
+                                </DropdownMenuItem>
+                              ))}
                               <DropdownMenuSeparator />
                               <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-                                The Brief page
+                                Promotion tags
                               </DropdownMenuLabel>
-                              {post.is_featured ? (
+                              {post.promo_editors_pick ? (
                                 <DropdownMenuItem
                                   disabled={menuBusyPostId === post.id}
-                                  onClick={() => handleMenuSetFeatured(post, false)}
+                                  onClick={() => handleMenuSetEditorsPick(post, false)}
                                 >
                                   <Sparkles className="h-4 w-4 mr-2" />
-                                  Remove featured
+                                  Remove Editor&apos;s Pick
                                 </DropdownMenuItem>
                               ) : (
                                 <DropdownMenuItem
                                   disabled={menuBusyPostId === post.id}
-                                  onClick={() => handleMenuSetFeatured(post, true)}
+                                  onClick={() => handleMenuSetEditorsPick(post, true)}
                                 >
                                   <Sparkles className="h-4 w-4 mr-2" />
-                                  Set as featured
+                                  Set as Editor&apos;s Pick
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuItem
                                 disabled={menuBusyPostId === post.id}
-                                onClick={() => handleMenuToggleHot(post)}
+                                onClick={() => handleMenuToggleTrending(post)}
                               >
                                 <Flame className="h-4 w-4 mr-2" />
-                                {post.is_hot_topic ? "Remove from hot topics" : "Add to hot topics"}
+                                {(post.promo_trending ?? post.is_hot_topic)
+                                  ? "Remove from trending"
+                                  : "Add to trending"}
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem 
@@ -1199,17 +1236,30 @@ const BlogManagement = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="status">Status</Label>
-                  <Select 
-                    value={statusValue} 
-                    onValueChange={(val) => setStatusValue(val as "draft" | "published")}
+                  <Label htmlFor="publication-status">Publication status</Label>
+                  <Select
+                    value={publicationStatusValue}
+                    onValueChange={(val) => {
+                      const next = val as PublicationStatus;
+                      setPublicationStatusValue(next);
+                      if (next === "scheduled") {
+                        setPublishMode("schedule");
+                        setShowScheduleFields(true);
+                      } else if (next === "live") {
+                        setPublishMode("publish_now");
+                        setShowScheduleFields(false);
+                      }
+                    }}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
+                    <SelectTrigger id="publication-status">
+                      <SelectValue placeholder="Select publication status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="draft">Draft</SelectItem>
-                      <SelectItem value="published">Published</SelectItem>
+                      {(Object.keys(PUBLICATION_STATUS_LABELS) as PublicationStatus[]).map((status) => (
+                        <SelectItem key={status} value={status}>
+                          {PUBLICATION_STATUS_LABELS[status]}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -1225,7 +1275,7 @@ const BlogManagement = () => {
                       onClick={() => {
                         setPublishMode("schedule");
                         setShowScheduleFields(true);
-                        setStatusValue("published");
+                        setPublicationStatusValue("scheduled");
                       }}
                     >
                       Schedule Blog
@@ -1236,7 +1286,7 @@ const BlogManagement = () => {
                       onClick={() => {
                         setPublishMode("publish_now");
                         setShowScheduleFields(false);
-                        setStatusValue("published");
+                        setPublicationStatusValue("live");
                         const t = DateTime.now().setZone(BLOG_PUBLISH_TIMEZONE);
                         setPublishedDate(new Date(t.year, t.month - 1, t.day));
                         setPublishTimeEt(t.toFormat("HH:mm"));
@@ -1377,52 +1427,80 @@ const BlogManagement = () => {
               />
             </div>
 
-            {/* Brief highlights (optional) */}
+            {/* Promotion tags (separate from publication status) */}
             <div className="space-y-4 rounded-lg border p-4 bg-muted/20">
               <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                 <Sparkles className="h-4 w-4" />
-                The Brief page (optional)
+                Promotion tags
               </h3>
               <p className="text-sm text-muted-foreground">
-                Featured appears as the hero at the top (only one at a time). Hot topics appear in a strip below it. All other live briefs follow in the main grid.
+                Tags control homepage placement on The Brief. Publication status controls whether a post is live.
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="flex items-start space-x-3 space-y-0">
                   <Checkbox
-                    id="is_featured_form"
-                    checked={isFeatured}
-                    onCheckedChange={(checked) => setIsFeatured(checked === true)}
+                    id="promo_featured_form"
+                    checked={promoFeatured}
+                    onCheckedChange={(checked) => setPromoFeatured(checked === true)}
                   />
                   <div className="space-y-1 leading-none">
-                    <Label
-                      htmlFor="is_featured_form"
-                      className="text-sm font-medium leading-none cursor-pointer"
-                    >
-                      Featured brief
+                    <Label htmlFor="promo_featured_form" className="cursor-pointer">
+                      {PROMOTION_TAG_LABELS.promo_featured}
                     </Label>
-                    <p className="text-sm text-muted-foreground">
-                      Main hero on The Brief. Choosing this clears featured from other posts when you save.
-                    </p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3 space-y-0">
                   <Checkbox
-                    id="is_hot_topic_form"
-                    checked={isHotTopic}
-                    onCheckedChange={(checked) => setIsHotTopic(checked === true)}
+                    id="promo_editors_pick_form"
+                    checked={promoEditorsPick}
+                    onCheckedChange={(checked) => setPromoEditorsPick(checked === true)}
                   />
                   <div className="space-y-1 leading-none">
-                    <Label
-                      htmlFor="is_hot_topic_form"
-                      className="text-sm font-medium leading-none cursor-pointer"
-                    >
-                      Hot topic
+                    <Label htmlFor="promo_editors_pick_form" className="cursor-pointer">
+                      {PROMOTION_TAG_LABELS.promo_editors_pick}
                     </Label>
-                    <p className="text-sm text-muted-foreground">
-                      Shown in the hot-topics strip under the featured post (any number of posts).
-                    </p>
+                    <p className="text-sm text-muted-foreground">Top hero on The Brief (one at a time).</p>
                   </div>
                 </div>
+                <div className="flex items-start space-x-3 space-y-0">
+                  <Checkbox
+                    id="promo_trending_form"
+                    checked={promoTrending}
+                    onCheckedChange={(checked) => setPromoTrending(checked === true)}
+                  />
+                  <div className="space-y-1 leading-none">
+                    <Label htmlFor="promo_trending_form" className="cursor-pointer">
+                      {PROMOTION_TAG_LABELS.promo_trending}
+                    </Label>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-3 space-y-0">
+                  <Checkbox
+                    id="promo_homepage_shuffle_form"
+                    checked={promoHomepageShuffle}
+                    onCheckedChange={(checked) => setPromoHomepageShuffle(checked === true)}
+                  />
+                  <div className="space-y-1 leading-none">
+                    <Label htmlFor="promo_homepage_shuffle_form" className="cursor-pointer">
+                      {PROMOTION_TAG_LABELS.promo_homepage_shuffle}
+                    </Label>
+                    <p className="text-sm text-muted-foreground">Eligible for random rotation in Featured Insights.</p>
+                  </div>
+                </div>
+              </div>
+              <div className="max-w-xs space-y-2">
+                <Label htmlFor="feature-priority">Feature priority</Label>
+                <Select value={featurePriority || "none"} onValueChange={(val) => setFeaturePriority(val === "none" ? "" : val)}>
+                  <SelectTrigger id="feature-priority">
+                    <SelectValue placeholder="No priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No priority</SelectItem>
+                    <SelectItem value="1">Priority 1 (highest)</SelectItem>
+                    <SelectItem value="2">Priority 2</SelectItem>
+                    <SelectItem value="3">Priority 3</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 

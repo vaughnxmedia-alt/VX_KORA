@@ -29,6 +29,7 @@ type BlogPostType = {
   published_date: string;
   author_name: string;
   is_featured?: boolean | null;
+  promo_editors_pick?: boolean | null;
   icon_name: string;
   tagline?: string;
   view_count?: number;
@@ -630,9 +631,9 @@ const BlogPost = () => {
             >
               {post.category}
             </Badge>
-            {post.is_featured && (
+            {(post.promo_editors_pick || post.is_featured) && (
               <div className="flex items-center gap-1 text-xs font-bold text-primary uppercase tracking-wider">
-                <Sparkles className="w-3 h-3" /> Featured
+                <Sparkles className="w-3 h-3" /> {post.promo_editors_pick ? "Editor's Pick" : "Featured"}
               </div>
             )}
           </div>

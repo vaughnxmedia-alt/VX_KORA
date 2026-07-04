@@ -3,10 +3,11 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Clock, ArrowRight, X, User, Flame } from "lucide-react";
+import { Clock, ArrowRight, X, User, Flame, Sparkles, Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-import { deriveBriefPageSections, filterLiveBriefPosts } from "@/lib/brief-listing";
+import { deriveBriefHomepageLayout } from "@/lib/brief-homepage-promotion";
+import { filterLiveBriefPosts } from "@/lib/brief-listing";
 import { normalizeBlogPostCategory } from "@/lib/blog-categories";
 import { useBlogCategories } from "@/hooks/useBlogCategories";
 import {
@@ -43,6 +44,12 @@ type BlogPost = {
   is_hidden?: boolean | null;
   is_featured?: boolean | null;
   is_hot_topic?: boolean | null;
+  publication_status?: string | null;
+  promo_featured?: boolean | null;
+  promo_editors_pick?: boolean | null;
+  promo_trending?: boolean | null;
+  promo_homepage_shuffle?: boolean | null;
+  feature_priority?: number | null;
 };
 
 const updateTheBriefSEO = () => {
@@ -176,9 +183,18 @@ const Blog = () => {
     return ["All", ...activeFilters];
   }, [managedCategories, liveArticles]);
 
-  const { heroArticle, hotArticles, gridArticles } = deriveBriefPageSections(
-    articles,
-    selectedCategory
+  const featuredInsightCategories = useMemo(
+    () =>
+      managedCategories
+        .filter((category) => category.is_active && category.featured_insights_eligible)
+        .map((category) => category.name),
+    [managedCategories],
+  );
+
+  const { editorsPick, featuredInsights, trendingArticles, gridArticles } = useMemo(
+    () =>
+      deriveBriefHomepageLayout(articles, featuredInsightCategories, selectedCategory),
+    [articles, featuredInsightCategories, selectedCategory],
   );
   const isAllCategory = selectedCategory === "All";
 
@@ -256,6 +272,24 @@ const Blog = () => {
     </section>
   );
 
+  const openBriefPost = (article: BlogPost) => {
+    navigate(`/the-brief/${encodeURIComponent(buildBlogPathSegment(article))}`);
+  };
+
+  const renderArticleMeta = (article: BlogPost) => (
+    <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm text-muted-foreground pt-1 sm:pt-2">
+      <div className="flex items-center gap-2">
+        <User className="w-4 h-4" />
+        <span className="font-medium text-foreground">{article.author_name}</span>
+      </div>
+      <span>•</span>
+      <div className="flex items-center gap-2">
+        <Clock className="w-4 h-4" />
+        <span>{article.read_time}</span>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-background">
       
@@ -303,100 +337,119 @@ const Blog = () => {
             </div>
           </div>
 
-          {heroArticle && (
-            <div className="max-w-4xl mx-auto">
-              <div
-                className="group cursor-pointer"
-                onClick={() =>
-                  navigate(
-                    `/the-brief/${encodeURIComponent(buildBlogPathSegment(heroArticle))}`,
-                  )
-                }
-              >
+          {editorsPick && (
+            <div className="max-w-5xl mx-auto">
+              <div className="mb-4 flex items-center gap-2">
+                <Star className="h-5 w-5 text-gold" />
+                <span className="text-xs sm:text-sm font-semibold text-gold tracking-widest uppercase">
+                  Editor&apos;s Pick
+                </span>
+              </div>
+              <div className="group cursor-pointer" onClick={() => openBriefPost(editorsPick)}>
                 <div className="rounded-xl sm:rounded-2xl overflow-hidden bg-muted relative mb-4 sm:mb-6 shadow-xl shadow-primary/10 dark:shadow-none aspect-[4/3] sm:aspect-[940/788] w-full">
-                  {heroArticle.cover_image_url ? (
+                  {editorsPick.cover_image_url ? (
                     <img
-                      src={heroArticle.cover_image_url}
-                      alt={heroArticle.title}
+                      src={editorsPick.cover_image_url}
+                      alt={editorsPick.title}
                       className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                     />
                   ) : (
                     <div className="absolute inset-0 bg-muted" />
                   )}
-
                   <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 via-transparent to-accent/10" />
-
                   <Badge className="absolute top-3 left-3 sm:top-6 sm:left-6 text-xs sm:text-sm py-1 sm:py-1.5 px-2.5 sm:px-4 shadow-lg backdrop-blur-md bg-background/90 text-foreground hover:bg-background/100 z-10 border-gold/30">
-                    {heroArticle.category}
+                    {editorsPick.category}
                   </Badge>
                 </div>
-
                 <div className="space-y-3 sm:space-y-4">
-                  <div className="flex items-center gap-2 mb-1 sm:mb-2">
-                    <span className="text-xs sm:text-sm font-semibold text-gold tracking-widest uppercase">
-                      {heroArticle.is_featured ? "Featured" : "Latest"}
-                    </span>
-                  </div>
-
                   <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold leading-[1.1] text-primary group-hover:text-gold-dark transition-colors">
-                    {heroArticle.title}
+                    {editorsPick.title}
                   </h2>
-
                   <p className="text-base sm:text-lg text-muted-foreground line-clamp-2 sm:line-clamp-3 leading-relaxed max-w-2xl">
-                    {heroArticle.description}
+                    {editorsPick.description}
                   </p>
-
-                  <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm text-muted-foreground pt-1 sm:pt-2">
-                    <div className="flex items-center gap-2">
-                      <User className="w-4 h-4" />
-                      <span className="font-medium text-foreground">{heroArticle.author_name}</span>
-                    </div>
-                    <span>•</span>
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4" />
-                      <span>{heroArticle.read_time}</span>
-                    </div>
-                  </div>
+                  {renderArticleMeta(editorsPick)}
                 </div>
-              </div>
-
-              <div className="mt-6 sm:mt-8">
-                <Button
-                  variant="ghost"
-                  className="w-full justify-between group text-muted-foreground hover:text-primary"
-                  onClick={() => {
-                    const element = document.getElementById("latest-insights");
-                    element?.scrollIntoView({ behavior: "smooth" });
-                  }}
-                >
-                  View all briefs{" "}
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </Button>
               </div>
             </div>
           )}
         </div>
       </section>
 
-      {hotArticles.length > 0 && (
+      {isAllCategory && featuredInsights.some((slot) => slot.article) && (
+        <section className="py-10 sm:py-14 px-4 sm:px-6 border-b bg-background">
+          <div className="max-w-7xl mx-auto">
+            <div className="mb-8 sm:mb-10 text-center">
+              <div className="mb-2 flex items-center justify-center gap-2">
+                <Sparkles className="h-5 w-5 text-gold" />
+                <p className="text-sm font-semibold uppercase tracking-[0.25em] text-gold-dark">
+                  Featured Insights
+                </p>
+              </div>
+              <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-primary">
+                One standout from each lane<span className="text-gold">.</span>
+              </h2>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5 sm:gap-6">
+              {featuredInsights.map((slot) => (
+                <div key={slot.category} className="min-h-[280px]">
+                  {slot.article ? (
+                    <div
+                      className="group h-full cursor-pointer rounded-2xl border bg-card p-4 shadow-sm transition-all hover:-translate-y-1 hover:border-primary/30 hover:shadow-md"
+                      onClick={() => openBriefPost(slot.article!)}
+                    >
+                      <div className="aspect-[4/3] rounded-xl overflow-hidden bg-muted relative mb-4">
+                        {slot.article.cover_image_url ? (
+                          <img
+                            src={slot.article.cover_image_url}
+                            alt={slot.article.title}
+                            className="absolute inset-0 h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
+                        ) : (
+                          <div className="absolute inset-0 bg-muted" />
+                        )}
+                      </div>
+                      <Badge variant="outline" className="mb-3 border-gold/30 text-gold-dark">
+                        {slot.category}
+                      </Badge>
+                      <h3 className="text-base font-bold leading-tight text-primary group-hover:text-gold-dark line-clamp-3">
+                        {slot.article.title}
+                      </h3>
+                      <p className="mt-2 text-sm text-muted-foreground line-clamp-2">
+                        {slot.article.description}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex h-full items-center justify-center rounded-2xl border border-dashed bg-muted/20 p-6 text-center">
+                      <div>
+                        <p className="text-sm font-semibold text-primary">{slot.category}</p>
+                        <p className="mt-2 text-xs text-muted-foreground">No live brief yet</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+
+      {trendingArticles.length > 0 && (
         <section className="py-8 sm:py-10 px-4 sm:px-6 bg-muted/30 border-y border-border/60">
           <div className="max-w-7xl mx-auto">
             <h2 className="font-serif font-bold text-xl sm:text-2xl mb-6 sm:mb-8 flex items-center justify-center gap-3 text-center">
               <Flame className="h-6 w-6 text-orange-500 shrink-0" />
               <span className="text-primary">
-                Hot topics<span className="text-gold">.</span>
+                Trending<span className="text-gold">.</span>
               </span>
             </h2>
             <div className="max-w-3xl mx-auto divide-y divide-border/40">
-              {hotArticles.map((article, idx) => (
+              {trendingArticles.map((article, idx) => (
                 <div
                   key={article.id}
                   className="group/item cursor-pointer flex gap-4 items-start py-4 first:pt-0 last:pb-0"
-                  onClick={() =>
-                    navigate(
-                      `/the-brief/${encodeURIComponent(buildBlogPathSegment(article))}`,
-                    )
-                  }
+                  onClick={() => openBriefPost(article)}
                 >
                   <span className="text-3xl font-serif font-bold text-gold/30 leading-none -mt-1 group-hover/item:text-gold/50 transition-colors w-8">
                     {String(idx + 1).padStart(2, "0")}
@@ -440,11 +493,7 @@ const Blog = () => {
                 <div 
                   key={article.id}
                   className="group cursor-pointer"
-                  onClick={() =>
-                    navigate(
-                      `/the-brief/${encodeURIComponent(buildBlogPathSegment(article))}`,
-                    )
-                  }
+                  onClick={() => openBriefPost(article)}
                 >
                   <div className="aspect-[4/3] sm:aspect-[940/788] rounded-xl sm:rounded-2xl overflow-hidden bg-muted/30 relative mb-3 sm:mb-4 border shadow-sm group-hover:shadow-md transition-all duration-300">
                     <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 via-transparent to-accent/5 group-hover:scale-105 transition-transform duration-500" />

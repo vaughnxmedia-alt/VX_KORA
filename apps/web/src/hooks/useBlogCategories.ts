@@ -17,7 +17,7 @@ export function useBlogCategories(options: UseBlogCategoriesOptions = {}) {
     setLoading(true);
     let query = supabase
       .from("blog_categories")
-      .select("id, name, slug, display_order, is_active, created_at, updated_at")
+      .select("id, name, slug, display_order, is_active, featured_insights_eligible, created_at, updated_at")
       .order("display_order", { ascending: true })
       .order("name", { ascending: true });
 
