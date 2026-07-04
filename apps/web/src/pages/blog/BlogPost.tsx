@@ -100,19 +100,19 @@ function SponsorHubInlineCta({ onClick }: { onClick: () => void }) {
 
 function SponsorHubArticleCta({ onClick }: { onClick: () => void }) {
   return (
-    <aside className="not-prose mt-16 max-w-none min-w-0">
+    <aside className="not-prose mt-16 w-full max-w-full min-w-0">
       <div className="blog-section-break mb-10">
         <span className="blog-section-break-dot" />
       </div>
-      <div className="relative w-full max-w-full overflow-hidden rounded-[1.75rem] border border-[#D8C28B]/35 bg-[#0A1A35] text-white shadow-[0_24px_70px_rgba(10,26,53,0.16)]">
+      <div className="relative box-border w-full max-w-full overflow-hidden rounded-[1.25rem] border border-[#D8C28B]/35 bg-[#0A1A35] text-white shadow-[0_16px_48px_rgba(10,26,53,0.14)] sm:rounded-[1.75rem] sm:shadow-[0_24px_70px_rgba(10,26,53,0.16)]">
         <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-[#E6C769]/20 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-8 -left-8 h-28 w-28 rounded-full bg-[#C59B3C]/10 blur-2xl" />
         <div className="absolute bottom-0 left-0 h-1 w-full bg-gradient-to-r from-[#8C6C27] via-[#E6C769] to-[#C59B3C]" />
-        <div className="relative px-4 py-8 text-center sm:px-10 sm:py-12">
+        <div className="relative box-border px-4 py-8 text-center sm:px-10 sm:py-12">
           <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full border border-[#E6C769]/30 bg-[#E6C769]/10 text-[#E6C769]">
             <Handshake className="h-5 w-5" />
           </div>
-          <p className="text-[0.65rem] font-bold uppercase tracking-[0.32em] text-[#E6C769]">
+          <p className="text-[0.62rem] font-bold uppercase tracking-[0.22em] text-[#E6C769] sm:text-[0.65rem] sm:tracking-[0.32em]">
             Strategic Sponsor Hub
           </p>
           <h3 className="mx-auto mt-4 max-w-2xl font-serif text-xl font-bold leading-tight text-white sm:text-[1.85rem] sm:leading-snug">
@@ -125,10 +125,13 @@ function SponsorHubArticleCta({ onClick }: { onClick: () => void }) {
           <Button
             size="lg"
             onClick={onClick}
-            className="mt-8 h-auto w-full max-w-full whitespace-normal rounded-full bg-gold px-4 py-4 text-sm font-bold leading-snug text-primary shadow-lg shadow-gold/25 transition-all hover:bg-gold/90 sm:w-auto sm:px-8 sm:py-6 sm:text-base sm:hover:scale-[1.02]"
+            className="mt-8 box-border inline-flex h-auto w-full max-w-full flex-col items-center justify-center gap-2 whitespace-normal rounded-xl bg-gold px-4 py-4 text-sm font-bold leading-snug text-primary shadow-lg shadow-gold/25 transition-all hover:bg-gold/90 sm:w-auto sm:flex-row sm:rounded-full sm:px-8 sm:py-6 sm:text-base sm:hover:scale-[1.02]"
           >
-            <Handshake className="mr-2 h-5 w-5 shrink-0" />
-            Request to Be Added to Our Sponsor Hub
+            <Handshake className="h-5 w-5 shrink-0" />
+            <span className="max-w-full text-center">
+              <span className="sm:hidden">Request to Be Added</span>
+              <span className="hidden sm:inline">Request to Be Added to Our Sponsor Hub</span>
+            </span>
           </Button>
         </div>
       </div>
@@ -565,10 +568,10 @@ const BlogPost = () => {
   const sponsorshipContent = isSponsorPost ? splitMarkdownAfterFirstBlock(post.content) : null;
 
   return (
-    <div className="min-h-screen bg-background blog-editorial">
+    <div className="min-h-screen overflow-x-hidden bg-background blog-editorial">
       {/* Header Navigation */}
       <div className="border-b bg-background/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-[680px] mx-auto px-6 py-3">
+        <div className="mx-auto max-w-[680px] px-4 py-3 sm:px-6">
           <div className="flex items-center justify-between">
             <Button 
               variant="ghost" 

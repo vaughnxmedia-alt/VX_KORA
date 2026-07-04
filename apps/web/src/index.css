@@ -142,7 +142,7 @@ All colors MUST be HSL.
   }
 
   .blog-editorial-container {
-    @apply max-w-[680px] mx-auto px-6;
+    @apply max-w-[680px] mx-auto px-4 sm:px-6;
   }
 
   .blog-editorial-title {
