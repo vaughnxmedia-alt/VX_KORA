@@ -8,7 +8,7 @@ import {
   type NavGroup,
   type NavItem,
 } from "@/lib/dashboardNav";
-import { isAppOwnerJustice } from "@/lib/super-ops";
+import { isAppOwnerJustice, isSuperOpsUser } from "@/lib/super-ops";
 
 export type VisibleNavGroup = {
   label: string;
@@ -36,6 +36,9 @@ export function useDashboardNav() {
   const ALLOWED_ADMIN_TAB_USERS = ["Justice Vaughn", "Jocelyn Vaughn"];
   const canSeeAdminTab = ALLOWED_ADMIN_TAB_USERS.includes(currentUserProfile?.full_name || "");
   const isDashboardOwner = isAppOwnerJustice(user?.email ?? null);
+  const hasFullNavAccess =
+    isDashboardOwner ||
+    isSuperOpsUser(user?.email ?? null, currentUserProfile?.full_name ?? null);
 
   const { data: userPermissions } = useQuery({
     queryKey: ["user-tab-permissions", user?.id],
@@ -52,26 +55,26 @@ export function useDashboardNav() {
   });
 
   const isItemVisible = (itemKey: string, adminOnly?: boolean) => {
-    if (isDashboardOwner) return true;
+    if (hasFullNavAccess) return true;
     if (itemKey === ADMIN_TAB_KEY) return canSeeAdminTab;
+
+    const isAdminLike = role === "admin" || role === "author";
+    const permission = userPermissions?.find((p) => p.tab_key === itemKey);
+
+    if (permission?.is_visible === false) return false;
+    if (permission?.is_visible === true) return true;
+
+    // Admin/author users should see new dashboard tabs (e.g. Sponsor Hub) even when
+    // their saved sidebar permissions predate those routes.
+    if (isAdminLike) return true;
 
     const hasExplicitTabPolicy = (userPermissions?.length ?? 0) > 0;
     if (hasExplicitTabPolicy) {
-      const permission = userPermissions?.find((p) => p.tab_key === itemKey);
-      const allowed = permission
-        ? permission.is_visible
-        : !ADMIN_ONLY_KEYS.includes(itemKey);
-      if (!allowed) return false;
-      if (role === "client" && adminOnly && ADMIN_ONLY_KEYS.includes(itemKey)) {
-        return false;
-      }
+      if (adminOnly && ADMIN_ONLY_KEYS.includes(itemKey)) return false;
       return true;
     }
 
-    if (role === "admin" || role === "author") return true;
     if (adminOnly && ADMIN_ONLY_KEYS.includes(itemKey)) return false;
-    const permission = userPermissions?.find((p) => p.tab_key === itemKey);
-    if (permission) return permission.is_visible;
     return !ADMIN_ONLY_KEYS.includes(itemKey);
   };
 
@@ -84,6 +87,7 @@ export function useDashboardNav() {
     visibleNavGroups,
     isItemVisible,
     isDashboardOwner,
+    hasFullNavAccess,
     canSeeAdminTab,
     user,
   };
