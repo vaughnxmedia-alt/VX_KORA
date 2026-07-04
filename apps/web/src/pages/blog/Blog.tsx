@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,7 +6,9 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Clock, ArrowRight, X, User, Flame } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-import { deriveBriefPageSections } from "@/lib/brief-listing";
+import { deriveBriefPageSections, filterLiveBriefPosts } from "@/lib/brief-listing";
+import { normalizeBlogPostCategory } from "@/lib/blog-categories";
+import { useBlogCategories } from "@/hooks/useBlogCategories";
 import {
   buildBlogPathSegment,
   getDefaultOgImageAbsoluteUrl,
@@ -42,30 +44,6 @@ type BlogPost = {
   is_featured?: boolean | null;
   is_hot_topic?: boolean | null;
 };
-
-const CATEGORY_RENAMES: Record<string, string> = {
-  "Brand Authority": "Visionary Highlight",
-  "Educational Frameworks": "Educational Series",
-};
-
-const FEATURED_CATEGORIES = [
-  "All",
-  "Client Highlights",
-  "Educational Series",
-  "Public Relations",
-];
-
-const HIDDEN_CATEGORY_FILTERS = new Set([
-  "Visionary Highlight",
-  "Profile",
-  "Start a Business in any State",
-  "The Making of a Brand",
-]);
-
-function normalizeCategory(category: string | null | undefined): string {
-  const value = category?.trim() || "";
-  return CATEGORY_RENAMES[value] ?? value;
-}
 
 const updateTheBriefSEO = () => {
   document.title = "The Brief | JahKnowsPR";
@@ -146,6 +124,7 @@ const Blog = () => {
   const { toast } = useToast();
   const [currentPage, setCurrentPage] = useState(1);
   const articlesPerPage = 6;
+  const { categories: managedCategories } = useBlogCategories();
 
   const fetchBlogPosts = useCallback(async () => {
       const { data, error } = await supabase
@@ -164,7 +143,7 @@ const Blog = () => {
       } else {
           setArticles((data as BlogPost[]).map((post) => ({
             ...post,
-            category: normalizeCategory(post.category),
+            category: normalizeBlogPostCategory(post.category),
           })));
       }
   }, [toast]);
@@ -175,7 +154,7 @@ const Blog = () => {
     
     const categoryParam = searchParams.get('category');
     if (categoryParam) {
-      setSelectedCategory(normalizeCategory(categoryParam));
+      setSelectedCategory(normalizeBlogPostCategory(categoryParam));
     }
     
     if (searchParams.get('new_access') === 'true') {
@@ -185,12 +164,17 @@ const Blog = () => {
     }
   }, [fetchBlogPosts, searchParams, setSearchParams]);
 
-  const categories = [
-    ...FEATURED_CATEGORIES,
-    ...Array.from(new Set(articles.map(a => normalizeCategory(a.category)).filter(Boolean)))
-      .filter((category) => !FEATURED_CATEGORIES.includes(category))
-      .filter((category) => !HIDDEN_CATEGORY_FILTERS.has(category)),
-  ];
+  const liveArticles = useMemo(() => filterLiveBriefPosts(articles), [articles]);
+
+  const categories = useMemo(() => {
+    const publishedCategoryNames = new Set(
+      liveArticles.map((article) => article.category).filter(Boolean),
+    );
+    const activeFilters = managedCategories
+      .filter((category) => category.is_active && publishedCategoryNames.has(category.name))
+      .map((category) => category.name);
+    return ["All", ...activeFilters];
+  }, [managedCategories, liveArticles]);
 
   const { heroArticle, hotArticles, gridArticles } = deriveBriefPageSections(
     articles,

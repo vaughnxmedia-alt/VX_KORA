@@ -88,6 +88,11 @@ import {
 } from "@/lib/blog-publish-schedule";
 import { VideoUploader } from "@/components/blog/VideoUploader";
 import { BlogShareDialog } from "@/components/blog/BlogShareDialog";
+import { useAuth } from "@/components/AuthProvider";
+import { useBlogCategories } from "@/hooks/useBlogCategories";
+import { BlogCategoriesPanel } from "@/features/blog/BlogCategoriesPanel";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { isAppOwner } from "@/lib/super-ops";
 
 type BlogPost = {
   id?: string;
@@ -212,13 +217,18 @@ const BlogManagement = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
+  const [dashboardTab, setDashboardTab] = useState("posts");
   const { toast } = useToast();
+  const { role, user } = useAuth();
+  const isCategoryAdmin = role === "admin" || isAppOwner(user?.email);
+  const { categories: managedCategories, refresh: refreshCategories } = useBlogCategories({
+    includeInactive: isCategoryAdmin,
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [menuBusyPostId, setMenuBusyPostId] = useState<string | null>(null);
 
   // Form States
   const [categoryValue, setCategoryValue] = useState("");
-  const [isCustomCategory, setIsCustomCategory] = useState(false);
   const [isFeatured, setIsFeatured] = useState(false);
   const [isHotTopic, setIsHotTopic] = useState(false);
   
@@ -294,7 +304,6 @@ const BlogManagement = () => {
     setSelectedPost(post);
     setContentValue(post.content || "");
     setCategoryValue(post.category || "");
-    setIsCustomCategory(false);
     setIsFeatured(!!post.is_featured);
     setIsHotTopic(!!post.is_hot_topic);
     // New CMS fields
@@ -705,7 +714,6 @@ const BlogManagement = () => {
     setSelectedPost(null);
     setContentValue("");
     setCategoryValue("");
-    setIsCustomCategory(false);
     setIsFeatured(false);
     setIsHotTopic(false);
     // Reset new CMS fields
@@ -735,21 +743,34 @@ const BlogManagement = () => {
     return matchesSearch && matchesCategory;
   });
 
-  // Get unique categories for filter dropdown
-  const categories = Array.from(new Set(blogPosts.map(post => post.category).filter(Boolean))) as string[];
+  const categoryFilterOptions = useMemo(
+    () => managedCategories.map((category) => category.name),
+    [managedCategories],
+  );
 
-  /** Options for the edit dialog Select: include current value even if not yet in any saved post. */
   const categorySelectOptions = useMemo(() => {
-    const fromPosts = Array.from(
-      new Set(blogPosts.map((p) => p.category).filter(Boolean)),
-    ) as string[];
-    if (categoryValue && !fromPosts.includes(categoryValue)) {
-      return [categoryValue, ...fromPosts];
+    const activeNames = managedCategories
+      .filter((category) => category.is_active)
+      .map((category) => category.name);
+    if (categoryValue && !activeNames.includes(categoryValue)) {
+      return [categoryValue, ...activeNames.filter((name) => name !== categoryValue)];
     }
-    return fromPosts;
-  }, [blogPosts, categoryValue]);
+    return activeNames;
+  }, [managedCategories, categoryValue]);
 
-  const NEW_CATEGORY_SENTINEL = "__KORA_NEW_CATEGORY__";
+  const postCountsByCategory = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const post of blogPosts) {
+      if (!post.category) continue;
+      counts[post.category] = (counts[post.category] ?? 0) + 1;
+    }
+    return counts;
+  }, [blogPosts]);
+
+  const handleCategoriesChanged = useCallback(() => {
+    refreshCategories();
+    fetchBlogPosts();
+  }, [refreshCategories, fetchBlogPosts]);
 
   return (
     <div className="space-y-6">
@@ -761,15 +782,32 @@ const BlogManagement = () => {
             Create, edit, and manage your blog posts with ease
           </p>
         </div>
-        <Button 
-          onClick={openNewPostDialog}
-          className="shadow-sm"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Create New Post
-        </Button>
+        {dashboardTab === "posts" && (
+          <Button onClick={openNewPostDialog} className="shadow-sm">
+            <Plus className="h-4 w-4 mr-2" />
+            Create New Post
+          </Button>
+        )}
       </div>
 
+      <Tabs value={dashboardTab} onValueChange={setDashboardTab} className="space-y-6">
+        {isCategoryAdmin && (
+          <TabsList>
+            <TabsTrigger value="posts">Posts</TabsTrigger>
+            <TabsTrigger value="categories">Blog Categories</TabsTrigger>
+          </TabsList>
+        )}
+
+        {isCategoryAdmin && (
+          <TabsContent value="categories" className="mt-0">
+            <BlogCategoriesPanel
+              postCountsByCategory={postCountsByCategory}
+              onCategoriesChanged={handleCategoriesChanged}
+            />
+          </TabsContent>
+        )}
+
+        <TabsContent value="posts" className="space-y-6 mt-0">
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
@@ -789,7 +827,7 @@ const BlogManagement = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-muted-foreground text-sm font-medium">Categories</p>
-                <p className="text-2xl font-bold text-primary">{categories.length}</p>
+                <p className="text-2xl font-bold text-primary">{managedCategories.length}</p>
               </div>
               <Tag className="h-8 w-8 text-primary/20" />
             </div>
@@ -847,7 +885,7 @@ const BlogManagement = () => {
             className="pl-10 pr-8 py-2 border rounded-md bg-background focus:ring-2 focus:ring-ring text-sm min-w-[160px]"
           >
             <option value="">All Categories</option>
-            {categories.map((category) => (
+            {categoryFilterOptions.map((category) => (
               <option key={category} value={category || ""}>
                 {category}
               </option>
@@ -1096,6 +1134,8 @@ const BlogManagement = () => {
           </div>
         </CardContent>
       </Card>
+        </TabsContent>
+      </Tabs>
 
       <Dialog
         open={isDialogOpen}
@@ -1272,51 +1312,25 @@ const BlogManagement = () => {
               {/* Category Dropdown */}
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
-                {!isCustomCategory ? (
-                  <Select 
-                    value={categoryValue || undefined}
-                    onValueChange={(val) => {
-                      if (val === NEW_CATEGORY_SENTINEL) {
-                        setIsCustomCategory(true);
-                        setCategoryValue("");
-                      } else {
-                        setCategoryValue(val);
-                      }
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categorySelectOptions.map((cat) => (
-                        <SelectItem key={cat} value={cat}>
-                          {cat}
-                        </SelectItem>
-                      ))}
-                      <SelectItem value={NEW_CATEGORY_SENTINEL} className="font-medium text-primary">
-                        + Create New Category
+                <Select
+                  value={categoryValue || undefined}
+                  onValueChange={setCategoryValue}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categorySelectOptions.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat}
                       </SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <div className="flex gap-2">
-                    <Input 
-                      value={categoryValue}
-                      onChange={(e) => setCategoryValue(e.target.value)}
-                      placeholder="Enter new category name"
-                      autoFocus
-                    />
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      onClick={() => {
-                        setIsCustomCategory(false);
-                        setCategoryValue("");
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {isCategoryAdmin && categorySelectOptions.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Add categories in the Blog Categories tab before assigning posts.
+                  </p>
                 )}
               </div>
             </div>
