@@ -198,15 +198,23 @@ export type HqContentPost = {
 /** Permission matrix for HQ modules */
 export function canAccessHqModule(
   role: HqRole | null,
-  module: "dashboard" | "crm" | "clients" | "tasks" | "content" | "team" | "settings",
+  module:
+    | "dashboard"
+    | "crm"
+    | "clients"
+    | "tasks"
+    | "content"
+    | "intelligence"
+    | "team"
+    | "settings",
 ): boolean {
   if (!role) return false;
   if (role === "owner") return true;
   if (role === "strategist") {
-    return ["dashboard", "crm", "clients", "tasks", "content"].includes(module);
+    return ["dashboard", "crm", "clients", "tasks", "content", "intelligence"].includes(module);
   }
   if (role === "creative") {
-    return ["dashboard", "tasks", "content", "clients"].includes(module);
+    return ["dashboard", "tasks", "content", "clients", "intelligence"].includes(module);
   }
   if (role === "intern") {
     return ["dashboard", "tasks", "content"].includes(module);

@@ -111,6 +111,9 @@ const CampaignsLayout = React.lazy(() =>
 const CampaignsIndexPage = React.lazy(() =>
   import('@/features/campaigns/pages/CampaignsIndexPage').then((module) => ({ default: module.CampaignsIndexPage })),
 );
+const CampaignDetailPage = React.lazy(() =>
+  import('@/features/campaigns/pages/CampaignDetailPage').then((module) => ({ default: module.CampaignDetailPage })),
+);
 const HqApp = React.lazy(() => import('@/features/hq/HqApp'));
 const HqDashboardPage = React.lazy(() => import('@/features/hq/pages/HqDashboardPage'));
 const HqCrmListPage = React.lazy(() =>
@@ -137,6 +140,29 @@ const HqTeamPage = React.lazy(() =>
 );
 const HqSettingsPage = React.lazy(() =>
   import('@/features/hq/pages/HqOpsPages').then((m) => ({ default: m.HqSettingsPage })),
+);
+const CiModuleGate = React.lazy(() =>
+  import('@/features/communications-intelligence/CiModuleGate').then((m) => ({ default: m.CiModuleGate })),
+);
+const CiOrganizationsListPage = React.lazy(() =>
+  import('@/features/communications-intelligence/pages/CiOrganizationsListPage').then((m) => ({
+    default: m.CiOrganizationsListPage,
+  })),
+);
+const CiOrganizationWorkspacePage = React.lazy(() =>
+  import('@/features/communications-intelligence/pages/CiOrganizationWorkspacePage').then((m) => ({
+    default: m.CiOrganizationWorkspacePage,
+  })),
+);
+const CiOrganizationOverviewTab = React.lazy(() =>
+  import('@/features/communications-intelligence/pages/CiOrganizationOverviewTab').then((m) => ({
+    default: m.CiOrganizationOverviewTab,
+  })),
+);
+const CiOrganizationNotesTab = React.lazy(() =>
+  import('@/features/communications-intelligence/pages/CiOrganizationNotesTab').then((m) => ({
+    default: m.CiOrganizationNotesTab,
+  })),
 );
 
 const PageFallback = () => (
@@ -241,6 +267,14 @@ createRoot(document.getElementById('root')!).render(
                   <Route path="content/:id" element={<HqContentEditorPage />} />
                   <Route path="team" element={<HqTeamPage />} />
                   <Route path="settings" element={<HqSettingsPage />} />
+                  <Route path="intelligence" element={<CiModuleGate />}>
+                    <Route index element={<Navigate to="organizations" replace />} />
+                    <Route path="organizations" element={<CiOrganizationsListPage />} />
+                    <Route path="organizations/:orgId" element={<CiOrganizationWorkspacePage />}>
+                      <Route index element={<CiOrganizationOverviewTab />} />
+                      <Route path="notes" element={<CiOrganizationNotesTab />} />
+                    </Route>
+                  </Route>
                 </Route>
                 
                 {/* === DASHBOARD ROUTES === */}

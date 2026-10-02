@@ -15,6 +15,7 @@ import {
   LogOut,
   Menu,
   X,
+  Radar,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -41,6 +42,15 @@ const BUSINESS: NavItem[] = [
   { label: "CRM", to: "/hq/crm", icon: Users, module: "crm" },
   { label: "Clients", to: "/hq/clients", icon: Building2, module: "clients" },
   { label: "Tasks", to: "/hq/tasks", icon: CheckSquare, module: "tasks" },
+];
+
+const INTELLIGENCE: NavItem[] = [
+  {
+    label: "Organizations",
+    to: "/hq/intelligence/organizations",
+    icon: Radar,
+    module: "intelligence",
+  },
 ];
 
 const CONTENT: NavItem[] = [
@@ -148,6 +158,12 @@ export function HqLayout() {
       <nav className="flex-1 overflow-y-auto px-2 py-4">
         <NavSection title="Command Center" items={COMMAND} can={can} onNavigate={() => setMobileOpen(false)} />
         <NavSection title="Business" items={BUSINESS} can={can} onNavigate={() => setMobileOpen(false)} />
+        <NavSection
+          title="Communications Intelligence"
+          items={INTELLIGENCE}
+          can={can}
+          onNavigate={() => setMobileOpen(false)}
+        />
         <NavSection title="Content" items={CONTENT} can={can} onNavigate={() => setMobileOpen(false)} />
         <NavSection title="Operations" items={OPERATIONS} can={can} onNavigate={() => setMobileOpen(false)} />
         <div className="px-3 pt-2">
