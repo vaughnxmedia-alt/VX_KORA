@@ -12,7 +12,7 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Settings, LogOut, User as UserIcon } from "lucide-react";
+import { LayoutDashboard, Settings, LogOut, User as UserIcon, Building2 } from "lucide-react";
 import { User } from "@supabase/supabase-js";
 
 interface AccountNavigationProps {
@@ -93,6 +93,13 @@ export const AccountNavigation: React.FC<AccountNavigationProps> = ({ user, alig
         >
           <LayoutDashboard className="w-4 h-4 mr-2" />
           Dashboard
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => handleNavigation("/hq")}
+          className={location.pathname.startsWith("/hq") ? "bg-accent text-accent-foreground" : undefined}
+        >
+          <Building2 className="w-4 h-4 mr-2" />
+          JahKnowsPR HQ
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => handleNavigation("/dashboard/settings")}>
           <Settings className="w-4 h-4 mr-2" />

@@ -16,7 +16,13 @@ const KORA_PUBLIC_URL = String(import.meta.env.VITE_KORA_PUBLIC_URL || "/").repl
 const Index = React.lazy(() => import('./pages/Index'));
 const Shop = React.lazy(() => import('./pages/Shop'));
 const WorkWithMe = React.lazy(() => import('./pages/WorkWithMe'));
-const About = React.lazy(() => import('./pages/About'));
+const WorkWithUs = React.lazy(() => import('./pages/WorkWithUs'));
+const OurWork = React.lazy(() => import('./pages/OurWork'));
+const InsightsHub = React.lazy(() => import('./pages/InsightsHub'));
+const InsightsSpamReport = React.lazy(() => import('./pages/InsightsSpamReport'));
+const InsightsPRCourt = React.lazy(() => import('./pages/InsightsPRCourt'));
+const ContactPage = React.lazy(() => import('./pages/ContactPage'));
+const About = React.lazy(() => import('./pages/AboutPublic'));
 const PrivacyPolicy = React.lazy(() => import('./pages/PrivacyPolicy'));
 const TermsOfService = React.lazy(() => import('./pages/TermsOfService'));
 const DataDeletionPolicy = React.lazy(() => import('./pages/DataDeletionPolicy'));
@@ -105,8 +111,32 @@ const CampaignsLayout = React.lazy(() =>
 const CampaignsIndexPage = React.lazy(() =>
   import('@/features/campaigns/pages/CampaignsIndexPage').then((module) => ({ default: module.CampaignsIndexPage })),
 );
-const CampaignDetailPage = React.lazy(() =>
-  import('@/features/campaigns/pages/CampaignDetailPage').then((module) => ({ default: module.CampaignDetailPage })),
+const HqApp = React.lazy(() => import('@/features/hq/HqApp'));
+const HqDashboardPage = React.lazy(() => import('@/features/hq/pages/HqDashboardPage'));
+const HqCrmListPage = React.lazy(() =>
+  import('@/features/hq/pages/HqCrmPages').then((m) => ({ default: m.HqCrmListPage })),
+);
+const HqCrmEditorPage = React.lazy(() =>
+  import('@/features/hq/pages/HqCrmPages').then((m) => ({ default: m.HqCrmEditorPage })),
+);
+const HqClientsListPage = React.lazy(() =>
+  import('@/features/hq/pages/HqClientsPages').then((m) => ({ default: m.HqClientsListPage })),
+);
+const HqClientDetailPage = React.lazy(() =>
+  import('@/features/hq/pages/HqClientsPages').then((m) => ({ default: m.HqClientDetailPage })),
+);
+const HqTasksPage = React.lazy(() => import('@/features/hq/pages/HqTasksPage'));
+const HqContentListPage = React.lazy(() =>
+  import('@/features/hq/pages/HqContentPages').then((m) => ({ default: m.HqContentListPage })),
+);
+const HqContentEditorPage = React.lazy(() =>
+  import('@/features/hq/pages/HqContentPages').then((m) => ({ default: m.HqContentEditorPage })),
+);
+const HqTeamPage = React.lazy(() =>
+  import('@/features/hq/pages/HqOpsPages').then((m) => ({ default: m.HqTeamPage })),
+);
+const HqSettingsPage = React.lazy(() =>
+  import('@/features/hq/pages/HqOpsPages').then((m) => ({ default: m.HqSettingsPage })),
 );
 
 const PageFallback = () => (
@@ -153,7 +183,16 @@ createRoot(document.getElementById('root')!).render(
                 <Route index element={<Index />} />
                 <Route path="/home" element={<Index />} />
                 <Route path="/shop" element={<Shop />} />
-                <Route path="/work-with-me" element={<WorkWithMe />} />
+                <Route path="/work-with-us" element={<WorkWithUs />} />
+                <Route path="/work-with-me" element={<Navigate to="/work-with-us" replace />} />
+                <Route path="/work" element={<OurWork />} />
+                <Route path="/insights" element={<InsightsHub />} />
+                <Route path="/insights/the-brief" element={<TheBriefRoute />} />
+                <Route path="/insights/spam-report" element={<InsightsSpamReport />} />
+                <Route path="/insights/pr-court" element={<InsightsPRCourt />} />
+                <Route path="/contact" element={<ContactPage />} />
+                {/* Legacy services page — preserved, not in primary nav */}
+                <Route path="/services" element={<WorkWithMe />} />
                 <Route path="/brand-strategy-session" element={<BrandStrategySessionLanding />} />
                 <Route path="/free-audit" element={<FreeAudit />} />
                 <Route path="/free-audit/thank-you" element={<FreeAuditThankYou />} />
@@ -189,6 +228,20 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="/brand-blueprint" element={<BrandBlueprint />} />
                 <Route path="/strategic-sponsor-hub/request" element={<StrategicSponsorHubRequest />} />
                 <Route path="/payment" element={<Payment />} />
+
+                {/* === JAHKNOWSPR HQ (private operations) === */}
+                <Route path="/hq" element={<HqApp />}>
+                  <Route index element={<HqDashboardPage />} />
+                  <Route path="crm" element={<HqCrmListPage />} />
+                  <Route path="crm/:id" element={<HqCrmEditorPage />} />
+                  <Route path="clients" element={<HqClientsListPage />} />
+                  <Route path="clients/:id" element={<HqClientDetailPage />} />
+                  <Route path="tasks" element={<HqTasksPage />} />
+                  <Route path="content" element={<HqContentListPage />} />
+                  <Route path="content/:id" element={<HqContentEditorPage />} />
+                  <Route path="team" element={<HqTeamPage />} />
+                  <Route path="settings" element={<HqSettingsPage />} />
+                </Route>
                 
                 {/* === DASHBOARD ROUTES === */}
                 <Route path="/dashboard" element={

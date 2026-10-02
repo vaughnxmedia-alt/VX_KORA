@@ -17,6 +17,11 @@
       "permanent": false
     },
     {
+      "source": "/work-with-me",
+      "destination": "/work-with-us",
+      "permanent": true
+    },
+    {
       "source": "/blog",
       "destination": "/the-brief",
       "permanent": true

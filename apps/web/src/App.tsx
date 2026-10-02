@@ -24,13 +24,16 @@ function detectAIReferralSource(referrer: string): string | null {
 function App() {
   const location = useLocation();
   const isDashboard = location.pathname.startsWith('/dashboard');
+  const isHq = location.pathname.startsWith('/hq');
   const usesDocumentScroll =
     !isDashboard &&
+    !isHq &&
     (location.pathname.startsWith("/strategy-session") ||
       location.pathname.startsWith("/free-audit"));
   const hideFooter =
     location.pathname.startsWith("/strategy-session") ||
-    location.pathname.startsWith("/free-audit");
+    location.pathname.startsWith("/free-audit") ||
+    isHq;
   const mainRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -94,8 +97,8 @@ function App() {
           usesDocumentScroll ? "min-h-screen" : "h-screen",
         )}
       >
-        {!isDashboard && <StructuredData id="site-core" data={[organizationSchema(), websiteSchema()]} />}
-        {!isDashboard && (
+        {!isDashboard && !isHq && <StructuredData id="site-core" data={[organizationSchema(), websiteSchema()]} />}
+        {!isDashboard && !isHq && (
           <header className="flex-shrink-0">
             <Navigation />
           </header>
@@ -106,12 +109,13 @@ function App() {
           className={cn(
             "flex-grow",
             usesDocumentScroll ? "overflow-visible" : "h-full min-h-0 overflow-y-auto",
+            isHq && "overflow-hidden",
           )}
         >
           <Outlet />
-          {!isDashboard && !hideFooter && <Footer />}
+          {!isDashboard && !isHq && !hideFooter && <Footer />}
         </main>
-        {!isDashboard && <SubscriberPopup />}
+        {!isDashboard && !isHq && <SubscriberPopup />}
       </div>
     </AuthProvider>
   );

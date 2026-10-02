@@ -3,22 +3,28 @@ import { TrackedLinkButton } from "@/components/links/TrackedLinkButton";
 
 const LINK_ITEMS = [
   {
-    linkId: "free-brand-audit",
-    label: "Free Brand Audit",
-    href: "/free-audit",
-    description: "Get a structured diagnosis of your brand presence.",
+    linkId: "strategy-session",
+    label: "Book a Strategic Communications Session",
+    href: "/brand-strategy-session",
+    description: "Focused counsel before an important communications decision.",
   },
   {
-    linkId: "strategy-session",
-    label: "Book a Strategy Session",
-    href: "/strategy-session",
-    description: "Work through positioning, offers, and next moves with JahKnowsPR.",
+    linkId: "work-with-us",
+    label: "Work With Us",
+    href: "/work-with-us",
+    description: "Session, project, and ongoing counsel engagements.",
   },
   {
     linkId: "the-brief",
-    label: "Read The Brief",
-    href: "/the-brief",
-    description: "Explore strategy, PR, and brand-building insights.",
+    label: "The Brief",
+    href: "/insights/the-brief",
+    description: "Strategic communications and PR analysis.",
+  },
+  {
+    linkId: "free-brand-audit",
+    label: "Free Brand Audit (legacy)",
+    href: "/free-audit",
+    description: "Previous free diagnosis funnel—still available.",
   },
   {
     linkId: "before-you-build-the-brand",
@@ -29,8 +35,8 @@ const LINK_ITEMS = [
   {
     linkId: "contact",
     label: "Contact",
-    href: "mailto:welcome@jahknowspr.com",
-    description: "welcome@jahknowspr.com",
+    href: "/contact",
+    description: "Project, counsel, and general inquiries.",
   },
 ] as const;
 

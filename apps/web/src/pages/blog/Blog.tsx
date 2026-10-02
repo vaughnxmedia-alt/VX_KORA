@@ -137,11 +137,23 @@ const Blog = () => {
   const homepageShuffleRandom = useRef(Math.random);
 
   const fetchBlogPosts = useCallback(async () => {
-      const { data, error } = await supabase
+      // Prefer The Brief series when content_type exists (HQ); fall back to all non-hidden posts
+      let { data, error } = await supabase
         .from("blog_posts")
         .select("*")
         .eq("is_hidden", false)
+        .eq("content_type", "the-brief")
         .order("published_date", { ascending: false });
+
+      if (error) {
+        const fallback = await supabase
+          .from("blog_posts")
+          .select("*")
+          .eq("is_hidden", false)
+          .order("published_date", { ascending: false });
+        data = fallback.data;
+        error = fallback.error;
+      }
 
       if (error) {
           console.error("Error fetching blog posts:", error);

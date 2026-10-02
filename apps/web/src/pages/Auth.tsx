@@ -116,8 +116,9 @@ const Auth = () => {
           description: "You have been signed in successfully.",
         });
         
-        // Check if user should be redirected back to Brand Blueprint
-        const redirectTo = location.state?.redirectTo;
+        const params = new URLSearchParams(location.search);
+        const nextPath = params.get("next");
+        const redirectTo = location.state?.redirectTo || (nextPath?.startsWith("/") ? nextPath : null);
         if (redirectTo) {
           navigate(redirectTo);
         } else {

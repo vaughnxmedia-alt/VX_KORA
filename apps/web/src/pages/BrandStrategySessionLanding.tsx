@@ -27,7 +27,7 @@ const bodyClass = "text-base sm:text-lg text-foreground/85 leading-relaxed space
 const listClass = "list-disc pl-5 space-y-2 text-base sm:text-lg text-foreground/85 leading-relaxed";
 const ctaBlockClass = "mt-10 flex flex-col items-start gap-2";
 
-const bookSessionLabel = "BOOK A SESSION";
+const bookSessionLabel = "BOOK STRATEGIC COMMUNICATIONS SESSION";
 
 const bookSessionBoldClass =
   "min-h-14 px-10 text-lg font-black uppercase tracking-[0.14em] shadow-lg";
@@ -42,12 +42,12 @@ function BookSessionButton() {
 
 export default function BrandStrategySessionLanding() {
   useEffect(() => {
-    document.title = "Brand Strategy Session | JahKnowsPR";
+    document.title = "Strategic Communications Session | JahKnowsPR";
     const meta = document.querySelector('meta[name="description"]');
     if (meta) {
       meta.setAttribute(
         "content",
-        "The $150 Brand Strategy Session is a 60-minute diagnosis for creators, entrepreneurs, and business owners who are tired of posting without traction."
+        "A focused Strategic Communications Session for leaders who need clarity on positioning, messaging, media, launches, and reputation before going public.",
       );
     }
   }, []);
@@ -58,16 +58,16 @@ export default function BrandStrategySessionLanding() {
         id="authority-strategy-session"
         data={[
           serviceSchema({
-            name: "Authority Strategy Session",
+            name: "Strategic Communications Session",
             description:
-              "A paid brand strategy session for creators, entrepreneurs, and business owners who need direct clarity on positioning, messaging, content direction, and next steps.",
+              "Focused advisory for leaders who need clarity on positioning, messaging, media opportunities, launches, and reputation before communicating publicly.",
             url: "/brand-strategy-session",
-            serviceType: "Brand strategy session",
-            areaServed: "Texas",
+            serviceType: "Strategic communications session",
+            areaServed: "United States",
           }),
           breadcrumbListSchema([
             { name: "Home", url: "/" },
-            { name: "Authority Strategy Session", url: "/brand-strategy-session" },
+            { name: "Strategic Communications Session", url: "/brand-strategy-session" },
           ]),
         ]}
       />
@@ -81,7 +81,7 @@ export default function BrandStrategySessionLanding() {
             id="hero-heading"
             className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-[2.75rem] font-bold leading-[1.15] tracking-tight mb-10 text-balance"
           >
-            You&apos;re Not Struggling to Post. You&apos;re Struggling to Position.
+            Strategic clarity before your next public move.
           </h1>
           <div className={ctaBlockClass}>
             <Button

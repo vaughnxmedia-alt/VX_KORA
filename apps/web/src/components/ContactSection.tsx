@@ -192,10 +192,10 @@ const ContactSection = () => {
             Get In Touch
           </Badge>
           <h2 className="text-4xl md:text-5xl font-serif font-bold text-foreground mb-6">
-            Ready to Build Your Empire?
+            Need strategic counsel before you go public?
           </h2>
           <p className="text-lg text-muted-foreground leading-relaxed">
-            Stop guessing and start growing. Whether you need a full brand overhaul or a strategic consultation, we're here to help you dominate your market.
+            Share your situation and we will route you to the right engagement—session, project, or ongoing counsel.
           </p>
         </div>
 
