@@ -16,6 +16,7 @@ import {
   Menu,
   X,
   Radar,
+  MessageCircle,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -46,9 +47,21 @@ const BUSINESS: NavItem[] = [
 
 const INTELLIGENCE: NavItem[] = [
   {
+    label: "Operations",
+    to: "/hq/intelligence",
+    icon: LayoutDashboard,
+    module: "intelligence",
+  },
+  {
     label: "Organizations",
     to: "/hq/intelligence/organizations",
     icon: Radar,
+    module: "intelligence",
+  },
+  {
+    label: "Counsel Requests",
+    to: "/hq/intelligence/counsel",
+    icon: MessageCircle,
     module: "intelligence",
   },
 ];
@@ -91,7 +104,7 @@ function NavSection({
             <li key={item.to + item.label}>
               <NavLink
                 to={item.to}
-                end={item.to === "/hq"}
+                end={item.to === "/hq" || item.to === "/hq/intelligence"}
                 onClick={onNavigate}
                 className={({ isActive }) =>
                   cn(

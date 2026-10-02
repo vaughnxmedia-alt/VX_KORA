@@ -39,7 +39,11 @@ function describeAuthFailure(error: unknown, context: "sign in" | "sign up" | "r
 }
 
 const Auth = () => {
-  const [email, setEmail] = useState("");
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { toast } = useToast();
+  const searchParams = new URLSearchParams(location.search);
+  const [email, setEmail] = useState(() => searchParams.get("email") || "");
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -50,10 +54,9 @@ const Auth = () => {
   const [activeTab, setActiveTab] = useState("signin");
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { toast } = useToast();
-  const allowEmployeeSignup = new URLSearchParams(location.search).get("employeeSignup") === "1";
+  const allowEmployeeSignup = searchParams.get("employeeSignup") === "1";
+  const allowCiInviteSignup = searchParams.get("ciInvite") === "1";
+  const allowSignup = allowEmployeeSignup || allowCiInviteSignup;
 
   useEffect(() => {
     // Check if we just completed signup
@@ -70,15 +73,19 @@ const Auth = () => {
         description: location.state.message,
       });
       // Only show signup for the employee invite path.
-      setActiveTab(allowEmployeeSignup ? "signup" : "signin");
+      setActiveTab(allowSignup ? "signup" : "signin");
     }
-  }, [allowEmployeeSignup, location.state, toast]);
+  }, [allowSignup, location.state, toast]);
 
   useEffect(() => {
-    if (!allowEmployeeSignup && activeTab === "signup") {
+    if (!allowSignup && activeTab === "signup") {
       setActiveTab("signin");
     }
-  }, [activeTab, allowEmployeeSignup]);
+  }, [activeTab, allowSignup]);
+
+  useEffect(() => {
+    if (allowCiInviteSignup) setActiveTab("signup");
+  }, [allowCiInviteSignup]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,6 +128,7 @@ const Auth = () => {
         const redirectTo = location.state?.redirectTo || (nextPath?.startsWith("/") ? nextPath : null);
         if (redirectTo) {
           navigate(redirectTo);
+          return;
         } else {
           // After sign-in, always navigate to the main dashboard.
           // The ProtectedRoute component will handle role-specific logic.
@@ -186,18 +194,25 @@ const Auth = () => {
       if (error) throw error;
 
       if (data.user) {
-        // Store a flag to show the confirmation message
         sessionStorage.setItem('signupComplete', 'true');
-        
-        // If coming from Brand Blueprint, update the message
+        const nextPath = new URLSearchParams(location.search).get("next");
+        if (data.session && nextPath?.startsWith("/")) {
+          toast({
+            title: "Account created",
+            description: "Continue to accept your invitation.",
+          });
+          navigate(nextPath);
+          return;
+        }
         const fromBrandBlueprint = location.state?.redirectTo === "/brand-blueprint";
-        
         setActiveTab("signin");
         toast({
           title: "Account Created!",
           description: fromBrandBlueprint 
             ? "Please check your email to confirm your account, then sign in to complete your Brand Blueprint submission."
-            : "Please check your email to confirm your account, then complete your Brand Blueprint to get started.",
+            : allowCiInviteSignup
+              ? "If email confirmation is required, confirm it, then sign in with this same address to accept the invitation."
+              : "Please check your email to confirm your account, then complete your Brand Blueprint to get started.",
         });
       }
     } catch (error: unknown) {
@@ -326,16 +341,16 @@ const Auth = () => {
           <CardHeader>
             <CardTitle>Authentication</CardTitle>
             <CardDescription>
-              {allowEmployeeSignup
-                ? "Sign in to your account or create a new employee account"
+              {allowSignup
+                ? "Sign in or create an account with the invited email"
                 : "Sign in to your JKPR Portal account"}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className={`grid w-full ${allowEmployeeSignup ? "grid-cols-2" : "grid-cols-1"}`}>
+              <TabsList className={`grid w-full ${allowSignup ? "grid-cols-2" : "grid-cols-1"}`}>
                 <TabsTrigger value="signin" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Sign In</TabsTrigger>
-                {allowEmployeeSignup ? (
+                {allowSignup ? (
                   <TabsTrigger value="signup" className="data-[state=active]:bg-background data-[state=active]:text-foreground">Sign Up</TabsTrigger>
                 ) : null}
               </TabsList>

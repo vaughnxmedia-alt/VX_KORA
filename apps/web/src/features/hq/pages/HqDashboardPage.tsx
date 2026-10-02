@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { hqApi } from "../api";
+import { ciApi } from "@/features/communications-intelligence/api";
 import { LEAD_STAGE_LABELS, TASK_STATUS_LABELS } from "../types";
 import { resolvePublicationStatus } from "@/lib/blog-publication-status";
 import { format, isSameDay, isWithinInterval, addDays, startOfDay, endOfDay, parseISO } from "date-fns";
@@ -55,6 +56,11 @@ export default function HqDashboardPage() {
     queryFn: () => hqApi.activity.recent(15),
     retry: 1,
   });
+  const { data: counsel } = useQuery({
+    queryKey: ["ci", "counsel", "inbox-summary"],
+    queryFn: () => ciApi.counsel.inboxSummary(),
+    retry: 1,
+  });
 
   const today = new Date();
   const weekEnd = endOfDay(addDays(today, 7));
@@ -105,6 +111,30 @@ export default function HqDashboardPage() {
         <StatCard label="Draft Content" value={drafts} to="/hq/content?status=draft" />
         <StatCard label="Published Content" value={published} to="/hq/content?status=live" />
       </div>
+
+      <section className="rounded-lg border border-border bg-background p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gold-dark">
+              Communications Intelligence
+            </p>
+            <h2 className="font-serif text-xl font-semibold">Strategic Counsel</h2>
+          </div>
+          <Link to="/hq/intelligence/counsel" className="text-sm text-primary underline underline-offset-4">
+            View counsel requests
+          </Link>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard label="New requests" value={counsel?.submitted ?? 0} to="/hq/intelligence/counsel" />
+          <StatCard label="Urgent" value={counsel?.urgent ?? 0} to="/hq/intelligence/counsel" />
+          <StatCard
+            label="Waiting for response"
+            value={counsel?.waiting_response ?? 0}
+            to="/hq/intelligence/counsel"
+          />
+          <StatCard label="Aging unresolved" value={counsel?.aging ?? 0} to="/hq/intelligence/counsel" />
+        </div>
+      </section>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="rounded-lg border border-border bg-background p-5">

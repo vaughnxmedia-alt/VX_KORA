@@ -207,7 +207,7 @@ export function CiOrganizationsListPage() {
               {!orgs.length ? (
                 <tr>
                   <td colSpan={6} className="px-3 py-10 text-center text-muted-foreground">
-                    No Communications Intelligence organizations yet.
+                    No Communications Intelligence organizations yet. Create one to start a workspace.
                   </td>
                 </tr>
               ) : null}

@@ -25,10 +25,13 @@ function App() {
   const location = useLocation();
   const isDashboard = location.pathname.startsWith('/dashboard');
   const isHq = location.pathname.startsWith('/hq');
+  const isPortal = location.pathname.startsWith('/portal');
+  const hideChrome = isDashboard || isHq || isPortal;
   const usesDocumentScroll =
     !isDashboard &&
     !isHq &&
-    (location.pathname.startsWith("/strategy-session") ||
+    (isPortal ||
+      location.pathname.startsWith("/strategy-session") ||
       location.pathname.startsWith("/free-audit"));
   const hideFooter =
     location.pathname.startsWith("/strategy-session") ||
@@ -97,8 +100,8 @@ function App() {
           usesDocumentScroll ? "min-h-screen" : "h-screen",
         )}
       >
-        {!isDashboard && !isHq && <StructuredData id="site-core" data={[organizationSchema(), websiteSchema()]} />}
-        {!isDashboard && !isHq && (
+        {!hideChrome && <StructuredData id="site-core" data={[organizationSchema(), websiteSchema()]} />}
+        {!hideChrome && (
           <header className="flex-shrink-0">
             <Navigation />
           </header>
@@ -113,9 +116,9 @@ function App() {
           )}
         >
           <Outlet />
-          {!isDashboard && !isHq && !hideFooter && <Footer />}
+          {!hideChrome && !hideFooter && <Footer />}
         </main>
-        {!isDashboard && !isHq && <SubscriberPopup />}
+        {!hideChrome && <SubscriberPopup />}
       </div>
     </AuthProvider>
   );

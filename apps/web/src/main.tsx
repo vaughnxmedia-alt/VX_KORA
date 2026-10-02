@@ -164,6 +164,106 @@ const CiOrganizationNotesTab = React.lazy(() =>
     default: m.CiOrganizationNotesTab,
   })),
 );
+const CiOrganizationIntelligenceTab = React.lazy(() =>
+  import('@/features/communications-intelligence/pages/CiOrganizationIntelligenceTab').then((m) => ({
+    default: m.CiOrganizationIntelligenceTab,
+  })),
+);
+const CiOrganizationHealthTab = React.lazy(() =>
+  import('@/features/communications-intelligence/pages/CiOrganizationHealthTab').then((m) => ({
+    default: m.CiOrganizationHealthTab,
+  })),
+);
+const CiOrganizationMessagingTab = React.lazy(() =>
+  import('@/features/communications-intelligence/pages/CiOrganizationMessagingTab').then((m) => ({
+    default: m.CiOrganizationMessagingTab,
+  })),
+);
+const CiPortalApp = React.lazy(() =>
+  import('@/features/communications-intelligence/portal/CiPortalApp').then((m) => ({
+    default: m.CiPortalApp,
+  })),
+);
+const CiPortalDashboardPage = React.lazy(() =>
+  import('@/features/communications-intelligence/portal/CiPortalDashboardPage').then((m) => ({
+    default: m.CiPortalDashboardPage,
+  })),
+);
+const CiPortalHealthPage = React.lazy(() =>
+  import('@/features/communications-intelligence/portal/CiPortalHealthPage').then((m) => ({
+    default: m.CiPortalHealthPage,
+  })),
+);
+const CiPortalMessagingPage = React.lazy(() =>
+  import('@/features/communications-intelligence/portal/CiPortalMessagingPage').then((m) => ({
+    default: m.CiPortalMessagingPage,
+  })),
+);
+const CiOrganizationOpportunitiesTab = React.lazy(() =>
+  import('@/features/communications-intelligence/pages/CiOrganizationOpportunitiesTab').then((m) => ({
+    default: m.CiOrganizationOpportunitiesTab,
+  })),
+);
+const CiOrganizationActionsTab = React.lazy(() =>
+  import('@/features/communications-intelligence/pages/CiOrganizationActionsTab').then((m) => ({
+    default: m.CiOrganizationActionsTab,
+  })),
+);
+const CiPortalOpportunitiesPage = React.lazy(() =>
+  import('@/features/communications-intelligence/portal/CiPortalOpportunitiesPage').then((m) => ({
+    default: m.CiPortalOpportunitiesPage,
+  })),
+);
+const CiPortalActionsPage = React.lazy(() =>
+  import('@/features/communications-intelligence/portal/CiPortalActionsPage').then((m) => ({
+    default: m.CiPortalActionsPage,
+  })),
+);
+const CiPortalCounselPage = React.lazy(() =>
+  import('@/features/communications-intelligence/portal/CiPortalCounselPage').then((m) => ({
+    default: m.CiPortalCounselPage,
+  })),
+);
+const CiPortalCounselNewPage = React.lazy(() =>
+  import('@/features/communications-intelligence/portal/CiPortalCounselNewPage').then((m) => ({
+    default: m.CiPortalCounselNewPage,
+  })),
+);
+const CiPortalCounselDetailPage = React.lazy(() =>
+  import('@/features/communications-intelligence/portal/CiPortalCounselDetailPage').then((m) => ({
+    default: m.CiPortalCounselDetailPage,
+  })),
+);
+const CiOpsDashboardPage = React.lazy(() =>
+  import('@/features/communications-intelligence/pages/CiOpsDashboardPage').then((m) => ({
+    default: m.CiOpsDashboardPage,
+  })),
+);
+const CiPortalOnboardingPage = React.lazy(() =>
+  import('@/features/communications-intelligence/portal/CiPortalOnboardingPage').then((m) => ({
+    default: m.CiPortalOnboardingPage,
+  })),
+);
+const CiPortalInvitePage = React.lazy(() =>
+  import('@/features/communications-intelligence/portal/CiPortalInvitePage').then((m) => ({
+    default: m.CiPortalInvitePage,
+  })),
+);
+const CiCounselInboxPage = React.lazy(() =>
+  import('@/features/communications-intelligence/pages/CiCounselInboxPage').then((m) => ({
+    default: m.CiCounselInboxPage,
+  })),
+);
+const CiCounselRequestDetailPage = React.lazy(() =>
+  import('@/features/communications-intelligence/pages/CiCounselRequestDetailPage').then((m) => ({
+    default: m.CiCounselRequestDetailPage,
+  })),
+);
+const CiOrganizationCounselTab = React.lazy(() =>
+  import('@/features/communications-intelligence/pages/CiOrganizationCounselTab').then((m) => ({
+    default: m.CiOrganizationCounselTab,
+  })),
+);
 
 const PageFallback = () => (
   <main className="min-h-screen grid place-items-center px-4 text-center text-sm text-muted-foreground">
@@ -268,13 +368,35 @@ createRoot(document.getElementById('root')!).render(
                   <Route path="team" element={<HqTeamPage />} />
                   <Route path="settings" element={<HqSettingsPage />} />
                   <Route path="intelligence" element={<CiModuleGate />}>
-                    <Route index element={<Navigate to="organizations" replace />} />
+                    <Route index element={<CiOpsDashboardPage />} />
                     <Route path="organizations" element={<CiOrganizationsListPage />} />
                     <Route path="organizations/:orgId" element={<CiOrganizationWorkspacePage />}>
                       <Route index element={<CiOrganizationOverviewTab />} />
+                      <Route path="intelligence" element={<CiOrganizationIntelligenceTab />} />
+                      <Route path="health" element={<CiOrganizationHealthTab />} />
+                      <Route path="messaging" element={<CiOrganizationMessagingTab />} />
+                      <Route path="opportunities" element={<CiOrganizationOpportunitiesTab />} />
+                      <Route path="actions" element={<CiOrganizationActionsTab />} />
+                      <Route path="counsel" element={<CiOrganizationCounselTab />} />
+                      <Route path="counsel/:requestId" element={<CiCounselRequestDetailPage />} />
                       <Route path="notes" element={<CiOrganizationNotesTab />} />
                     </Route>
+                    <Route path="counsel" element={<CiCounselInboxPage />} />
+                    <Route path="counsel/:requestId" element={<CiCounselRequestDetailPage />} />
                   </Route>
+                </Route>
+
+                <Route path="/join/:token" element={<CiPortalInvitePage />} />
+                <Route path="/portal" element={<CiPortalApp />}>
+                  <Route index element={<CiPortalDashboardPage />} />
+                  <Route path="onboarding" element={<CiPortalOnboardingPage />} />
+                  <Route path="opportunities" element={<CiPortalOpportunitiesPage />} />
+                  <Route path="actions" element={<CiPortalActionsPage />} />
+                  <Route path="health" element={<CiPortalHealthPage />} />
+                  <Route path="messaging" element={<CiPortalMessagingPage />} />
+                  <Route path="counsel" element={<CiPortalCounselPage />} />
+                  <Route path="counsel/new" element={<CiPortalCounselNewPage />} />
+                  <Route path="counsel/:requestId" element={<CiPortalCounselDetailPage />} />
                 </Route>
                 
                 {/* === DASHBOARD ROUTES === */}
