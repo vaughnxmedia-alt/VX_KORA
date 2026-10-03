@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { trackCiActivity } from "../activity";
 import { ciApi } from "../api";
 import { ciFriendlyError } from "../workspace";
 import {
@@ -92,6 +93,12 @@ export function CiPortalCounselNewPage() {
       });
     },
     onSuccess: (request) => {
+      trackCiActivity({
+        organization_id: selectedOrg,
+        event_type: "counsel_submitted",
+        entity_type: "counsel_request",
+        entity_id: request.id,
+      });
       toast.success("Your request has been submitted to JahKnowsPR for review.");
       const next = new URLSearchParams();
       if (selectedOrg) next.set("org", selectedOrg);

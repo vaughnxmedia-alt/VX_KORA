@@ -1,7 +1,9 @@
+import { useEffect, useRef } from "react";
 import { Navigate, Outlet, useLocation, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
+import { trackCiActivity } from "../activity";
 import { ciApi } from "../api";
 import { CiPortalLayout } from "./CiPortalLayout";
 
@@ -27,6 +29,13 @@ export function CiPortalApp() {
     queryFn: () => ciApi.organizations.get(selectedId!),
     enabled: Boolean(selectedId),
   });
+
+  const loginTracked = useRef<string | null>(null);
+  useEffect(() => {
+    if (!user || !selectedId || !memberships?.length || loginTracked.current === selectedId) return;
+    loginTracked.current = selectedId;
+    trackCiActivity({ organization_id: selectedId, event_type: "portal_login" });
+  }, [user, selectedId, memberships?.length]);
 
   if (authLoading || (user && (isLoading || (selectedId && orgLoading)))) {
     return (

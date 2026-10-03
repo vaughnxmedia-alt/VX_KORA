@@ -1,7 +1,9 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/components/AuthProvider";
 import { Button } from "@/components/ui/button";
+import { trackCiActivity } from "../activity";
 import { ciApi } from "../api";
 import { ciFriendlyError, formatCiDateTime } from "../workspace";
 import {
@@ -27,6 +29,17 @@ export function CiPortalCounselDetailPage() {
     queryFn: () => ciApi.counsel.signedAttachmentUrl(data!.attachment_path!),
     enabled: Boolean(data?.attachment_path),
   });
+
+  useEffect(() => {
+    const responseVisible = data?.status === "response_ready" || data?.status === "closed";
+    if (!data || !responseVisible || !data.response) return;
+    trackCiActivity({
+      organization_id: data.organization_id,
+      event_type: "counsel_response_viewed",
+      entity_type: "counsel_request",
+      entity_id: data.id,
+    });
+  }, [data]);
 
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">Loading this request…</p>;

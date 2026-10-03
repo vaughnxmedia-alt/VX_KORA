@@ -106,3 +106,24 @@ Clients cannot update requests, read internal notes, or see a response before Re
 | `/portal/onboarding` | First-login organization profile |
 
 Invitations store a SHA-256 token hash only, expire in 7 days, bind email + organization, and cannot be reused after accept. Staff copy the `/join/...` link; there is no dedicated CI mailer yet. Incomplete onboarding gates owners, admins, and members before the portal dashboard. Existing organizations were marked complete so current members are not blocked.
+
+## Phase 8 — Pilot operations, reporting, and learning
+
+- Up: `apps/web/supabase/migrations/20261003010000_ci_pilot_operations_phase8.sql`
+- Verify: `apps/web/supabase/tests/ci_pilot_operations_phase8_verify.sql`
+- Security: `apps/web/supabase/tests/ci_pilot_operations_phase8_security.sql`
+- Learnings log: `COMMUNICATIONS_INTELLIGENCE_LEARNINGS.md`
+
+| Route | Audience |
+|-------|----------|
+| `/hq/intelligence/pilot` | Staff pilot roster and follow-up |
+| `/hq/intelligence/learning` | Staff-only product-learning counts |
+| `/hq/intelligence/organizations/:orgId/pilot` | Enroll, milestones, activity, feedback |
+| `/hq/intelligence/organizations/:orgId/outcomes` | Admin-managed communications outcomes |
+| `/hq/intelligence/organizations/:orgId/reports` | Monthly summaries + weekly briefs |
+| `/portal/progress` | This-month progress + documented wins |
+| `/portal/reports` | Published monthly summaries |
+| `/portal/reports/:reportId` | Published report + print/PDF layout |
+| `/portal/feedback` | Short pilot feedback form |
+
+Activity events are written only through `ci_record_activity` (12-hour dedupe). Clients cannot read event logs, unpublished reports, internal outcome notes, or the learning dashboard. No session replay, keystrokes, or device fingerprinting.

@@ -54,6 +54,64 @@ Clients submit **Ask JahKnowsPR** from the portal, or from a related opportunity
 
 On Overview, remove an active member or revoke a pending invitation. Revoked members lose portal access immediately. Do not delete the organization unless you intend to archive the tenant.
 
+## How to enroll an organization in the pilot
+
+1. Open the organization and use the **Pilot** tab.
+2. Set status to **Invited** or **Onboarding**, add a start date, and optionally a cohort name.
+3. Internal notes stay staff-only.
+4. Recommended pilot length: **8–12 weeks**. That is long enough to see onboarding, a few weekly briefs, at least one monthly summary, and whether the client actually uses the portal.
+
+Suggested statuses: Invited → Onboarding → Active. Use **Needs Attention** when there is no recent portal activity or overdue work. Use **Paused** or **Completed** when the cohort ends.
+
+## How to conduct the initial health assessment
+
+Open **Health Check** before the first weekly brief. Assess all six categories in plain language. Mark **Initial health check complete** on the Pilot tab. Scores stay staff-only.
+
+## How often to add intelligence
+
+Add or refresh intelligence **weekly**, or sooner if something time-sensitive appears. Do not flood the portal. One high-priority item and a few recommended actions are enough for most weeks. Mark **First intelligence delivered** after the first client-visible item.
+
+## How to prepare the Weekly Communications Brief
+
+Open **Reports**. Write five short notes: what needs attention, the best opportunity, the most important action, an upcoming communications moment, and a note from JahKnowsPR. Save a draft, then **Publish to portal**. The client sees it at the top of `/portal`. Do not auto-generate or email it.
+
+## How to record outcomes
+
+Open **Outcomes**. Record a real result (coverage, interview, partnership, messaging correction, and so on). Link the related opportunity, action, or intelligence item when it exists. Put strategy notes in **Internal notes**. Clients see title, type, description, date, and URL only.
+
+## How to publish monthly reports
+
+Open **Reports**. Write the eight sections. Leave the status on **Draft** or **Ready for Review** until a human has edited it. Clients see the report on `/portal/reports` only after status is **Published**. Use Print / Save PDF on the client report page for a clean branded print layout.
+
+## How to review client feedback
+
+- Organization **Pilot** tab: recommendation usefulness and the short pilot form.
+- **Pilot** dashboard: cohort-wide feedback and organizations that need follow-up.
+- Clients can also answer “Was this recommendation useful?” on intelligence, opportunities, actions, health, messaging, weekly briefs, and monthly reports.
+
+## What product metrics to monitor
+
+On **Pilot** and **Learning**:
+
+- Last client activity and last portal login
+- Actions completed this month
+- Opportunities reviewed
+- Counsel requests submitted
+- Onboarding and milestone completion
+- Most common intelligence, health, and opportunity types
+- Recommendation usefulness (yes / somewhat / no)
+
+These numbers help decide what might later be automated. They are not a strategy.
+
+## What information should remain internal
+
+- Pilot enrollment notes and internal status
+- Admin notes on outcomes, reports, briefs, and counsel
+- Draft, ready-for-review, and archived reports or briefs
+- Activity event logs
+- Product-learning aggregates
+- Unpublished counsel responses
+
 ## Known MVP limitations
 
 - Invitation links are copied by staff. There is no dedicated CI email sender yet.

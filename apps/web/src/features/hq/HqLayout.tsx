@@ -64,6 +64,18 @@ const INTELLIGENCE: NavItem[] = [
     icon: MessageCircle,
     module: "intelligence",
   },
+  {
+    label: "Pilot",
+    to: "/hq/intelligence/pilot",
+    icon: Radar,
+    module: "intelligence",
+  },
+  {
+    label: "Learning",
+    to: "/hq/intelligence/learning",
+    icon: BookOpen,
+    module: "intelligence",
+  },
 ];
 
 const CONTENT: NavItem[] = [

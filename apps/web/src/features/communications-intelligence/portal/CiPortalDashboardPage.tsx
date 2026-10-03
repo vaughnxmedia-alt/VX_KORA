@@ -1,8 +1,10 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/components/AuthProvider";
 import { AskCounselLink } from "../AskCounselLink";
+import { UsefulFeedback } from "../UsefulFeedback";
+import { trackCiActivity } from "../activity";
 import { ciApi } from "../api";
 import {
   ciFriendlyError,
@@ -25,6 +27,7 @@ import {
   type CiHealthCheck,
   type CiIntelligenceItem,
   type CiOpportunity,
+  type CiWeeklyBrief,
 } from "../types";
 
 function sortByPriority(a: CiIntelligenceItem, b: CiIntelligenceItem) {
@@ -42,7 +45,15 @@ function parseDue(value: string | null) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-function ItemCard({ item, search }: { item: CiIntelligenceItem; search: string }) {
+function ItemCard({
+  item,
+  search,
+  organizationId,
+}: {
+  item: CiIntelligenceItem;
+  search: string;
+  organizationId: string;
+}) {
   return (
     <article className="rounded-lg border border-border bg-background p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -77,6 +88,31 @@ function ItemCard({ item, search }: { item: CiIntelligenceItem; search: string }
         </div>
       ) : null}
     </article>
+  );
+}
+
+function WeeklyBriefCard({ brief, organizationId }: { brief: CiWeeklyBrief; organizationId: string }) {
+  return (
+    <section className="rounded-lg border border-primary/30 bg-background p-5 space-y-3">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gold-dark">This Week</p>
+      <h2 className="font-serif text-2xl font-bold leading-snug">Weekly communications brief</h2>
+      <BriefLine label="What needs attention" value={brief.needs_attention} />
+      <BriefLine label="Best opportunity" value={brief.best_opportunity} />
+      <BriefLine label="Most important action" value={brief.important_action} />
+      <BriefLine label="Upcoming communications moment" value={brief.upcoming_moment} />
+      <BriefLine label="Note from JahKnowsPR" value={brief.note} />
+      <UsefulFeedback organizationId={organizationId} relatedType="weekly_brief" relatedId={brief.id} />
+    </section>
+  );
+}
+
+function BriefLine({ label, value }: { label: string; value: string | null }) {
+  if (!value?.trim()) return null;
+  return (
+    <div>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
+      <p className="mt-1 text-sm leading-relaxed whitespace-pre-wrap">{value}</p>
+    </div>
   );
 }
 
@@ -209,6 +245,7 @@ function Section({
   search,
   moreTo,
   moreLabel,
+  organizationId,
 }: {
   title: string;
   empty: string;
@@ -216,6 +253,7 @@ function Section({
   search: string;
   moreTo?: string;
   moreLabel?: string;
+  organizationId: string;
 }) {
   return (
     <section className="space-y-3">
@@ -230,7 +268,7 @@ function Section({
       {items.length ? (
         <div className="space-y-3">
           {items.map((item) => (
-            <ItemCard key={item.id} item={item} search={search} />
+            <ItemCard key={item.id} item={item} search={search} organizationId={organizationId} />
           ))}
         </div>
       ) : (
@@ -252,6 +290,16 @@ export function CiPortalDashboardPage() {
     queryFn: () => ciApi.portal.loadDashboard(user!.id, orgId),
     enabled: Boolean(user?.id),
   });
+
+  useEffect(() => {
+    if (!data?.organization.id || !data.items[0]) return;
+    trackCiActivity({
+      organization_id: data.organization.id,
+      event_type: "intelligence_viewed",
+      entity_type: "intelligence_item",
+      entity_id: data.items[0].id,
+    });
+  }, [data?.organization.id, data?.items]);
 
   const derived = useMemo(() => {
     const items = data?.items ?? [];
@@ -316,17 +364,23 @@ export function CiPortalDashboardPage() {
         </p>
       </header>
 
+      {data.weeklyBrief ? (
+        <WeeklyBriefCard brief={data.weeklyBrief} organizationId={data.organization.id} />
+      ) : null}
+
       <Section
         title="Priority This Week"
         empty="Nothing needs your attention this week."
         search={params.toString() ? `?${params.toString()}` : ""}
         items={derived.thisWeek}
+        organizationId={data.organization.id}
       />
       <Section
         title="Needs Attention"
         empty="No urgent communication issues right now."
         search={params.toString() ? `?${params.toString()}` : ""}
         items={derived.needsAttention.slice(0, 4)}
+        organizationId={data.organization.id}
       />
       <Section
         title="Recommended Actions"
@@ -335,6 +389,7 @@ export function CiPortalDashboardPage() {
         search={params.toString() ? `?${params.toString()}` : ""}
         moreTo="/portal/actions"
         moreLabel="View all actions"
+        organizationId={data.organization.id}
       />
       <OpenOpportunitiesSummary
         opportunities={data.opportunities ?? []}
@@ -345,6 +400,7 @@ export function CiPortalDashboardPage() {
         empty="No upcoming communications moments have been flagged."
         items={derived.upcomingDates}
         search={params.toString() ? `?${params.toString()}` : ""}
+        organizationId={data.organization.id}
       />
       <HealthSummary
         checks={data.checks ?? []}

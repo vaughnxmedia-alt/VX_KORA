@@ -79,6 +79,22 @@ export function inviteUrl(token: string) {
   return `${window.location.origin}/join/${token}`;
 }
 
+export function monthLabel(year: number, month: number) {
+  return new Date(year, month - 1, 1).toLocaleDateString(undefined, {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+export function startOfWeekMonday(value = new Date()) {
+  const d = new Date(value);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 export function formatCiDate(value: string | null | undefined) {
   if (!value) return "—";
   try {

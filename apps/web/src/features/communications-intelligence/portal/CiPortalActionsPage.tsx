@@ -4,6 +4,8 @@ import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/components/AuthProvider";
 import { Button } from "@/components/ui/button";
+import { UsefulFeedback } from "../UsefulFeedback";
+import { trackCiActivity } from "../activity";
 import { ciApi } from "../api";
 import { ciFriendlyError, formatCiDate, groupActionsByDue } from "../workspace";
 import {
@@ -18,10 +20,12 @@ function ActionDetail({
   item,
   onStatus,
   updating,
+  organizationId,
 }: {
   item: CiActionItem;
   onStatus: (status: Extract<CiActionStatus, "not_started" | "in_progress" | "completed">) => void;
   updating: boolean;
+  organizationId: string;
 }) {
   const canUpdate = item.status !== "cancelled";
 
@@ -81,6 +85,7 @@ function ActionDetail({
           ))}
         </div>
       ) : null}
+      <UsefulFeedback organizationId={organizationId} relatedType="action" relatedId={item.id} />
     </article>
   );
 }
@@ -91,11 +96,13 @@ function Section({
   items,
   onStatus,
   updating,
+  organizationId,
 }: {
   title: string;
   empty: string;
   items: CiActionItem[];
   updating: boolean;
+  organizationId: string;
   onStatus: (
     item: CiActionItem,
     status: Extract<CiActionStatus, "not_started" | "in_progress" | "completed">,
@@ -111,6 +118,7 @@ function Section({
               key={item.id}
               item={item}
               updating={updating}
+              organizationId={organizationId}
               onStatus={(status) => onStatus(item, status)}
             />
           ))}
@@ -144,7 +152,13 @@ export function CiPortalActionsPage() {
       id: string;
       status: Extract<CiActionStatus, "not_started" | "in_progress" | "completed">;
     }) => ciApi.portal.updateActionStatus(id, status),
-    onSuccess: () => {
+    onSuccess: (_row, vars) => {
+      trackCiActivity({
+        organization_id: data?.organization.id,
+        event_type: "action_status_changed",
+        entity_type: "action_item",
+        entity_id: vars.id,
+      });
       toast.success("Action status updated");
       void qc.invalidateQueries({ queryKey: ["ci", "portal", "actions", user?.id, orgId] });
       void qc.invalidateQueries({ queryKey: ["ci", "portal", "dashboard", user?.id, orgId] });
@@ -186,6 +200,7 @@ export function CiPortalActionsPage() {
         empty="No overdue communications work."
         items={grouped.overdue}
         updating={updateStatus.isPending}
+        organizationId={data.organization.id}
         onStatus={(item, status) => updateStatus.mutate({ id: item.id, status })}
       />
       <Section
@@ -193,6 +208,7 @@ export function CiPortalActionsPage() {
         empty="No deadlines are approaching this week."
         items={grouped.thisWeek}
         updating={updateStatus.isPending}
+        organizationId={data.organization.id}
         onStatus={(item, status) => updateStatus.mutate({ id: item.id, status })}
       />
       <Section
@@ -200,6 +216,7 @@ export function CiPortalActionsPage() {
         empty="You're caught up. No open actions are due."
         items={grouped.upcoming}
         updating={updateStatus.isPending}
+        organizationId={data.organization.id}
         onStatus={(item, status) => updateStatus.mutate({ id: item.id, status })}
       />
       <Section
@@ -207,6 +224,7 @@ export function CiPortalActionsPage() {
         empty="No completed actions yet."
         items={grouped.completed}
         updating={updateStatus.isPending}
+        organizationId={data.organization.id}
         onStatus={(item, status) => updateStatus.mutate({ id: item.id, status })}
       />
     </div>

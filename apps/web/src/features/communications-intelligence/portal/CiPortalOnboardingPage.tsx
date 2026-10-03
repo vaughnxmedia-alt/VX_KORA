@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { trackCiActivity } from "../activity";
 import { ciApi } from "../api";
 import { ciFriendlyError, parseSocialChannels, parseSpokespersons } from "../workspace";
 import {
@@ -168,6 +169,7 @@ export function CiPortalOnboardingPage() {
       await qc.invalidateQueries({ queryKey: ["ci", "organizations", selectedId] });
       await qc.invalidateQueries({ queryKey: ["ci", "portal"] });
       if (complete) {
+        trackCiActivity({ organization_id: selectedId, event_type: "onboarding_completed" });
         toast.success("Thank you. JahKnowsPR can use this to brief the organization.");
         navigate({ pathname: "/portal", search: selectedId ? `?org=${selectedId}` : "" });
       } else {

@@ -1,7 +1,10 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/components/AuthProvider";
 import { AskCounselLink } from "../AskCounselLink";
+import { UsefulFeedback } from "../UsefulFeedback";
+import { trackCiActivity } from "../activity";
 import { ciApi } from "../api";
 import { ciFriendlyError, counselDraftFromHealth, formatCiDate, healthRowsByCategory, healthSummaryPhrases } from "../workspace";
 import { CI_HEALTH_CATEGORY_LABELS, CI_HEALTH_STATUS_LABELS } from "../types";
@@ -16,6 +19,15 @@ export function CiPortalHealthPage() {
     queryFn: () => ciApi.portal.loadHealth(user!.id, orgId),
     enabled: Boolean(user?.id),
   });
+
+  useEffect(() => {
+    if (!data?.organization.id) return;
+    trackCiActivity({
+      organization_id: data.organization.id,
+      event_type: "health_viewed",
+      entity_type: "health_check",
+    });
+  }, [data?.organization.id]);
 
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">Loading your communications health check…</p>;
@@ -95,6 +107,13 @@ export function CiPortalHealthPage() {
                   Ask JahKnowsPR
                 </AskCounselLink>
               </div>
+            ) : null}
+            {row ? (
+              <UsefulFeedback
+                organizationId={data.organization.id}
+                relatedType="health"
+                relatedId={row.id}
+              />
             ) : null}
           </article>
         ))}

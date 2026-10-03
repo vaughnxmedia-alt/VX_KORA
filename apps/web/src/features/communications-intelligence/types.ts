@@ -175,6 +175,10 @@ export type CiAdminNote = {
     | "opportunity"
     | "action_item"
     | "counsel_request"
+    | "outcome"
+    | "monthly_report"
+    | "weekly_brief"
+    | "pilot"
     | "general";
   entity_id: string | null;
   body: string;
@@ -829,6 +833,340 @@ export type CiPortalDashboard = {
   opportunities: CiOpportunity[];
   actions: CiActionItem[];
   counsel: CiCounselRequest[];
+  weeklyBrief?: CiWeeklyBrief | null;
+};
+
+export type CiPilotStatus =
+  | "invited"
+  | "onboarding"
+  | "active"
+  | "needs_attention"
+  | "completed"
+  | "paused";
+
+export const CI_PILOT_STATUSES: CiPilotStatus[] = [
+  "invited",
+  "onboarding",
+  "active",
+  "needs_attention",
+  "completed",
+  "paused",
+];
+
+export const CI_PILOT_STATUS_LABELS: Record<CiPilotStatus, string> = {
+  invited: "Invited",
+  onboarding: "Onboarding",
+  active: "Active",
+  needs_attention: "Needs Attention",
+  completed: "Completed",
+  paused: "Paused",
+};
+
+export type CiPilotEnrollment = {
+  id: string;
+  organization_id: string;
+  organization_name?: string;
+  status: CiPilotStatus;
+  start_date: string | null;
+  end_date: string | null;
+  cohort: string | null;
+  onboarding_complete_at: string | null;
+  initial_health_complete_at: string | null;
+  first_intelligence_at: string | null;
+  first_client_login_at: string | null;
+  first_action_completed_at: string | null;
+  first_counsel_request_at: string | null;
+  final_review_at: string | null;
+  internal_notes: string | null;
+  created_by: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CiPilotWriteInput = {
+  organization_id: string;
+  status?: CiPilotStatus;
+  start_date?: string | null;
+  end_date?: string | null;
+  cohort?: string | null;
+  onboarding_complete_at?: string | null;
+  initial_health_complete_at?: string | null;
+  first_intelligence_at?: string | null;
+  first_intelligence_delivered?: boolean;
+  first_client_login_at?: string | null;
+  first_action_completed_at?: string | null;
+  first_counsel_request_at?: string | null;
+  final_review_at?: string | null;
+  internal_notes?: string | null;
+};
+
+export type CiActivityEventType =
+  | "onboarding_completed"
+  | "portal_login"
+  | "intelligence_viewed"
+  | "opportunity_viewed"
+  | "action_status_changed"
+  | "messaging_copied"
+  | "health_viewed"
+  | "counsel_submitted"
+  | "counsel_response_viewed";
+
+export type CiActivityEvent = {
+  id: string;
+  organization_id: string;
+  actor_user_id: string | null;
+  event_type: CiActivityEventType;
+  entity_type: string | null;
+  entity_id: string | null;
+  created_at: string;
+};
+
+export type CiOrgActivitySummary = {
+  last_client_activity: string | null;
+  last_portal_login: string | null;
+  actions_completed_this_month: number;
+  opportunities_reviewed: number;
+  counsel_requests_submitted: number;
+};
+
+export type CiOutcomeType =
+  | "media_coverage"
+  | "speaking_secured"
+  | "partnership_secured"
+  | "event_participation"
+  | "messaging_updated"
+  | "website_messaging_corrected"
+  | "crisis_plan_created"
+  | "public_statement_prepared"
+  | "interview_completed"
+  | "award_application"
+  | "reputation_issue_addressed"
+  | "process_created"
+  | "other";
+
+export const CI_OUTCOME_TYPES: CiOutcomeType[] = [
+  "media_coverage",
+  "speaking_secured",
+  "partnership_secured",
+  "event_participation",
+  "messaging_updated",
+  "website_messaging_corrected",
+  "crisis_plan_created",
+  "public_statement_prepared",
+  "interview_completed",
+  "award_application",
+  "reputation_issue_addressed",
+  "process_created",
+  "other",
+];
+
+export const CI_OUTCOME_TYPE_LABELS: Record<CiOutcomeType, string> = {
+  media_coverage: "Media coverage secured",
+  speaking_secured: "Speaking opportunity secured",
+  partnership_secured: "Partnership secured",
+  event_participation: "Event participation",
+  messaging_updated: "Messaging updated",
+  website_messaging_corrected: "Website messaging corrected",
+  crisis_plan_created: "Crisis plan created",
+  public_statement_prepared: "Public statement prepared",
+  interview_completed: "Interview completed",
+  award_application: "Award application submitted",
+  reputation_issue_addressed: "Reputation issue addressed",
+  process_created: "Communications process created",
+  other: "Other",
+};
+
+export type CiOutcome = {
+  id: string;
+  organization_id: string;
+  outcome_type: CiOutcomeType;
+  title: string;
+  description: string | null;
+  occurred_on: string | null;
+  opportunity_id: string | null;
+  action_item_id: string | null;
+  intelligence_item_id: string | null;
+  url: string | null;
+  created_by: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+  admin_notes?: string | null;
+  admin_note_id?: string | null;
+};
+
+export type CiOutcomeWriteInput = {
+  organization_id: string;
+  outcome_type: CiOutcomeType;
+  title: string;
+  description?: string | null;
+  occurred_on?: string | null;
+  opportunity_id?: string | null;
+  action_item_id?: string | null;
+  intelligence_item_id?: string | null;
+  url?: string | null;
+  admin_notes?: string | null;
+  created_by?: string | null;
+};
+
+export type CiReportStatus = "draft" | "ready_for_review" | "published" | "archived";
+
+export const CI_REPORT_STATUSES: CiReportStatus[] = [
+  "draft",
+  "ready_for_review",
+  "published",
+  "archived",
+];
+
+export const CI_REPORT_STATUS_LABELS: Record<CiReportStatus, string> = {
+  draft: "Draft",
+  ready_for_review: "Ready for Review",
+  published: "Published",
+  archived: "Archived",
+};
+
+export type CiMonthlyReport = {
+  id: string;
+  organization_id: string;
+  period_year: number;
+  period_month: number;
+  status: CiReportStatus;
+  executive_summary: string | null;
+  needed_attention: string | null;
+  opportunities: string | null;
+  actions_taken: string | null;
+  health: string | null;
+  outcomes: string | null;
+  next_priorities: string | null;
+  counsel: string | null;
+  published_at: string | null;
+  published_by: string | null;
+  created_by: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CiMonthlyReportWriteInput = {
+  organization_id: string;
+  period_year: number;
+  period_month: number;
+  status?: CiReportStatus;
+  executive_summary?: string | null;
+  needed_attention?: string | null;
+  opportunities?: string | null;
+  actions_taken?: string | null;
+  health?: string | null;
+  outcomes?: string | null;
+  next_priorities?: string | null;
+  counsel?: string | null;
+  created_by?: string | null;
+};
+
+export type CiBriefStatus = "draft" | "published" | "archived";
+
+export const CI_BRIEF_STATUSES: CiBriefStatus[] = ["draft", "published", "archived"];
+
+export const CI_BRIEF_STATUS_LABELS: Record<CiBriefStatus, string> = {
+  draft: "Draft",
+  published: "Published",
+  archived: "Archived",
+};
+
+export type CiWeeklyBrief = {
+  id: string;
+  organization_id: string;
+  week_of: string;
+  needs_attention: string | null;
+  best_opportunity: string | null;
+  important_action: string | null;
+  upcoming_moment: string | null;
+  note: string | null;
+  status: CiBriefStatus;
+  published_at: string | null;
+  published_by: string | null;
+  created_by: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CiWeeklyBriefWriteInput = {
+  organization_id: string;
+  week_of: string;
+  needs_attention?: string | null;
+  best_opportunity?: string | null;
+  important_action?: string | null;
+  upcoming_moment?: string | null;
+  note?: string | null;
+  status?: CiBriefStatus;
+  created_by?: string | null;
+};
+
+export type CiUsefulRating = "yes" | "somewhat" | "no";
+
+export const CI_USEFUL_RATINGS: CiUsefulRating[] = ["yes", "somewhat", "no"];
+
+export const CI_USEFUL_LABELS: Record<CiUsefulRating, string> = {
+  yes: "Yes",
+  somewhat: "Somewhat",
+  no: "No",
+};
+
+export type CiRecommendationFeedback = {
+  id: string;
+  organization_id: string;
+  related_type: "intelligence" | "opportunity" | "action" | "health" | "messaging" | "weekly_brief" | "monthly_report";
+  related_id: string | null;
+  useful: CiUsefulRating;
+  why: string | null;
+  created_by: string | null;
+  created_at: string;
+};
+
+export type CiPilotFeedback = {
+  id: string;
+  organization_id: string;
+  most_useful: string | null;
+  confusing: string | null;
+  wish: string | null;
+  helped_decision: CiUsefulRating | null;
+  created_by: string | null;
+  created_at: string;
+};
+
+export type CiPortalProgress = {
+  organization: CiOrganization;
+  recommended_actions: number;
+  completed_actions: number;
+  opportunities_identified: number;
+  issues_resolved: number;
+  counsel_completed: number;
+  outcomes: CiOutcome[];
+};
+
+export type CiPilotDashboard = {
+  active_pilots: number;
+  onboarding_complete: number;
+  no_recent_activity: { id: string; name: string; days: number; overdue_actions: number; high_items: number }[];
+  needing_attention: { id: string; name: string; reason: string }[];
+  actions_completed: number;
+  opportunities_identified: number;
+  outcomes_recorded: number;
+  counsel_requests: number;
+  feedback_count: number;
+  enrollments: CiPilotEnrollment[];
+};
+
+export type CiLearningSummary = {
+  intelligence_categories: { key: string; count: number }[];
+  health_needs_attention: { key: string; count: number }[];
+  opportunity_types: { key: string; count: number }[];
+  avg_actions_completed: number;
+  counsel_requests: number;
+  messaging_categories: { key: string; count: number }[];
+  usefulness: { key: CiUsefulRating; count: number }[];
 };
 
 /** Workspace tabs — all CI modules through counsel */
@@ -840,6 +1178,9 @@ export const CI_WORKSPACE_TABS = [
   { id: "opportunities", label: "Opportunities", enabled: true },
   { id: "actions", label: "Actions", enabled: true },
   { id: "counsel", label: "Counsel", enabled: true },
+  { id: "outcomes", label: "Outcomes", enabled: true },
+  { id: "reports", label: "Reports", enabled: true },
+  { id: "pilot", label: "Pilot", enabled: true },
   { id: "notes", label: "Notes", enabled: true },
 ] as const;
 

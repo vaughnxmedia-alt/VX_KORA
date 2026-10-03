@@ -264,6 +264,51 @@ const CiOrganizationCounselTab = React.lazy(() =>
     default: m.CiOrganizationCounselTab,
   })),
 );
+const CiOrganizationOutcomesTab = React.lazy(() =>
+  import('@/features/communications-intelligence/pages/CiOrganizationOutcomesTab').then((m) => ({
+    default: m.CiOrganizationOutcomesTab,
+  })),
+);
+const CiOrganizationReportsTab = React.lazy(() =>
+  import('@/features/communications-intelligence/pages/CiOrganizationReportsTab').then((m) => ({
+    default: m.CiOrganizationReportsTab,
+  })),
+);
+const CiOrganizationPilotTab = React.lazy(() =>
+  import('@/features/communications-intelligence/pages/CiOrganizationPilotTab').then((m) => ({
+    default: m.CiOrganizationPilotTab,
+  })),
+);
+const CiPilotDashboardPage = React.lazy(() =>
+  import('@/features/communications-intelligence/pages/CiPilotDashboardPage').then((m) => ({
+    default: m.CiPilotDashboardPage,
+  })),
+);
+const CiPilotLearningPage = React.lazy(() =>
+  import('@/features/communications-intelligence/pages/CiPilotLearningPage').then((m) => ({
+    default: m.CiPilotLearningPage,
+  })),
+);
+const CiPortalProgressPage = React.lazy(() =>
+  import('@/features/communications-intelligence/portal/CiPortalProgressPage').then((m) => ({
+    default: m.CiPortalProgressPage,
+  })),
+);
+const CiPortalReportsPage = React.lazy(() =>
+  import('@/features/communications-intelligence/portal/CiPortalReportsPage').then((m) => ({
+    default: m.CiPortalReportsPage,
+  })),
+);
+const CiPortalReportDetailPage = React.lazy(() =>
+  import('@/features/communications-intelligence/portal/CiPortalReportDetailPage').then((m) => ({
+    default: m.CiPortalReportDetailPage,
+  })),
+);
+const CiPortalFeedbackPage = React.lazy(() =>
+  import('@/features/communications-intelligence/portal/CiPortalFeedbackPage').then((m) => ({
+    default: m.CiPortalFeedbackPage,
+  })),
+);
 
 const PageFallback = () => (
   <main className="min-h-screen grid place-items-center px-4 text-center text-sm text-muted-foreground">
@@ -379,10 +424,15 @@ createRoot(document.getElementById('root')!).render(
                       <Route path="actions" element={<CiOrganizationActionsTab />} />
                       <Route path="counsel" element={<CiOrganizationCounselTab />} />
                       <Route path="counsel/:requestId" element={<CiCounselRequestDetailPage />} />
+                      <Route path="outcomes" element={<CiOrganizationOutcomesTab />} />
+                      <Route path="reports" element={<CiOrganizationReportsTab />} />
+                      <Route path="pilot" element={<CiOrganizationPilotTab />} />
                       <Route path="notes" element={<CiOrganizationNotesTab />} />
                     </Route>
                     <Route path="counsel" element={<CiCounselInboxPage />} />
                     <Route path="counsel/:requestId" element={<CiCounselRequestDetailPage />} />
+                    <Route path="pilot" element={<CiPilotDashboardPage />} />
+                    <Route path="learning" element={<CiPilotLearningPage />} />
                   </Route>
                 </Route>
 
@@ -397,6 +447,10 @@ createRoot(document.getElementById('root')!).render(
                   <Route path="counsel" element={<CiPortalCounselPage />} />
                   <Route path="counsel/new" element={<CiPortalCounselNewPage />} />
                   <Route path="counsel/:requestId" element={<CiPortalCounselDetailPage />} />
+                  <Route path="progress" element={<CiPortalProgressPage />} />
+                  <Route path="reports" element={<CiPortalReportsPage />} />
+                  <Route path="reports/:reportId" element={<CiPortalReportDetailPage />} />
+                  <Route path="feedback" element={<CiPortalFeedbackPage />} />
                 </Route>
                 
                 {/* === DASHBOARD ROUTES === */}

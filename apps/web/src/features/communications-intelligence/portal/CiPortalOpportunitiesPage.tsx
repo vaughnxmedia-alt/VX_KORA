@@ -1,10 +1,12 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/components/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { AskCounselLink } from "../AskCounselLink";
+import { UsefulFeedback } from "../UsefulFeedback";
+import { trackCiActivity } from "../activity";
 import { ciApi } from "../api";
 import { ciFriendlyError, counselDraftFromOpportunity, formatCiDate } from "../workspace";
 import {
@@ -21,11 +23,13 @@ function OpportunityDetail({
   onStatus,
   updating,
   search,
+  organizationId,
 }: {
   item: CiOpportunity;
   onStatus: (status: Extract<CiOpportunityStatus, "interested" | "passed">) => void;
   updating: boolean;
   search: string;
+  organizationId: string;
 }) {
   const canRespond = CI_ACTIVE_OPPORTUNITY_STATUSES.includes(item.status);
 
@@ -110,6 +114,7 @@ function OpportunityDetail({
           ))}
         </div>
       ) : null}
+      <UsefulFeedback organizationId={organizationId} relatedType="opportunity" relatedId={item.id} />
     </article>
   );
 }
@@ -125,6 +130,16 @@ export function CiPortalOpportunitiesPage() {
     queryFn: () => ciApi.portal.loadOpportunities(user!.id, orgId),
     enabled: Boolean(user?.id),
   });
+
+  useEffect(() => {
+    if (!data?.organization.id || !data.opportunities[0]) return;
+    trackCiActivity({
+      organization_id: data.organization.id,
+      event_type: "opportunity_viewed",
+      entity_type: "opportunity",
+      entity_id: data.opportunities[0].id,
+    });
+  }, [data?.organization.id, data?.opportunities]);
 
   const updateStatus = useMutation({
     mutationFn: ({
@@ -187,6 +202,7 @@ export function CiPortalOpportunitiesPage() {
                 item={item}
                 search={params.toString() ? `?${params.toString()}` : ""}
                 updating={updateStatus.isPending}
+                organizationId={data.organization.id}
                 onStatus={(status) => updateStatus.mutate({ id: item.id, status })}
               />
             ))}
@@ -208,6 +224,7 @@ export function CiPortalOpportunitiesPage() {
                 item={item}
                 search={params.toString() ? `?${params.toString()}` : ""}
                 updating={updateStatus.isPending}
+                organizationId={data.organization.id}
                 onStatus={(status) => updateStatus.mutate({ id: item.id, status })}
               />
             ))}

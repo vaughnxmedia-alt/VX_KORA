@@ -38,11 +38,28 @@ import type {
   CiOpsSummary,
   CiOrganizationInvitation,
   CiOrgProfileInput,
+  CiOutcome,
+  CiOutcomeWriteInput,
+  CiMonthlyReport,
+  CiMonthlyReportWriteInput,
+  CiPilotDashboard,
+  CiPilotEnrollment,
+  CiPilotFeedback,
+  CiPilotWriteInput,
   CiPortalActions,
   CiPortalCounsel,
   CiPortalDashboard,
   CiPortalOpportunities,
+  CiPortalProgress,
   CiPriority,
+  CiRecommendationFeedback,
+  CiUsefulRating,
+  CiWeeklyBrief,
+  CiWeeklyBriefWriteInput,
+  CiActivityEventType,
+  CiLearningSummary,
+  CiOrgActivitySummary,
+  CiReportStatus,
 } from "./types";
 import { ciFriendlyError } from "./workspace";
 import {
@@ -1184,11 +1201,12 @@ export const ciApi = {
         .order("updated_at", { ascending: false });
       if (error) throw new Error(ciFriendlyError(error));
 
-      const [checks, opportunities, actions, counsel] = await Promise.all([
+      const [checks, opportunities, actions, counsel, weeklyBrief] = await Promise.all([
         ciApi.health.listForOrganization(resolved.organizationId),
         ciApi.opportunities.list(resolved.organizationId),
         ciApi.actions.list(resolved.organizationId),
         ciApi.counsel.list({ organizationId: resolved.organizationId }),
+        ciApi.briefs.latestPublished(resolved.organizationId),
       ]);
 
       return {
@@ -1198,6 +1216,7 @@ export const ciApi = {
         opportunities,
         actions,
         counsel,
+        weeklyBrief,
       };
     },
 
@@ -1268,6 +1287,37 @@ export const ciApi = {
         approvedOnly: true,
       });
       return { organization: resolved.organization, entries };
+    },
+
+    loadProgress: async (userId: string, organizationId?: string): Promise<CiPortalProgress | null> => {
+      const resolved = await resolvePortalOrganization(userId, organizationId);
+      if (!resolved) return null;
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      monthStart.setHours(0, 0, 0, 0);
+      const [actions, opportunities, counsel, outcomes] = await Promise.all([
+        ciApi.actions.list(resolved.organizationId),
+        ciApi.opportunities.list(resolved.organizationId),
+        ciApi.counsel.list({ organizationId: resolved.organizationId }),
+        ciApi.outcomes.list(resolved.organizationId),
+      ]);
+      const monthActions = actions.filter((item) => new Date(item.updated_at) >= monthStart);
+      const monthOpps = opportunities.filter((item) => new Date(item.created_at) >= monthStart);
+      const monthCounsel = counsel.filter((item) => new Date(item.created_at) >= monthStart);
+      const monthOutcomes = outcomes.filter(
+        (item) => item.occurred_on && new Date(`${item.occurred_on}T00:00:00`) >= monthStart,
+      );
+      return {
+        organization: resolved.organization,
+        recommended_actions: monthActions.filter((item) => item.status !== "cancelled").length,
+        completed_actions: monthActions.filter((item) => item.status === "completed").length,
+        opportunities_identified: monthOpps.length,
+        issues_resolved: monthOutcomes.length,
+        counsel_completed: monthCounsel.filter(
+          (item) => item.status === "response_ready" || item.status === "closed",
+        ).length,
+        outcomes,
+      };
     },
   },
 
@@ -1388,4 +1438,485 @@ export const ciApi = {
       };
     },
   },
+
+  activity: {
+    record: async (input: {
+      organization_id: string;
+      event_type: CiActivityEventType;
+      entity_type?: string | null;
+      entity_id?: string | null;
+    }): Promise<void> => {
+      const { error } = await db.rpc("ci_record_activity", {
+        p_organization_id: input.organization_id,
+        p_event_type: input.event_type,
+        p_entity_type: input.entity_type ?? null,
+        p_entity_id: input.entity_id ?? null,
+      });
+      if (error) throw new Error(ciFriendlyError(error));
+    },
+
+    summary: async (organizationId: string): Promise<CiOrgActivitySummary> => {
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      monthStart.setHours(0, 0, 0, 0);
+      const [events, actions] = await Promise.all([
+        db
+          .from("ci_activity_events")
+          .select("event_type, created_at")
+          .eq("organization_id", organizationId)
+          .order("created_at", { ascending: false })
+          .limit(200),
+        db
+          .from("ci_action_items")
+          .select("id, status, updated_at")
+          .eq("organization_id", organizationId)
+          .eq("status", "completed"),
+      ]);
+      if (events.error) throw new Error(ciFriendlyError(events.error));
+      const rows = (events.data ?? []) as { event_type: string; created_at: string }[];
+      const completed = (actions.data ?? []) as { updated_at: string }[];
+      return {
+        last_client_activity: rows[0]?.created_at ?? null,
+        last_portal_login: rows.find((row) => row.event_type === "portal_login")?.created_at ?? null,
+        actions_completed_this_month: completed.filter(
+          (row) => new Date(row.updated_at) >= monthStart,
+        ).length,
+        opportunities_reviewed: rows.filter((row) => row.event_type === "opportunity_viewed").length,
+        counsel_requests_submitted: rows.filter((row) => row.event_type === "counsel_submitted").length,
+      };
+    },
+  },
+
+  pilots: {
+    list: async (): Promise<CiPilotEnrollment[]> => {
+      const { data, error } = await db
+        .from("ci_pilot_enrollments")
+        .select("*")
+        .order("updated_at", { ascending: false });
+      if (error) throw new Error(ciFriendlyError(error));
+      const rows = (data ?? []) as CiPilotEnrollment[];
+      if (!rows.length) return rows;
+      const orgs = await ciApi.organizations.list();
+      const names = new Map(orgs.map((org) => [org.id, org.name]));
+      return rows.map((row) => ({ ...row, organization_name: names.get(row.organization_id) }));
+    },
+
+    getForOrganization: async (organizationId: string): Promise<CiPilotEnrollment | null> => {
+      const { data, error } = await db
+        .from("ci_pilot_enrollments")
+        .select("*")
+        .eq("organization_id", organizationId)
+        .maybeSingle();
+      if (error) throw new Error(ciFriendlyError(error));
+      return (data as CiPilotEnrollment | null) ?? null;
+    },
+
+    upsert: async (input: CiPilotWriteInput): Promise<CiPilotEnrollment> => {
+      const payload = {
+        organization_id: input.organization_id,
+        status: input.status ?? "invited",
+        start_date: input.start_date || null,
+        end_date: input.end_date || null,
+        cohort: emptyStringToNull(input.cohort),
+        onboarding_complete_at: input.onboarding_complete_at || null,
+        initial_health_complete_at: input.initial_health_complete_at || null,
+        first_intelligence_at: input.first_intelligence_at || null,
+        first_client_login_at: input.first_client_login_at || null,
+        first_action_completed_at: input.first_action_completed_at || null,
+        first_counsel_request_at: input.first_counsel_request_at || null,
+        final_review_at: input.final_review_at || null,
+        internal_notes: emptyStringToNull(input.internal_notes),
+      };
+      const { data, error } = await db
+        .from("ci_pilot_enrollments")
+        .upsert(payload, { onConflict: "organization_id" })
+        .select("*")
+        .single();
+      if (error) throw new Error(ciFriendlyError(error));
+      return data as CiPilotEnrollment;
+    },
+  },
+
+  outcomes: {
+    list: async (organizationId: string): Promise<CiOutcome[]> => {
+      const { data, error } = await db
+        .from("ci_outcomes")
+        .select("*")
+        .eq("organization_id", organizationId)
+        .order("occurred_on", { ascending: false, nullsFirst: false });
+      if (error) throw new Error(ciFriendlyError(error));
+      const rows = (data ?? []) as CiOutcome[];
+      const { data: notes } = await db
+        .from("ci_admin_notes")
+        .select("id, entity_id, body, updated_at")
+        .eq("organization_id", organizationId)
+        .eq("entity_type", "outcome");
+      const latest = new Map<string, { id: string; body: string; updated_at: string }>();
+      for (const note of (notes ?? []) as { id: string; entity_id: string | null; body: string; updated_at: string }[]) {
+        if (!note.entity_id) continue;
+        const existing = latest.get(note.entity_id);
+        if (!existing || note.updated_at > existing.updated_at) latest.set(note.entity_id, note);
+      }
+      return rows.map((row) => {
+        const note = latest.get(row.id);
+        return { ...row, admin_notes: note?.body ?? null, admin_note_id: note?.id ?? null };
+      });
+    },
+
+    create: async (input: CiOutcomeWriteInput): Promise<CiOutcome> => {
+      const { data, error } = await db
+        .from("ci_outcomes")
+        .insert({
+          organization_id: input.organization_id,
+          outcome_type: input.outcome_type,
+          title: input.title.trim(),
+          description: emptyStringToNull(input.description),
+          occurred_on: input.occurred_on || null,
+          opportunity_id: input.opportunity_id || null,
+          action_item_id: input.action_item_id || null,
+          intelligence_item_id: input.intelligence_item_id || null,
+          url: emptyStringToNull(input.url),
+          created_by: input.created_by ?? null,
+        })
+        .select("*")
+        .single();
+      if (error) throw new Error(ciFriendlyError(error));
+      const row = data as CiOutcome;
+      if (input.admin_notes?.trim() && input.created_by) {
+        await db.from("ci_admin_notes").insert({
+          organization_id: input.organization_id,
+          entity_type: "outcome",
+          entity_id: row.id,
+          body: input.admin_notes.trim(),
+          created_by: input.created_by,
+        });
+      }
+      return { ...row, admin_notes: input.admin_notes ?? null };
+    },
+
+    update: async (id: string, input: Partial<CiOutcomeWriteInput>): Promise<CiOutcome> => {
+      const payload: Record<string, unknown> = {};
+      if (input.outcome_type !== undefined) payload.outcome_type = input.outcome_type;
+      if (input.title !== undefined) payload.title = input.title.trim();
+      if (input.description !== undefined) payload.description = emptyStringToNull(input.description);
+      if (input.occurred_on !== undefined) payload.occurred_on = input.occurred_on || null;
+      if (input.opportunity_id !== undefined) payload.opportunity_id = input.opportunity_id || null;
+      if (input.action_item_id !== undefined) payload.action_item_id = input.action_item_id || null;
+      if (input.intelligence_item_id !== undefined) {
+        payload.intelligence_item_id = input.intelligence_item_id || null;
+      }
+      if (input.url !== undefined) payload.url = emptyStringToNull(input.url);
+      const { data, error } = await db.from("ci_outcomes").update(payload).eq("id", id).select("*").single();
+      if (error) throw new Error(ciFriendlyError(error));
+      return data as CiOutcome;
+    },
+  },
+
+  reports: {
+    list: async (organizationId: string, options?: { publishedOnly?: boolean }): Promise<CiMonthlyReport[]> => {
+      let q = db
+        .from("ci_monthly_reports")
+        .select("*")
+        .eq("organization_id", organizationId)
+        .order("period_year", { ascending: false })
+        .order("period_month", { ascending: false });
+      if (options?.publishedOnly) q = q.eq("status", "published");
+      const { data, error } = await q;
+      if (error) throw new Error(ciFriendlyError(error));
+      return (data ?? []) as CiMonthlyReport[];
+    },
+
+    get: async (id: string): Promise<CiMonthlyReport | null> => {
+      const { data, error } = await db.from("ci_monthly_reports").select("*").eq("id", id).maybeSingle();
+      if (error) throw new Error(ciFriendlyError(error));
+      return (data as CiMonthlyReport | null) ?? null;
+    },
+
+    upsert: async (input: CiMonthlyReportWriteInput): Promise<CiMonthlyReport> => {
+      const payload = {
+        organization_id: input.organization_id,
+        period_year: input.period_year,
+        period_month: input.period_month,
+        status: input.status ?? "draft",
+        executive_summary: emptyStringToNull(input.executive_summary),
+        needed_attention: emptyStringToNull(input.needed_attention),
+        opportunities: emptyStringToNull(input.opportunities),
+        actions_taken: emptyStringToNull(input.actions_taken),
+        health: emptyStringToNull(input.health),
+        outcomes: emptyStringToNull(input.outcomes),
+        next_priorities: emptyStringToNull(input.next_priorities),
+        counsel: emptyStringToNull(input.counsel),
+        created_by: input.created_by ?? null,
+        published_at: input.status === "published" ? new Date().toISOString() : null,
+        published_by: input.status === "published" ? input.created_by ?? null : null,
+      };
+      const { data, error } = await db
+        .from("ci_monthly_reports")
+        .upsert(payload, { onConflict: "organization_id,period_year,period_month" })
+        .select("*")
+        .single();
+      if (error) throw new Error(ciFriendlyError(error));
+      return data as CiMonthlyReport;
+    },
+
+    setStatus: async (
+      id: string,
+      status: CiReportStatus,
+      userId?: string | null,
+    ): Promise<CiMonthlyReport> => {
+      const payload: Record<string, unknown> = { status };
+      if (status === "published") {
+        payload.published_at = new Date().toISOString();
+        payload.published_by = userId ?? null;
+      }
+      const { data, error } = await db
+        .from("ci_monthly_reports")
+        .update(payload)
+        .eq("id", id)
+        .select("*")
+        .single();
+      if (error) throw new Error(ciFriendlyError(error));
+      return data as CiMonthlyReport;
+    },
+  },
+
+  briefs: {
+    list: async (organizationId: string): Promise<CiWeeklyBrief[]> => {
+      const { data, error } = await db
+        .from("ci_weekly_briefs")
+        .select("*")
+        .eq("organization_id", organizationId)
+        .order("week_of", { ascending: false });
+      if (error) throw new Error(ciFriendlyError(error));
+      return (data ?? []) as CiWeeklyBrief[];
+    },
+
+    latestPublished: async (organizationId: string): Promise<CiWeeklyBrief | null> => {
+      const { data, error } = await db
+        .from("ci_weekly_briefs")
+        .select("*")
+        .eq("organization_id", organizationId)
+        .eq("status", "published")
+        .order("week_of", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw new Error(ciFriendlyError(error));
+      return (data as CiWeeklyBrief | null) ?? null;
+    },
+
+    upsert: async (input: CiWeeklyBriefWriteInput): Promise<CiWeeklyBrief> => {
+      const payload = {
+        organization_id: input.organization_id,
+        week_of: input.week_of,
+        needs_attention: emptyStringToNull(input.needs_attention),
+        best_opportunity: emptyStringToNull(input.best_opportunity),
+        important_action: emptyStringToNull(input.important_action),
+        upcoming_moment: emptyStringToNull(input.upcoming_moment),
+        note: emptyStringToNull(input.note),
+        status: input.status ?? "draft",
+        created_by: input.created_by ?? null,
+        published_at: input.status === "published" ? new Date().toISOString() : null,
+        published_by: input.status === "published" ? input.created_by ?? null : null,
+      };
+      const { data, error } = await db.from("ci_weekly_briefs").insert(payload).select("*").single();
+      if (error) throw new Error(ciFriendlyError(error));
+      return data as CiWeeklyBrief;
+    },
+
+    update: async (id: string, input: Partial<CiWeeklyBriefWriteInput>): Promise<CiWeeklyBrief> => {
+      const payload: Record<string, unknown> = {};
+      if (input.week_of !== undefined) payload.week_of = input.week_of;
+      if (input.needs_attention !== undefined) payload.needs_attention = emptyStringToNull(input.needs_attention);
+      if (input.best_opportunity !== undefined) payload.best_opportunity = emptyStringToNull(input.best_opportunity);
+      if (input.important_action !== undefined) payload.important_action = emptyStringToNull(input.important_action);
+      if (input.upcoming_moment !== undefined) payload.upcoming_moment = emptyStringToNull(input.upcoming_moment);
+      if (input.note !== undefined) payload.note = emptyStringToNull(input.note);
+      if (input.status !== undefined) {
+        payload.status = input.status;
+        if (input.status === "published") {
+          payload.published_at = new Date().toISOString();
+          payload.published_by = input.created_by ?? null;
+        }
+      }
+      const { data, error } = await db.from("ci_weekly_briefs").update(payload).eq("id", id).select("*").single();
+      if (error) throw new Error(ciFriendlyError(error));
+      return data as CiWeeklyBrief;
+    },
+  },
+
+  feedback: {
+    listRecommendations: async (organizationId?: string): Promise<CiRecommendationFeedback[]> => {
+      let q = db.from("ci_recommendation_feedback").select("*").order("created_at", { ascending: false });
+      if (organizationId) q = q.eq("organization_id", organizationId);
+      const { data, error } = await q;
+      if (error) throw new Error(ciFriendlyError(error));
+      return (data ?? []) as CiRecommendationFeedback[];
+    },
+
+    submitRecommendation: async (input: {
+      organization_id: string;
+      related_type: CiRecommendationFeedback["related_type"];
+      related_id?: string | null;
+      useful: CiUsefulRating;
+      why?: string | null;
+      created_by: string;
+    }): Promise<void> => {
+      const { error } = await db.from("ci_recommendation_feedback").insert({
+        organization_id: input.organization_id,
+        related_type: input.related_type,
+        related_id: input.related_id || null,
+        useful: input.useful,
+        why: emptyStringToNull(input.why),
+        created_by: input.created_by,
+      });
+      if (error) throw new Error(ciFriendlyError(error));
+    },
+
+    listPilot: async (organizationId?: string): Promise<CiPilotFeedback[]> => {
+      let q = db.from("ci_pilot_feedback").select("*").order("created_at", { ascending: false });
+      if (organizationId) q = q.eq("organization_id", organizationId);
+      const { data, error } = await q;
+      if (error) throw new Error(ciFriendlyError(error));
+      return (data ?? []) as CiPilotFeedback[];
+    },
+
+    submitPilot: async (input: {
+      organization_id: string;
+      most_useful?: string | null;
+      confusing?: string | null;
+      wish?: string | null;
+      helped_decision?: CiUsefulRating | null;
+      created_by: string;
+    }): Promise<void> => {
+      const { error } = await db.from("ci_pilot_feedback").insert({
+        organization_id: input.organization_id,
+        most_useful: emptyStringToNull(input.most_useful),
+        confusing: emptyStringToNull(input.confusing),
+        wish: emptyStringToNull(input.wish),
+        helped_decision: input.helped_decision ?? null,
+        created_by: input.created_by,
+      });
+      if (error) throw new Error(ciFriendlyError(error));
+    },
+  },
+
+  learning: {
+    summary: async (): Promise<CiLearningSummary> => {
+      const [intel, health, opps, actions, counsel, messaging, feedback] = await Promise.all([
+        db.from("ci_intelligence_items").select("category"),
+        db.from("ci_health_checks").select("category, status_label"),
+        db.from("ci_opportunities").select("opportunity_type"),
+        db.from("ci_action_items").select("organization_id, status"),
+        db.from("ci_counsel_requests").select("id"),
+        db.from("ci_messaging_entries").select("entry_type").eq("status", "approved"),
+        db.from("ci_recommendation_feedback").select("useful"),
+      ]);
+      const countBy = (rows: { key?: string }[], pick: (row: Record<string, string>) => string) => {
+        const map = new Map<string, number>();
+        for (const row of rows as Record<string, string>[]) {
+          const key = pick(row);
+          if (!key) continue;
+          map.set(key, (map.get(key) ?? 0) + 1);
+        }
+        return [...map.entries()].map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count);
+      };
+      const actionRows = (actions.data ?? []) as { organization_id: string; status: string }[];
+      const completedByOrg = new Map<string, number>();
+      for (const row of actionRows.filter((item) => item.status === "completed")) {
+        completedByOrg.set(row.organization_id, (completedByOrg.get(row.organization_id) ?? 0) + 1);
+      }
+      const orgCount = completedByOrg.size || 1;
+      const totalCompleted = [...completedByOrg.values()].reduce((sum, n) => sum + n, 0);
+      return {
+        intelligence_categories: countBy(intel.data ?? [], (row) => row.category),
+        health_needs_attention: countBy(
+          (health.data ?? []).filter(
+            (row: { status_label?: string }) =>
+              row.status_label === "needs_attention" || row.status_label === "high_priority",
+          ),
+          (row) => row.category,
+        ),
+        opportunity_types: countBy(opps.data ?? [], (row) => row.opportunity_type),
+        avg_actions_completed: Math.round((totalCompleted / orgCount) * 10) / 10,
+        counsel_requests: (counsel.data ?? []).length,
+        messaging_categories: countBy(messaging.data ?? [], (row) => row.entry_type),
+        usefulness: countBy(feedback.data ?? [], (row) => row.useful) as CiLearningSummary["usefulness"],
+      };
+    },
+
+    dashboard: async (): Promise<CiPilotDashboard> => {
+      const enrollments = await ciApi.pilots.list();
+      const orgs = await ciApi.organizations.list();
+      const names = new Map(orgs.map((org) => [org.id, org.name]));
+      const tenDaysAgo = new Date();
+      tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+      const today = new Date().toISOString().slice(0, 10);
+      const [events, overdue, high, actions, opps, outcomes, counsel, recFeedback, pilotFeedback] = await Promise.all([
+        db.from("ci_activity_events").select("organization_id, created_at").order("created_at", { ascending: false }),
+        db
+          .from("ci_action_items")
+          .select("organization_id")
+          .in("status", ["not_started", "in_progress"])
+          .lt("due_date", today),
+        db
+          .from("ci_intelligence_items")
+          .select("organization_id")
+          .in("priority", ["high", "urgent"])
+          .in("status", CI_ACTIVE_INTELLIGENCE_STATUSES),
+        db.from("ci_action_items").select("id").eq("status", "completed"),
+        db.from("ci_opportunities").select("id"),
+        db.from("ci_outcomes").select("id"),
+        db.from("ci_counsel_requests").select("id"),
+        db.from("ci_recommendation_feedback").select("id"),
+        db.from("ci_pilot_feedback").select("id"),
+      ]);
+      const lastActivity = new Map<string, string>();
+      for (const row of (events.data ?? []) as { organization_id: string; created_at: string }[]) {
+        if (!lastActivity.has(row.organization_id)) lastActivity.set(row.organization_id, row.created_at);
+      }
+      const overdueCount = new Map<string, number>();
+      for (const row of (overdue.data ?? []) as { organization_id: string }[]) {
+        overdueCount.set(row.organization_id, (overdueCount.get(row.organization_id) ?? 0) + 1);
+      }
+      const highCount = new Map<string, number>();
+      for (const row of (high.data ?? []) as { organization_id: string }[]) {
+        highCount.set(row.organization_id, (highCount.get(row.organization_id) ?? 0) + 1);
+      }
+      const noRecent = enrollments
+        .filter((row) => row.status === "active" || row.status === "needs_attention" || row.status === "onboarding")
+        .map((row) => {
+          const last = lastActivity.get(row.organization_id);
+          const days = last
+            ? Math.floor((Date.now() - new Date(last).getTime()) / 86400000)
+            : 99;
+          return {
+            id: row.organization_id,
+            name: names.get(row.organization_id) || row.organization_name || "Organization",
+            days,
+            overdue_actions: overdueCount.get(row.organization_id) ?? 0,
+            high_items: highCount.get(row.organization_id) ?? 0,
+          };
+        })
+        .filter((row) => row.days >= 10 || row.overdue_actions > 0 || row.high_items > 0);
+      return {
+        active_pilots: enrollments.filter((row) => row.status === "active").length,
+        onboarding_complete: enrollments.filter((row) => Boolean(row.onboarding_complete_at)).length,
+        no_recent_activity: noRecent,
+        needing_attention: enrollments
+          .filter((row) => row.status === "needs_attention")
+          .map((row) => ({
+            id: row.organization_id,
+            name: names.get(row.organization_id) || row.organization_name || "Organization",
+            reason: "Marked as needing attention",
+          })),
+        actions_completed: (actions.data ?? []).length,
+        opportunities_identified: (opps.data ?? []).length,
+        outcomes_recorded: (outcomes.data ?? []).length,
+        counsel_requests: (counsel.data ?? []).length,
+        feedback_count: (recFeedback.data ?? []).length + (pilotFeedback.data ?? []).length,
+        enrollments,
+      };
+    },
+  },
 };
+

@@ -31,7 +31,7 @@ Existing admins are auto-seeded as HQ **owner**.
 | CRM | `/hq/crm`, `/hq/crm/:id` |
 | Clients | `/hq/clients`, `/hq/clients/:id` |
 | Tasks | `/hq/tasks` |
-| Communications Intelligence | `/hq/intelligence/organizations`, `/hq/intelligence/organizations/:orgId`, `/hq/intelligence/organizations/:orgId/intelligence`, `/hq/intelligence/organizations/:orgId/health`, `/hq/intelligence/organizations/:orgId/messaging`, `/hq/intelligence/organizations/:orgId/opportunities`, `/hq/intelligence/organizations/:orgId/actions`, `/hq/intelligence/organizations/:orgId/counsel`, `/hq/intelligence/counsel` |
+| Communications Intelligence | `/hq/intelligence`, `/hq/intelligence/organizations`, `/hq/intelligence/pilot`, `/hq/intelligence/learning`, `/hq/intelligence/counsel`, org tabs for intelligence, health, messaging, opportunities, actions, counsel, outcomes, reports, and pilot |
 | Content CMS | `/hq/content`, `/hq/content/:id` |
 | Team | `/hq/team` (Owner) |
 | Settings | `/hq/settings` |

@@ -18,11 +18,14 @@ import type { ReactNode } from "react";
 
 const PORTAL_NAV = [
   { to: "/portal", label: "Overview", end: true },
+  { to: "/portal/progress", label: "Progress", end: false },
   { to: "/portal/health", label: "Communications Health", end: false },
   { to: "/portal/messaging", label: "Messaging", end: false },
   { to: "/portal/opportunities", label: "Opportunities", end: false },
   { to: "/portal/actions", label: "Actions", end: false },
   { to: "/portal/counsel", label: "Ask JahKnowsPR", end: false },
+  { to: "/portal/reports", label: "Reports", end: false },
+  { to: "/portal/feedback", label: "Feedback", end: false },
 ] as const;
 
 export function CiPortalLayout({

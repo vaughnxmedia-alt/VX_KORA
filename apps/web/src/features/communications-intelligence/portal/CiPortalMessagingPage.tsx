@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { useAuth } from "@/components/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { AskCounselLink } from "../AskCounselLink";
+import { UsefulFeedback } from "../UsefulFeedback";
+import { trackCiActivity } from "../activity";
 import { ciApi } from "../api";
 import { ciFriendlyError, copyCiText, counselDraftFromMessaging } from "../workspace";
 import {
@@ -23,9 +25,15 @@ export function CiPortalMessagingPage() {
     enabled: Boolean(user?.id),
   });
 
-  const copy = async (text: string) => {
+  const copy = async (text: string, entryId: string) => {
     try {
       await copyCiText(text);
+      trackCiActivity({
+        organization_id: data?.organization.id,
+        event_type: "messaging_copied",
+        entity_type: "messaging_entry",
+        entity_id: entryId,
+      });
       toast.success("Copied — you can paste this as written");
     } catch {
       toast.error("Could not copy that text");
@@ -86,7 +94,7 @@ export function CiPortalMessagingPage() {
                       ) : (
                         <span />
                       )}
-                      <Button type="button" variant="outline" size="sm" onClick={() => void copy(entry.body)}>
+                      <Button type="button" variant="outline" size="sm" onClick={() => void copy(entry.body, entry.id)}>
                         <Copy className="h-3.5 w-3.5 mr-1" />
                         Copy
                       </Button>
@@ -102,6 +110,11 @@ export function CiPortalMessagingPage() {
                         </AskCounselLink>
                       </div>
                     ) : null}
+                    <UsefulFeedback
+                      organizationId={data.organization.id}
+                      relatedType="messaging"
+                      relatedId={entry.id}
+                    />
                   </article>
                 ))}
               </section>
