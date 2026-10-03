@@ -154,9 +154,9 @@ export function CiOrganizationMessagingTab() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="font-serif text-xl font-bold">Messaging Library</h2>
+          <h2 className="font-serif text-xl font-bold">Approved language</h2>
           <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-            The approved words this organization can use. Clients only see Approved entries.
+            Words this organization can use in public. Clients only see approved entries.
           </p>
         </div>
         <Button onClick={() => openCreate()}>

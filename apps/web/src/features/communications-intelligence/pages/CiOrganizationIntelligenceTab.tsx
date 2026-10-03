@@ -101,6 +101,8 @@ export function CiOrganizationIntelligenceTab() {
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ["ci", "intelligence", org.id] });
     void qc.invalidateQueries({ queryKey: ["ci", "organizations", org.id, "counts"] });
+    void qc.invalidateQueries({ queryKey: ["ci", "workflow", org.id] });
+    void qc.invalidateQueries({ queryKey: ["ci", "ops"] });
   };
 
   const save = useMutation({
@@ -116,7 +118,7 @@ export function CiOrganizationIntelligenceTab() {
       });
     },
     onSuccess: () => {
-      toast.success(editingId ? "Intelligence item updated" : "Intelligence item created");
+      toast.success(editingId ? "Recommendation updated" : "Recommendation added");
       setOpen(false);
       setEditingId(null);
       setEditingMeta(null);
@@ -153,14 +155,15 @@ export function CiOrganizationIntelligenceTab() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="font-serif text-xl font-bold">Intelligence</h2>
+          <h2 className="font-serif text-xl font-bold">What needs attention</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            What this organization should communicate, watch, or prepare for.
+            Write recommendations in plain language. The client should understand why it matters and
+            what to do next.
           </p>
         </div>
         <Button onClick={openCreate}>
           <Plus className="h-4 w-4 mr-1" />
-          New item
+          Add Recommendation
         </Button>
       </div>
 
@@ -279,7 +282,7 @@ export function CiOrganizationIntelligenceTab() {
               {!items.length ? (
                 <tr>
                   <td colSpan={6} className="px-3 py-10 text-center text-muted-foreground">
-                    No intelligence items match these filters.
+                    No recommendations match these filters. Add one to tell the client what matters.
                   </td>
                 </tr>
               ) : null}
@@ -292,7 +295,7 @@ export function CiOrganizationIntelligenceTab() {
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-serif text-2xl">
-              {editingId ? "Edit intelligence item" : "New intelligence item"}
+              {editingId ? "Edit recommendation" : "Add recommendation"}
             </DialogTitle>
             <DialogDescription>
               This will appear in the client portal for {org.name}. Clients can view it, not edit it.

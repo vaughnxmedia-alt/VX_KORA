@@ -16,7 +16,6 @@ import {
   Menu,
   X,
   Radar,
-  MessageCircle,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -47,33 +46,9 @@ const BUSINESS: NavItem[] = [
 
 const INTELLIGENCE: NavItem[] = [
   {
-    label: "Operations",
+    label: "Communications",
     to: "/hq/intelligence",
-    icon: LayoutDashboard,
-    module: "intelligence",
-  },
-  {
-    label: "Organizations",
-    to: "/hq/intelligence/organizations",
     icon: Radar,
-    module: "intelligence",
-  },
-  {
-    label: "Counsel Requests",
-    to: "/hq/intelligence/counsel",
-    icon: MessageCircle,
-    module: "intelligence",
-  },
-  {
-    label: "Pilot",
-    to: "/hq/intelligence/pilot",
-    icon: Radar,
-    module: "intelligence",
-  },
-  {
-    label: "Learning",
-    to: "/hq/intelligence/learning",
-    icon: BookOpen,
     module: "intelligence",
   },
 ];
@@ -184,7 +159,7 @@ export function HqLayout() {
         <NavSection title="Command Center" items={COMMAND} can={can} onNavigate={() => setMobileOpen(false)} />
         <NavSection title="Business" items={BUSINESS} can={can} onNavigate={() => setMobileOpen(false)} />
         <NavSection
-          title="Communications Intelligence"
+          title="Communications"
           items={INTELLIGENCE}
           can={can}
           onNavigate={() => setMobileOpen(false)}

@@ -190,6 +190,8 @@ export function CiOrganizationActionsTab() {
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ["ci", "actions", org.id] });
     void qc.invalidateQueries({ queryKey: ["ci", "organizations", org.id, "counts"] });
+    void qc.invalidateQueries({ queryKey: ["ci", "workflow", org.id] });
+    void qc.invalidateQueries({ queryKey: ["ci", "ops"] });
   };
 
   const save = useMutation({
@@ -231,14 +233,15 @@ export function CiOrganizationActionsTab() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="font-serif text-xl font-bold">Actions</h2>
+          <h2 className="font-serif text-xl font-bold">Action plan</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            What communication work needs to happen next.
+            Turn recommendations and opportunities into a short list of next steps the client can
+            complete.
           </p>
         </div>
         <Button onClick={openCreate}>
           <Plus className="h-4 w-4 mr-1" />
-          New action
+          Build Action Plan
         </Button>
       </div>
 
@@ -302,7 +305,7 @@ export function CiOrganizationActionsTab() {
           />
           <Section
             title="Upcoming"
-            empty="You're caught up. No open actions are due."
+            empty="No next actions yet. Add the first one so the client knows what to do."
             items={grouped.upcoming}
             onEdit={openEdit}
           />

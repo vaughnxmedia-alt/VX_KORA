@@ -61,7 +61,7 @@ import type {
   CiOrgActivitySummary,
   CiReportStatus,
 } from "./types";
-import { ciFriendlyError } from "./workspace";
+import { ciFriendlyError, isHealthAssessed, workflowFromCounts } from "./workspace";
 import {
   CI_ACTIVE_INTELLIGENCE_STATUSES,
   CI_ACTIVE_OPPORTUNITY_STATUSES,
@@ -448,6 +448,8 @@ export const ciApi = {
       if (input.onboarding_status !== undefined) payload.onboarding_status = input.onboarding_status;
       if (input.onboarding_status === "completed") {
         payload.onboarding_completed_at = new Date().toISOString();
+      } else if (input.onboarding_status === "in_progress" || input.onboarding_status === "not_started") {
+        payload.onboarding_completed_at = null;
       }
       const { data, error } = await db.from("ci_organizations").update(payload).eq("id", id).select("*").single();
       if (error) throw new Error(ciFriendlyError(error));
@@ -476,6 +478,12 @@ export const ciApi = {
         .single();
       if (error) throw error;
       return data as CiOrganization;
+    },
+
+    remove: async (id: string): Promise<void> => {
+      const { data, error } = await db.from("ci_organizations").delete().eq("id", id).select("id");
+      if (error) throw new Error(ciFriendlyError(error));
+      if (!data?.length) throw new Error("This client could not be deleted.");
     },
   },
 
@@ -1328,42 +1336,68 @@ export const ciApi = {
       week.setDate(week.getDate() + 14);
       const weekIso = week.toISOString().slice(0, 10);
 
-      const [orgs, intel, actions, opportunities, counsel] = await Promise.all([
-        ciApi.organizations.list({ status: "active" }),
-        db
-          .from("ci_intelligence_items")
-          .select("id, organization_id, title, priority, status")
-          .in("priority", ["high", "urgent"])
-          .in("status", CI_ACTIVE_INTELLIGENCE_STATUSES)
-          .order("updated_at", { ascending: false })
-          .limit(8),
-        db
-          .from("ci_action_items")
-          .select("id, organization_id, title, due_date, status")
-          .in("status", ["not_started", "in_progress"])
-          .lt("due_date", `${today}T23:59:59`)
-          .order("due_date", { ascending: true })
-          .limit(8),
-        db
-          .from("ci_opportunities")
-          .select("id, organization_id, title, deadline, status")
-          .in("status", CI_ACTIVE_OPPORTUNITY_STATUSES)
-          .gte("deadline", today)
-          .lte("deadline", weekIso)
-          .order("deadline", { ascending: true })
-          .limit(8),
-        db
-          .from("ci_counsel_requests")
-          .select("id, organization_id, subject, status, urgency")
-          .in("status", ["submitted", "reviewing"])
-          .order("created_at", { ascending: true })
-          .limit(12),
-      ]);
+      const [orgs, intel, allIntel, actions, allActions, opportunities, allOpps, counsel, health, reports, activity] =
+        await Promise.all([
+          ciApi.organizations.list({ status: "all" }),
+          db
+            .from("ci_intelligence_items")
+            .select("id, organization_id, title, priority, status")
+            .in("priority", ["high", "urgent"])
+            .in("status", CI_ACTIVE_INTELLIGENCE_STATUSES)
+            .order("updated_at", { ascending: false })
+            .limit(20),
+          db.from("ci_intelligence_items").select("organization_id, status"),
+          db
+            .from("ci_action_items")
+            .select("id, organization_id, title, due_date, status")
+            .in("status", ["not_started", "in_progress"])
+            .lt("due_date", `${today}T23:59:59`)
+            .order("due_date", { ascending: true })
+            .limit(20),
+          db.from("ci_action_items").select("organization_id, status"),
+          db
+            .from("ci_opportunities")
+            .select("id, organization_id, title, deadline, status")
+            .in("status", CI_ACTIVE_OPPORTUNITY_STATUSES)
+            .gte("deadline", today)
+            .lte("deadline", weekIso)
+            .order("deadline", { ascending: true })
+            .limit(20),
+          db.from("ci_opportunities").select("organization_id, status"),
+          db
+            .from("ci_counsel_requests")
+            .select("id, organization_id, subject, status, urgency")
+            .in("status", ["submitted", "reviewing"])
+            .order("created_at", { ascending: true })
+            .limit(20),
+          db
+            .from("ci_health_checks")
+            .select("organization_id, category, status_label, explanation, why_it_matters, recommended_improvement"),
+          db
+            .from("ci_monthly_reports")
+            .select("id, organization_id, status, period_month, period_year")
+            .in("status", ["draft", "ready_for_review"])
+            .order("updated_at", { ascending: false })
+            .limit(20),
+          db
+            .from("ci_activity_events")
+            .select("organization_id, created_at")
+            .order("created_at", { ascending: false })
+            .limit(200),
+        ]);
 
       if (intel.error) throw new Error(ciFriendlyError(intel.error));
+      if (allIntel.error) throw new Error(ciFriendlyError(allIntel.error));
       if (actions.error) throw new Error(ciFriendlyError(actions.error));
+      if (allActions.error) throw new Error(ciFriendlyError(allActions.error));
       if (opportunities.error) throw new Error(ciFriendlyError(opportunities.error));
+      if (allOpps.error) throw new Error(ciFriendlyError(allOpps.error));
       if (counsel.error) throw new Error(ciFriendlyError(counsel.error));
+      if (health.error) throw new Error(ciFriendlyError(health.error));
+      if (reports.error) throw new Error(ciFriendlyError(reports.error));
+      const activityRows = activity.error
+        ? []
+        : ((activity.data ?? []) as { organization_id: string; created_at: string }[]);
 
       const names = new Map(orgs.map((org) => [org.id, org.name]));
       const intelRows = (intel.data ?? []) as {
@@ -1391,50 +1425,215 @@ export const ciApi = {
         status: string;
         urgency: string;
       }[];
-
-      const attentionIds = new Set<string>();
-      for (const row of intelRows) attentionIds.add(row.organization_id);
-      for (const row of actionRows) attentionIds.add(row.organization_id);
-      for (const row of counselRows.filter((item) => item.status === "submitted")) {
-        attentionIds.add(row.organization_id);
+      const reportRows = (reports.data ?? []) as {
+        id: string;
+        organization_id: string;
+        status: string;
+      }[];
+      const healthRows = (health.data ?? []) as {
+        organization_id: string;
+        category: string;
+        status_label: string | null;
+        explanation: string | null;
+        why_it_matters: string | null;
+        recommended_improvement: string | null;
+      }[];
+      const intelAll = (allIntel.data ?? []) as { organization_id: string; status: string }[];
+      const actionAll = (allActions.data ?? []) as { organization_id: string; status: string }[];
+      const oppAll = (allOpps.data ?? []) as { organization_id: string; status: string }[];
+      const lastActivity = new Map<string, string>();
+      for (const row of activityRows) {
+        if (!lastActivity.has(row.organization_id)) lastActivity.set(row.organization_id, row.created_at);
       }
 
+      const assessedByOrg = new Map<string, Set<string>>();
+      for (const row of healthRows) {
+        if (!isHealthAssessed(row)) continue;
+        const set = assessedByOrg.get(row.organization_id) ?? new Set<string>();
+        set.add(row.category);
+        assessedByOrg.set(row.organization_id, set);
+      }
+
+      const countBy = (rows: { organization_id: string; status: string }[], active: string[]) => {
+        const map = new Map<string, number>();
+        for (const row of rows) {
+          if (!active.includes(row.status)) continue;
+          map.set(row.organization_id, (map.get(row.organization_id) ?? 0) + 1);
+        }
+        return map;
+      };
+      const recCounts = countBy(intelAll, CI_ACTIVE_INTELLIGENCE_STATUSES);
+      const oppCounts = countBy(oppAll, CI_ACTIVE_OPPORTUNITY_STATUSES);
+      const actionCounts = countBy(actionAll, [...CI_OPEN_ACTION_STATUSES, "completed"]);
+
+      const today_items: CiOpsSummary["today_items"] = [];
+      for (const org of orgs) {
+        if (org.status === "archived") continue;
+        const flow = workflowFromCounts(org, {
+          assessedCategories: assessedByOrg.get(org.id)?.size ?? 0,
+          recommendationCount: recCounts.get(org.id) ?? 0,
+          opportunityCount: oppCounts.get(org.id) ?? 0,
+          actionCount: actionCounts.get(org.id) ?? 0,
+          approvedMessagingCount: 0,
+        });
+        if (org.onboarding_status === "completed" && !flow.steps[1].done) {
+          today_items.push({
+            id: `onboarding-${org.id}`,
+            organization_id: org.id,
+            organization_name: org.name,
+            reason: "Onboarding is ready for your review.",
+            cta: "Continue Setup",
+            href: `/hq/intelligence/organizations/${org.id}/overview`,
+          });
+        } else if (org.onboarding_status !== "completed" && !flow.steps[0].done) {
+          today_items.push({
+            id: `setup-${org.id}`,
+            organization_id: org.id,
+            organization_name: org.name,
+            reason: "This client still needs an organization profile.",
+            cta: "Continue Setup",
+            href: `/hq/intelligence/organizations/${org.id}/overview`,
+          });
+        }
+        if (!flow.steps[1].done) {
+          today_items.push({
+            id: `assess-${org.id}`,
+            organization_id: org.id,
+            organization_name: org.name,
+            reason: "The communications assessment is not finished.",
+            cta: "Complete Assessment",
+            href: `/hq/intelligence/organizations/${org.id}/health`,
+          });
+        } else if (!flow.steps[2].done) {
+          today_items.push({
+            id: `rec-${org.id}`,
+            organization_id: org.id,
+            organization_name: org.name,
+            reason: "Assessment is done. Add the first recommendation.",
+            cta: "Add Recommendation",
+            href: `/hq/intelligence/organizations/${org.id}/intelligence`,
+          });
+        }
+      }
+      for (const row of intelRows) {
+        today_items.push({
+          id: `intel-${row.id}`,
+          organization_id: row.organization_id,
+          organization_name: names.get(row.organization_id) || "Client",
+          reason: `${row.title} needs review.`,
+          cta: "Review",
+          href: `/hq/intelligence/organizations/${row.organization_id}/intelligence`,
+        });
+      }
+      for (const row of actionRows) {
+        today_items.push({
+          id: `action-${row.id}`,
+          organization_id: row.organization_id,
+          organization_name: names.get(row.organization_id) || "Client",
+          reason: `${row.title} is overdue.`,
+          cta: "Review",
+          href: `/hq/intelligence/organizations/${row.organization_id}/actions`,
+        });
+      }
+      for (const row of oppRows) {
+        today_items.push({
+          id: `opp-${row.id}`,
+          organization_id: row.organization_id,
+          organization_name: names.get(row.organization_id) || "Client",
+          reason: `${row.title} has a deadline approaching.`,
+          cta: "Review",
+          href: `/hq/intelligence/organizations/${row.organization_id}/opportunities`,
+        });
+      }
+      for (const row of counselRows) {
+        today_items.push({
+          id: `counsel-${row.id}`,
+          organization_id: row.organization_id,
+          organization_name: names.get(row.organization_id) || "Client",
+          reason:
+            row.status === "submitted"
+              ? `New question: ${row.subject}`
+              : `Waiting on a response: ${row.subject}`,
+          cta: "Respond",
+          href: `/hq/intelligence/organizations/${row.organization_id}/counsel/${row.id}`,
+        });
+      }
+      for (const row of reportRows) {
+        today_items.push({
+          id: `report-${row.id}`,
+          organization_id: row.organization_id,
+          organization_name: names.get(row.organization_id) || "Client",
+          reason:
+            row.status === "ready_for_review"
+              ? "A client update is ready for review."
+              : "A client update is still in draft.",
+          cta: "Prepare Client Update",
+          href: `/hq/intelligence/organizations/${row.organization_id}/reports`,
+        });
+      }
+
+      const seen = new Set<string>();
+      const uniqueToday = today_items.filter((item) => {
+        const key = `${item.organization_id}:${item.cta}:${item.reason}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      const attentionIds = new Set(uniqueToday.map((item) => item.organization_id));
+      const clients: CiOpsSummary["clients"] = orgs
+        .filter((org) => org.status !== "archived")
+        .map((org) => {
+          const flow = workflowFromCounts(org, {
+            assessedCategories: assessedByOrg.get(org.id)?.size ?? 0,
+            recommendationCount: recCounts.get(org.id) ?? 0,
+            opportunityCount: oppCounts.get(org.id) ?? 0,
+            actionCount: actionCounts.get(org.id) ?? 0,
+            approvedMessagingCount: 0,
+          });
+          const orgItems = uniqueToday.filter((item) => item.organization_id === org.id);
+          return {
+            id: org.id,
+            name: org.name,
+            stage: flow.stage,
+            attention: orgItems[0]?.reason || (flow.clientReady ? "Nothing waiting on you." : flow.next.title),
+            last_activity: lastActivity.get(org.id) || org.updated_at || org.created_at,
+            cta: flow.next.cta,
+            href: `/hq/intelligence/organizations/${org.id}`,
+          };
+        });
+
       return {
-        organizations: orgs.length,
+        organizations: orgs.filter((org) => org.status !== "archived").length,
         needing_attention: attentionIds.size,
         high_intelligence: intelRows.length,
         overdue_actions: actionRows.length,
         upcoming_deadlines: oppRows.length,
         new_counsel: counselRows.filter((item) => item.status === "submitted").length,
         waiting_response: counselRows.filter((item) => item.status === "reviewing").length,
-        attention_orgs: orgs
-          .filter((org) => attentionIds.has(org.id))
-          .slice(0, 6)
-          .map((org) => ({
-            id: org.id,
-            name: org.name,
-            reason: intelRows.some((row) => row.organization_id === org.id)
-              ? "High-priority intelligence"
-              : actionRows.some((row) => row.organization_id === org.id)
-                ? "Overdue actions"
-                : "New counsel request",
-          })),
+        attention_orgs: uniqueToday.slice(0, 8).map((item) => ({
+          id: item.organization_id,
+          name: item.organization_name,
+          reason: item.reason,
+        })),
         high_items: intelRows.map((row) => ({
           ...row,
-          organization_name: names.get(row.organization_id) || "Organization",
+          organization_name: names.get(row.organization_id) || "Client",
         })),
         overdue_action_rows: actionRows.map((row) => ({
           ...row,
-          organization_name: names.get(row.organization_id) || "Organization",
+          organization_name: names.get(row.organization_id) || "Client",
         })),
         upcoming_opportunity_rows: oppRows.map((row) => ({
           ...row,
-          organization_name: names.get(row.organization_id) || "Organization",
+          organization_name: names.get(row.organization_id) || "Client",
         })),
         counsel_rows: counselRows.map((row) => ({
           ...row,
-          organization_name: names.get(row.organization_id) || "Organization",
+          organization_name: names.get(row.organization_id) || "Client",
         })),
+        today_items: uniqueToday.slice(0, 12),
+        clients,
       };
     },
   },

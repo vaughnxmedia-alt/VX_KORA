@@ -67,13 +67,14 @@ export function CiPortalHealthPage() {
       </div>
 
       <div className="space-y-5">
-        {cards.map(({ category, row, status }) => (
+        {cards.map(({ category, row, status, assessed }) => (
           <article key={category} className="rounded-lg border border-border bg-background p-5">
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gold-dark">
               {CI_HEALTH_CATEGORY_LABELS[category]}
             </p>
             <h2 className="mt-1 font-serif text-2xl font-bold">
-              {CI_HEALTH_CATEGORY_LABELS[category]} — {CI_HEALTH_STATUS_LABELS[status]}
+              {CI_HEALTH_CATEGORY_LABELS[category]} —{" "}
+              {assessed && status === "not_assessed" ? "Reviewed" : CI_HEALTH_STATUS_LABELS[status]}
             </h2>
             {row?.explanation ? (
               <p className="mt-4 text-sm leading-relaxed">{row.explanation}</p>

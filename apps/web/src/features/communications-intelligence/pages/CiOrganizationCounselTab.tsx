@@ -29,7 +29,7 @@ export function CiOrganizationCounselTab() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="font-serif text-xl font-bold">Counsel requests</h2>
+        <h2 className="font-serif text-xl font-bold">Client questions</h2>
         <p className="text-sm text-muted-foreground mt-1">
           Strategic questions this organization has asked JahKnowsPR to review.
         </p>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { Link, useOutletContext } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuth } from "@/components/AuthProvider";
@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { ciApi } from "../api";
 import {
+  CI_HEALTH_GUIDE,
   dateInputToIso,
   formatCiDate,
   healthRowsByCategory,
@@ -57,6 +58,13 @@ function emptyForm(organizationId: string, category: CiHealthCategory): CiHealth
   };
 }
 
+function openableUrl(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
 function toForm(organizationId: string, category: CiHealthCategory, row: CiHealthCheck | null): CiHealthWriteInput {
   if (!row) return emptyForm(organizationId, category);
   return {
@@ -88,9 +96,23 @@ export function CiOrganizationHealthTab() {
 
   const cards = healthRowsByCategory(rows);
   const summary = healthSummaryPhrases(rows);
+  const guide = CI_HEALTH_GUIDE[category];
+  const website = org.website?.trim() || "";
+  const socials = Object.entries(org.social_channels ?? {}).filter(
+    (entry): entry is [string, string] => Boolean(entry[1]?.trim()),
+  );
 
   const save = useMutation({
     mutationFn: async () => {
+      const wroteSomething = Boolean(
+        form.explanation?.trim() || form.why_it_matters?.trim() || form.recommended_improvement?.trim(),
+      );
+      if (!wroteSomething) {
+        throw new Error("Write what you see, then choose how this area looks today.");
+      }
+      if ((form.status_label ?? "not_assessed") === "not_assessed") {
+        throw new Error("Choose how this area looks today — Strong, Stable, Needs Attention, or High Priority.");
+      }
       const score = form.score == null ? null : Number(form.score);
       if (score != null && (score < 0 || score > 100 || Number.isNaN(score))) {
         throw new Error("Score must be between 0 and 100, or left blank.");
@@ -104,9 +126,11 @@ export function CiOrganizationHealthTab() {
       });
     },
     onSuccess: () => {
-      toast.success("Health check updated");
+      toast.success("Assessment updated");
       setOpen(false);
       void qc.invalidateQueries({ queryKey: ["ci", "health", org.id] });
+      void qc.invalidateQueries({ queryKey: ["ci", "workflow", org.id] });
+      void qc.invalidateQueries({ queryKey: ["ci", "ops"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -121,7 +145,7 @@ export function CiOrganizationHealthTab() {
       });
     },
     onSuccess: () => {
-      toast.success("Intelligence item created — review it in the Intelligence tab");
+      toast.success("Recommendation added. Review it in What needs attention.");
       setIntelOpen(false);
       setIntelForm(null);
       void qc.invalidateQueries({ queryKey: ["ci", "intelligence", org.id] });
@@ -143,9 +167,23 @@ export function CiOrganizationHealthTab() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="font-serif text-xl font-bold">Communications Health Check</h2>
+        <h2 className="font-serif text-xl font-bold">Communications assessment</h2>
         <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-          A written read of how this organization is communicating — not a grade.
+          This is your judgment of what a stranger would see today. You do not need a document from
+          the client. Open each area, look at the places listed there, and write what you find.
+        </p>
+        <p className="mt-2 text-sm">
+          <Link className="underline underline-offset-4" to={`/hq/intelligence/organizations/${org.id}/overview`}>
+            Start with the organization profile
+          </Link>
+          {website ? (
+            <>
+              {" · "}
+              <a className="underline underline-offset-4" href={openableUrl(website)} target="_blank" rel="noreferrer">
+                Open their website
+              </a>
+            </>
+          ) : null}
         </p>
       </div>
 
@@ -162,6 +200,17 @@ export function CiOrganizationHealthTab() {
         ) : (
           <p className="mt-2 text-sm text-muted-foreground">All six areas are not assessed yet.</p>
         )}
+        <p className="mt-3 text-sm text-muted-foreground">
+          {cards.filter((card) => card.assessed).length} of 6 areas assessed.
+          {cards.every((card) => card.assessed)
+            ? " Next: turn the important findings into a recommendation."
+            : " Open each remaining area, write what you see, and save."}
+        </p>
+        {cards.every((card) => card.assessed) ? (
+          <Button asChild className="mt-3">
+            <Link to={`/hq/intelligence/organizations/${org.id}/intelligence`}>Add Recommendation</Link>
+          </Button>
+        ) : null}
       </div>
 
       {error ? <p className="text-sm text-destructive">{(error as Error).message}</p> : null}
@@ -170,13 +219,17 @@ export function CiOrganizationHealthTab() {
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
-          {cards.map(({ category: cat, row, status }) => (
+          {cards.map(({ category: cat, row, status, assessed }) => (
             <article key={cat} className="rounded-lg border border-border bg-background p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h3 className="font-serif text-lg font-bold">{CI_HEALTH_CATEGORY_LABELS[cat]}</h3>
                   <p className="mt-1 text-xs uppercase tracking-[0.08em] text-muted-foreground">
-                    {CI_HEALTH_STATUS_LABELS[status]}
+                    {assessed && status === "not_assessed" ? "Reviewed" : CI_HEALTH_STATUS_LABELS[status]}
+                  </p>
+                  <p className="mt-2 text-sm text-muted-foreground">{CI_HEALTH_GUIDE[cat].ask}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Where to look: {CI_HEALTH_GUIDE[cat].look[0]}
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-1">
@@ -185,7 +238,7 @@ export function CiOrganizationHealthTab() {
                   </Button>
                   {status === "needs_attention" || status === "high_priority" ? (
                     <Button type="button" variant="ghost" size="sm" onClick={() => openIntel(cat, row, status)}>
-                      Create Intelligence Item
+                      Add Recommendation
                     </Button>
                   ) : null}
                 </div>
@@ -217,10 +270,56 @@ export function CiOrganizationHealthTab() {
             <DialogTitle className="font-serif text-2xl">
               {CI_HEALTH_CATEGORY_LABELS[category]}
             </DialogTitle>
-            <DialogDescription>
-              Clients will see the assessment and recommended improvement. The number is optional and stays secondary.
-            </DialogDescription>
+            <DialogDescription>{guide.ask}</DialogDescription>
           </DialogHeader>
+          <div className="rounded-md border border-border bg-muted/40 px-3 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gold-dark">
+              Where to look
+            </p>
+            <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm">
+              {guide.look.map((item) => (
+                <li key={item} className="leading-relaxed">
+                  {item}
+                </li>
+              ))}
+            </ul>
+            {website || socials.length ? (
+              <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-sm">
+                {website ? (
+                  <a className="underline underline-offset-4" href={openableUrl(website)} target="_blank" rel="noreferrer">
+                    Website
+                  </a>
+                ) : null}
+                {socials.map(([name, url]) => (
+                  <a
+                    key={name}
+                    className="underline underline-offset-4 capitalize"
+                    href={openableUrl(url)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {name.replaceAll("_", " ")}
+                  </a>
+                ))}
+                <Link className="underline underline-offset-4" to={`/hq/intelligence/organizations/${org.id}/overview`}>
+                  Organization profile
+                </Link>
+              </div>
+            ) : (
+              <p className="mt-3 text-sm">
+                <Link className="underline underline-offset-4" to={`/hq/intelligence/organizations/${org.id}/overview`}>
+                  Open the organization profile
+                </Link>
+              </p>
+            )}
+            <p className="mt-3 text-sm text-muted-foreground">{guide.write}</p>
+            {category === "messaging" ? (
+              <p className="mt-2 text-sm text-muted-foreground">
+                This is not the approved-language library. That comes later. Here you are judging
+                how clear they sound in public today.
+              </p>
+            ) : null}
+          </div>
           <form
             className="space-y-4"
             onSubmit={(e) => {
@@ -230,16 +329,16 @@ export function CiOrganizationHealthTab() {
           >
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Status</Label>
+                <Label>How this looks today</Label>
                 <Select
-                  value={form.status_label ?? "not_assessed"}
+                  value={form.status_label && form.status_label !== "not_assessed" ? form.status_label : undefined}
                   onValueChange={(v) => setForm({ ...form, status_label: v as CiHealthStatus })}
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Choose one" />
                   </SelectTrigger>
                   <SelectContent>
-                    {CI_HEALTH_STATUSES.map((s) => (
+                    {CI_HEALTH_STATUSES.filter((s) => s !== "not_assessed").map((s) => (
                       <SelectItem key={s} value={s}>
                         {CI_HEALTH_STATUS_LABELS[s]}
                       </SelectItem>
@@ -262,7 +361,7 @@ export function CiOrganizationHealthTab() {
                 rows={4}
                 value={form.explanation ?? ""}
                 onChange={(e) => setForm({ ...form, explanation: e.target.value })}
-                placeholder="What is true about this area right now?"
+                placeholder={guide.example}
               />
             </div>
             <div className="space-y-2">
@@ -316,7 +415,7 @@ export function CiOrganizationHealthTab() {
       <Dialog open={intelOpen} onOpenChange={setIntelOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-serif text-2xl">Create Intelligence Item</DialogTitle>
+            <DialogTitle className="font-serif text-2xl">Add Recommendation</DialogTitle>
             <DialogDescription>
               Review this draft before it appears in the Intelligence tab and client portal.
             </DialogDescription>

@@ -17,15 +17,18 @@ import type { CiOrganizationMember } from "../types";
 import type { ReactNode } from "react";
 
 const PORTAL_NAV = [
-  { to: "/portal", label: "Overview", end: true },
-  { to: "/portal/progress", label: "Progress", end: false },
-  { to: "/portal/health", label: "Communications Health", end: false },
+  { to: "/portal", label: "Home", end: true },
+  { to: "/portal/plan", label: "My Plan", end: false },
   { to: "/portal/messaging", label: "Messaging", end: false },
-  { to: "/portal/opportunities", label: "Opportunities", end: false },
-  { to: "/portal/actions", label: "Actions", end: false },
   { to: "/portal/counsel", label: "Ask JahKnowsPR", end: false },
-  { to: "/portal/reports", label: "Reports", end: false },
-  { to: "/portal/feedback", label: "Feedback", end: false },
+] as const;
+
+const PORTAL_MORE = [
+  { to: "/portal/onboarding", label: "Organization profile" },
+  { to: "/portal/health", label: "Communications health" },
+  { to: "/portal/progress", label: "Progress" },
+  { to: "/portal/reports", label: "Updates" },
+  { to: "/portal/feedback", label: "Feedback" },
 ] as const;
 
 export function CiPortalLayout({
@@ -43,6 +46,7 @@ export function CiPortalLayout({
     requested && memberships.some((m) => m.organization_id === requested)
       ? requested
       : memberships[0].organization_id;
+  const search = params.toString() ? `?${params.toString()}` : "";
 
   const { data: orgs = [] } = useQuery({
     queryKey: ["ci", "portal", "orgs", memberships.map((m) => m.organization_id).join(",")],
@@ -60,12 +64,10 @@ export function CiPortalLayout({
   return (
     <div className="min-h-screen bg-cream/50 text-foreground">
       <header className="border-b border-border bg-background">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-4">
+        <div className="mx-auto flex max-w-xl items-center justify-between gap-3 px-4 py-4 sm:max-w-2xl">
           <div className="min-w-0">
             <p className="font-serif text-lg font-bold tracking-tight">JahKnowsPR</p>
-            <p className="text-[11px] uppercase tracking-[0.14em] text-gold-dark">
-              Communications Intelligence
-            </p>
+            <p className="text-[11px] uppercase tracking-[0.14em] text-gold-dark">Your communications plan</p>
           </div>
           <div className="flex items-center gap-2">
             {memberships.length > 1 ? (
@@ -99,13 +101,13 @@ export function CiPortalLayout({
           </div>
         </div>
         <nav
-          className="mx-auto flex max-w-3xl gap-4 overflow-x-auto px-4 pb-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="mx-auto flex max-w-xl gap-4 overflow-x-auto px-4 pb-3 sm:max-w-2xl [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           aria-label="Portal"
         >
           {PORTAL_NAV.map((item) => (
             <NavLink
               key={item.to}
-              to={{ pathname: item.to, search: params.toString() ? `?${params.toString()}` : "" }}
+              to={{ pathname: item.to, search }}
               end={item.end}
               className={({ isActive }) =>
                 cn(
@@ -119,17 +121,25 @@ export function CiPortalLayout({
               {item.label}
             </NavLink>
           ))}
+          <details className="relative shrink-0">
+            <summary className="min-h-11 list-none inline-flex items-center text-sm text-muted-foreground cursor-pointer hover:text-foreground">
+              More
+            </summary>
+            <div className="absolute z-20 mt-1 rounded-lg border border-border bg-background p-3 shadow-sm">
+              {PORTAL_MORE.map((item) => (
+                <Link
+                  key={item.to}
+                  to={{ pathname: item.to, search }}
+                  className="block min-h-10 py-2 text-sm text-foreground hover:text-primary"
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </details>
         </nav>
       </header>
-      <main className="mx-auto max-w-3xl px-4 py-8 pb-16">{children}</main>
-      <footer className="mx-auto max-w-3xl px-4 pb-8 text-xs text-muted-foreground">
-        <p>
-          Signed in as {user?.email}.{" "}
-          <Link to="/" className="underline hover:text-primary">
-            Public site
-          </Link>
-        </p>
-      </footer>
+      <main className="mx-auto max-w-xl px-4 py-8 sm:max-w-2xl">{children}</main>
     </div>
   );
 }

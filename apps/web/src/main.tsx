@@ -154,9 +154,19 @@ const CiOrganizationWorkspacePage = React.lazy(() =>
     default: m.CiOrganizationWorkspacePage,
   })),
 );
+const CiOrganizationGuidePage = React.lazy(() =>
+  import('@/features/communications-intelligence/pages/CiOrganizationGuidePage').then((m) => ({
+    default: m.CiOrganizationGuidePage,
+  })),
+);
 const CiOrganizationOverviewTab = React.lazy(() =>
   import('@/features/communications-intelligence/pages/CiOrganizationOverviewTab').then((m) => ({
     default: m.CiOrganizationOverviewTab,
+  })),
+);
+const CiOrganizationPreviewPage = React.lazy(() =>
+  import('@/features/communications-intelligence/pages/CiOrganizationPreviewPage').then((m) => ({
+    default: m.CiOrganizationPreviewPage,
   })),
 );
 const CiOrganizationNotesTab = React.lazy(() =>
@@ -289,6 +299,11 @@ const CiPilotLearningPage = React.lazy(() =>
     default: m.CiPilotLearningPage,
   })),
 );
+const CiPortalPlanPage = React.lazy(() =>
+  import('@/features/communications-intelligence/portal/CiPortalPlanPage').then((m) => ({
+    default: m.CiPortalPlanPage,
+  })),
+);
 const CiPortalProgressPage = React.lazy(() =>
   import('@/features/communications-intelligence/portal/CiPortalProgressPage').then((m) => ({
     default: m.CiPortalProgressPage,
@@ -416,12 +431,14 @@ createRoot(document.getElementById('root')!).render(
                     <Route index element={<CiOpsDashboardPage />} />
                     <Route path="organizations" element={<CiOrganizationsListPage />} />
                     <Route path="organizations/:orgId" element={<CiOrganizationWorkspacePage />}>
-                      <Route index element={<CiOrganizationOverviewTab />} />
+                      <Route index element={<CiOrganizationGuidePage />} />
+                      <Route path="overview" element={<CiOrganizationOverviewTab />} />
                       <Route path="intelligence" element={<CiOrganizationIntelligenceTab />} />
                       <Route path="health" element={<CiOrganizationHealthTab />} />
                       <Route path="messaging" element={<CiOrganizationMessagingTab />} />
                       <Route path="opportunities" element={<CiOrganizationOpportunitiesTab />} />
                       <Route path="actions" element={<CiOrganizationActionsTab />} />
+                      <Route path="preview" element={<CiOrganizationPreviewPage />} />
                       <Route path="counsel" element={<CiOrganizationCounselTab />} />
                       <Route path="counsel/:requestId" element={<CiCounselRequestDetailPage />} />
                       <Route path="outcomes" element={<CiOrganizationOutcomesTab />} />
@@ -439,6 +456,7 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="/join/:token" element={<CiPortalInvitePage />} />
                 <Route path="/portal" element={<CiPortalApp />}>
                   <Route index element={<CiPortalDashboardPage />} />
+                  <Route path="plan" element={<CiPortalPlanPage />} />
                   <Route path="onboarding" element={<CiPortalOnboardingPage />} />
                   <Route path="opportunities" element={<CiPortalOpportunitiesPage />} />
                   <Route path="actions" element={<CiPortalActionsPage />} />

@@ -192,6 +192,8 @@ export function CiOrganizationOpportunitiesTab() {
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ["ci", "opportunities", org.id] });
     void qc.invalidateQueries({ queryKey: ["ci", "organizations", org.id, "counts"] });
+    void qc.invalidateQueries({ queryKey: ["ci", "workflow", org.id] });
+    void qc.invalidateQueries({ queryKey: ["ci", "ops"] });
   };
 
   const grouped = useMemo(() => {
@@ -264,12 +266,13 @@ export function CiOrganizationOpportunitiesTab() {
         <div>
           <h2 className="font-serif text-xl font-bold">Opportunities</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Meaningful communications moments this organization can pursue.
+            Add media, visibility, partnership, speaking, community, or storytelling openings worth
+            acting on.
           </p>
         </div>
         <Button onClick={openCreate}>
           <Plus className="h-4 w-4 mr-1" />
-          New opportunity
+          Add Opportunity
         </Button>
       </div>
 
@@ -363,7 +366,7 @@ export function CiOrganizationOpportunitiesTab() {
           </Section>
           <Section
             title="Recently Added"
-            empty="No opportunities have been added yet."
+            empty="No opportunities yet. Add the first one when you have a real opening."
             count={grouped.recent.length}
           >
             <div className="space-y-3">

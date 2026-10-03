@@ -138,6 +138,33 @@ export type CiOrgProfileInput = {
   onboarding_status?: CiOnboardingStatus;
 };
 
+export type CiTodayCta =
+  | "Continue Setup"
+  | "Review"
+  | "Respond"
+  | "Complete Assessment"
+  | "Prepare Client Update"
+  | "Add Recommendation";
+
+export type CiTodayItem = {
+  id: string;
+  organization_id: string;
+  organization_name: string;
+  reason: string;
+  cta: CiTodayCta;
+  href: string;
+};
+
+export type CiClientCard = {
+  id: string;
+  name: string;
+  stage: string;
+  attention: string;
+  last_activity: string | null;
+  cta: string;
+  href: string;
+};
+
 export type CiOpsSummary = {
   organizations: number;
   needing_attention: number;
@@ -151,6 +178,8 @@ export type CiOpsSummary = {
   overdue_action_rows: { id: string; organization_id: string; organization_name: string; title: string; due_date: string | null }[];
   upcoming_opportunity_rows: { id: string; organization_id: string; organization_name: string; title: string; deadline: string | null }[];
   counsel_rows: { id: string; organization_id: string; organization_name: string; subject: string; status: string; urgency: string }[];
+  today_items: CiTodayItem[];
+  clients: CiClientCard[];
 };
 
 /** List row with optional HQ client join fields */
@@ -1169,19 +1198,30 @@ export type CiLearningSummary = {
   usefulness: { key: CiUsefulRating; count: number }[];
 };
 
-/** Workspace tabs — all CI modules through counsel */
+/** Secondary tools — kept, but not the primary client workflow */
 export const CI_WORKSPACE_TABS = [
-  { id: "overview", label: "Overview", enabled: true },
-  { id: "intelligence", label: "Intelligence", enabled: true },
-  { id: "health", label: "Health Check", enabled: true },
-  { id: "messaging", label: "Messaging", enabled: true },
+  { id: "overview", label: "Organization profile", enabled: true },
+  { id: "intelligence", label: "Recommendations", enabled: true },
+  { id: "health", label: "Assessment", enabled: true },
+  { id: "messaging", label: "Approved language", enabled: true },
   { id: "opportunities", label: "Opportunities", enabled: true },
-  { id: "actions", label: "Actions", enabled: true },
-  { id: "counsel", label: "Counsel", enabled: true },
-  { id: "outcomes", label: "Outcomes", enabled: true },
-  { id: "reports", label: "Reports", enabled: true },
-  { id: "pilot", label: "Pilot", enabled: true },
-  { id: "notes", label: "Notes", enabled: true },
+  { id: "actions", label: "Next actions", enabled: true },
+  { id: "preview", label: "Client preview", enabled: true },
+  { id: "counsel", label: "Client questions", enabled: true },
+  { id: "outcomes", label: "Wins", enabled: true },
+  { id: "reports", label: "Updates", enabled: true },
+  { id: "pilot", label: "Pilot record", enabled: true },
+  { id: "notes", label: "Internal notes", enabled: true },
+] as const;
+
+export const CI_MORE_TOOLS = [
+  { id: "messaging", label: "Approved language" },
+  { id: "notes", label: "Internal notes" },
+  { id: "counsel", label: "Client questions" },
+  { id: "reports", label: "Updates" },
+  { id: "outcomes", label: "Wins" },
+  { id: "pilot", label: "Activity & pilot" },
+  { id: "overview", label: "Invites & settings" },
 ] as const;
 
 export type CiWorkspaceTabId = (typeof CI_WORKSPACE_TABS)[number]["id"];

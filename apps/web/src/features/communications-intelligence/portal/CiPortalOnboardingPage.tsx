@@ -156,22 +156,26 @@ export function CiPortalOnboardingPage() {
     website,
   ]);
 
+  const alreadyComplete = organization?.onboarding_status === "completed";
+
   const save = useMutation({
     mutationFn: async (complete: boolean) => {
       if (!selectedId) throw new Error("Organization not found.");
       if (!name.trim()) throw new Error("Please confirm the organization name.");
       return ciApi.organizations.saveProfile(selectedId, {
         ...payload,
-        onboarding_status: complete ? "completed" : "in_progress",
+        onboarding_status: complete || alreadyComplete ? "completed" : "in_progress",
       });
     },
     onSuccess: async (_org, complete) => {
       await qc.invalidateQueries({ queryKey: ["ci", "organizations", selectedId] });
       await qc.invalidateQueries({ queryKey: ["ci", "portal"] });
-      if (complete) {
+      if (complete && !alreadyComplete) {
         trackCiActivity({ organization_id: selectedId, event_type: "onboarding_completed" });
         toast.success("Thank you. JahKnowsPR can use this to brief the organization.");
         navigate({ pathname: "/portal", search: selectedId ? `?org=${selectedId}` : "" });
+      } else if (complete && alreadyComplete) {
+        toast.success("Organization profile updated.");
       } else {
         toast.success("Progress saved.");
       }
@@ -190,11 +194,12 @@ export function CiPortalOnboardingPage() {
           Welcome to JahKnowsPR
         </p>
         <h1 className="font-serif text-3xl sm:text-4xl font-bold leading-tight">
-          A few things so we can brief you well.
+          {alreadyComplete ? "Your organization profile." : "A few things so we can brief you well."}
         </h1>
         <p className="text-sm text-muted-foreground max-w-xl leading-relaxed">
-          Confirm {organization.name}, then share only what helps us understand the communications
-          situation. You can save and come back.
+          {alreadyComplete
+            ? `Update what JahKnowsPR should know about ${organization.name}. Save when something changes.`
+            : `Confirm ${organization.name}, then share only what helps us understand the communications situation. You can save and come back.`}
         </p>
       </header>
 
@@ -411,7 +416,11 @@ export function CiPortalOnboardingPage() {
             {save.isPending ? "Saving…" : "Save progress"}
           </Button>
           <Button type="submit" disabled={save.isPending}>
-            {step === STEPS.length - 1 ? "Finish and enter the portal" : "Continue"}
+            {step === STEPS.length - 1
+              ? alreadyComplete
+                ? "Save updates"
+                : "Finish and enter the portal"
+              : "Continue"}
           </Button>
         </div>
       </form>
