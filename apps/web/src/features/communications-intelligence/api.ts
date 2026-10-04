@@ -1467,64 +1467,6 @@ export const ciApi = {
       const actionCounts = countBy(actionAll, [...CI_OPEN_ACTION_STATUSES, "completed"]);
 
       const today_items: CiOpsSummary["today_items"] = [];
-      for (const org of orgs) {
-        if (org.status === "archived") continue;
-        const flow = workflowFromCounts(org, {
-          assessedCategories: assessedByOrg.get(org.id)?.size ?? 0,
-          recommendationCount: recCounts.get(org.id) ?? 0,
-          opportunityCount: oppCounts.get(org.id) ?? 0,
-          actionCount: actionCounts.get(org.id) ?? 0,
-          approvedMessagingCount: 0,
-        });
-        if (org.onboarding_status === "completed" && !flow.steps[1].done) {
-          today_items.push({
-            id: `onboarding-${org.id}`,
-            organization_id: org.id,
-            organization_name: org.name,
-            reason: "Onboarding is ready for your review.",
-            cta: "Continue Setup",
-            href: `/hq/intelligence/organizations/${org.id}/overview`,
-          });
-        } else if (org.onboarding_status !== "completed" && !flow.steps[0].done) {
-          today_items.push({
-            id: `setup-${org.id}`,
-            organization_id: org.id,
-            organization_name: org.name,
-            reason: "This client still needs an organization profile.",
-            cta: "Continue Setup",
-            href: `/hq/intelligence/organizations/${org.id}/overview`,
-          });
-        }
-        if (!flow.steps[1].done) {
-          today_items.push({
-            id: `assess-${org.id}`,
-            organization_id: org.id,
-            organization_name: org.name,
-            reason: "The communications assessment is not finished.",
-            cta: "Complete Assessment",
-            href: `/hq/intelligence/organizations/${org.id}/health`,
-          });
-        } else if (!flow.steps[2].done) {
-          today_items.push({
-            id: `rec-${org.id}`,
-            organization_id: org.id,
-            organization_name: org.name,
-            reason: "Assessment is done. Add the first recommendation.",
-            cta: "Add Recommendation",
-            href: `/hq/intelligence/organizations/${org.id}/intelligence`,
-          });
-        }
-      }
-      for (const row of intelRows) {
-        today_items.push({
-          id: `intel-${row.id}`,
-          organization_id: row.organization_id,
-          organization_name: names.get(row.organization_id) || "Client",
-          reason: `${row.title} needs review.`,
-          cta: "Review",
-          href: `/hq/intelligence/organizations/${row.organization_id}/intelligence`,
-        });
-      }
       for (const row of actionRows) {
         today_items.push({
           id: `action-${row.id}`,

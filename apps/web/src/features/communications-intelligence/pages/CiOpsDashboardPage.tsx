@@ -41,7 +41,7 @@ export function CiOpsDashboardPage() {
             <div>
               <h2 className="font-serif text-2xl font-bold">Needs your attention</h2>
               <p className="text-sm text-muted-foreground mt-1">
-                One next step for each item. Click through and finish it.
+                Client questions, overdue work, upcoming deadlines, and updates waiting on you.
               </p>
             </div>
             {data.today_items.length ? (
@@ -65,8 +65,8 @@ export function CiOpsDashboardPage() {
               </ul>
             ) : (
               <p className="rounded-xl border border-dashed border-border bg-background/70 px-4 py-8 text-sm text-muted-foreground">
-                Nothing is waiting on you right now. Add a client to start a new workspace, or open
-                an existing client below.
+                Nothing is waiting on you right now. Use the client list below to continue setup or
+                open a workspace.
               </p>
             )}
           </section>

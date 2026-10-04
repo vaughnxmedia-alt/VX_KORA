@@ -4,10 +4,8 @@ import {
   Users,
   Building2,
   CheckSquare,
-  FileText,
   BookOpen,
   Newspaper,
-  Scale,
   Briefcase,
   Settings,
   UserCog,
@@ -54,10 +52,8 @@ const INTELLIGENCE: NavItem[] = [
 ];
 
 const CONTENT: NavItem[] = [
-  { label: "Content", to: "/hq/content", icon: FileText, module: "content" },
   { label: "The Brief", to: "/hq/content?type=the-brief", icon: BookOpen, module: "content" },
   { label: "SPAM Report", to: "/hq/content?type=spam-report", icon: Newspaper, module: "content" },
-  { label: "PR Court", to: "/hq/content?type=pr-court", icon: Scale, module: "content" },
   { label: "Case Studies", to: "/hq/content?type=case-study", icon: Briefcase, module: "content" },
 ];
 

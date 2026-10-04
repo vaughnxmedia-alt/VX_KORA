@@ -138,13 +138,7 @@ export type CiOrgProfileInput = {
   onboarding_status?: CiOnboardingStatus;
 };
 
-export type CiTodayCta =
-  | "Continue Setup"
-  | "Review"
-  | "Respond"
-  | "Complete Assessment"
-  | "Prepare Client Update"
-  | "Add Recommendation";
+export type CiTodayCta = "Review" | "Respond" | "Prepare Client Update";
 
 export type CiTodayItem = {
   id: string;
