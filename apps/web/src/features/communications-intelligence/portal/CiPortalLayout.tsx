@@ -25,7 +25,7 @@ const PORTAL_NAV = [
 
 const PORTAL_MORE = [
   { to: "/portal/onboarding", label: "Organization profile" },
-  { to: "/portal/health", label: "Communications health" },
+  { to: "/portal/priorities", label: "Communications priorities" },
   { to: "/portal/progress", label: "Progress" },
   { to: "/portal/reports", label: "Updates" },
   { to: "/portal/feedback", label: "Feedback" },

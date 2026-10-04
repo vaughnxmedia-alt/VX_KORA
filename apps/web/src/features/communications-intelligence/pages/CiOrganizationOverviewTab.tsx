@@ -21,28 +21,12 @@ import {
   CI_ONBOARDING_STATUS_LABELS,
   CI_ORG_TYPE_LABELS,
   CI_ORG_TYPES,
+  type CiAssessmentProfileStatus,
   type CiMemberRole,
   type CiOrganizationType,
 } from "../types";
-import { ciFriendlyError, inviteUrl, parseSocialChannels, parseSpokespersons } from "../workspace";
+import { ciFriendlyError, inviteUrl, parseSocialChannels } from "../workspace";
 import type { CiWorkspaceContext } from "../workspace";
-
-function spokespeopleToText(value: unknown) {
-  return parseSpokespersons(value)
-    .map((p) => (p.role ? `${p.name} — ${p.role}` : p.name))
-    .join("\n");
-}
-
-function textToSpokespeople(value: string) {
-  return value
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [name, role] = line.split(/\s+[—-]\s+/);
-      return { name: (name || line).trim(), role: role?.trim() };
-    });
-}
 
 export function CiOrganizationOverviewTab() {
   const { org } = useOutletContext<CiWorkspaceContext>();
@@ -55,9 +39,8 @@ export function CiOrganizationOverviewTab() {
   const [form, setForm] = useState({
     name: org.name ?? "",
     organization_type: (org.organization_type ?? "other") as CiOrganizationType,
-    industry: org.industry ?? "",
     website: org.website ?? "",
-    location: org.location ?? "",
+    primary_contact: org.primary_contact ?? "",
     description: org.description ?? "",
     primary_audiences: org.primary_audiences ?? "",
     communication_goals: org.communication_goals ?? "",
@@ -65,13 +48,16 @@ export function CiOrganizationOverviewTab() {
     pr_media_concerns: org.pr_media_concerns ?? "",
     reputation_concerns: org.reputation_concerns ?? "",
     upcoming_events: org.upcoming_events ?? "",
-    spokespeople: spokespeopleToText(org.key_spokespersons),
+    current_services: org.current_services ?? "",
+    assessment_notes: org.assessment_notes ?? "",
     instagram: social.instagram ?? "",
     facebook: social.facebook ?? "",
-    linkedin: social.linkedin ?? "",
     tiktok: social.tiktok ?? "",
+    linkedin: social.linkedin ?? "",
     other: social.other ?? "",
   });
+
+  const profileStatus = (org.assessment_profile_status ?? "draft") as CiAssessmentProfileStatus;
 
   const { data: members = [] } = useQuery({
     queryKey: ["ci", "members", org.id],
@@ -83,13 +69,12 @@ export function CiOrganizationOverviewTab() {
   });
 
   const save = useMutation({
-    mutationFn: () =>
+    mutationFn: (status: CiAssessmentProfileStatus) =>
       ciApi.organizations.saveProfile(org.id, {
         name: form.name,
         organization_type: form.organization_type,
-        industry: form.industry,
         website: form.website,
-        location: form.location,
+        primary_contact: form.primary_contact,
         description: form.description,
         primary_audiences: form.primary_audiences,
         communication_goals: form.communication_goals,
@@ -97,19 +82,33 @@ export function CiOrganizationOverviewTab() {
         pr_media_concerns: form.pr_media_concerns,
         reputation_concerns: form.reputation_concerns,
         upcoming_events: form.upcoming_events,
-        key_spokespersons: textToSpokespeople(form.spokespeople),
+        current_services: form.current_services,
+        assessment_notes: form.assessment_notes,
+        assessment_profile_status: status,
         social_channels: {
           instagram: form.instagram,
           facebook: form.facebook,
-          linkedin: form.linkedin,
           tiktok: form.tiktok,
+          linkedin: form.linkedin,
           other: form.other,
         },
       }),
-    onSuccess: () => {
-      toast.success("Organization notes saved. Next: complete the assessment.");
+    onSuccess: async (_data, status) => {
+      try {
+        const assessment = await ciApi.assessments.ensureForOrganization(org.id);
+        await ciApi.assessments.syncProfileSnapshot(assessment.id, org.id);
+      } catch {
+        // Profile save still succeeded; assessment sync can retry on Step 2.
+      }
+      if (status === "complete") {
+        toast.success("Organization profile saved. Next: internal communications assessment.");
+      } else {
+        toast.success("Draft saved. You can come back and finish this later.");
+      }
       void qc.invalidateQueries({ queryKey: ["ci", "organizations", org.id] });
+      void qc.invalidateQueries({ queryKey: ["ci", "assessment"] });
       void qc.invalidateQueries({ queryKey: ["ci", "workflow", org.id] });
+      void qc.invalidateQueries({ queryKey: ["ci", "ops"] });
     },
     onError: (e: Error) => toast.error(ciFriendlyError(e)),
   });
@@ -161,27 +160,39 @@ export function CiOrganizationOverviewTab() {
     <div className="space-y-8">
       <section className="space-y-4">
         <div>
-          <h2 className="font-serif text-2xl font-bold">Understand this organization</h2>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gold-dark">
+            Communications Assessment · Step 1 of 3
+          </p>
+          <h2 className="font-serif text-2xl font-bold mt-1">Organization Profile</h2>
           <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
-            Write down who they are, who they speak to, and what needs care. You can finish this
-            from a first conversation. Finish this section before moving to the next step.
+            Capture what JahKnowsPR needs to know before assessing communications. Save a draft
+            anytime. Finish this step before the internal assessment.
+          </p>
+          <p className="mt-2 text-xs uppercase tracking-[0.08em] text-muted-foreground">
+            {profileStatus === "complete" ? "Marked complete" : "Draft in progress"}
           </p>
         </div>
 
         <form
-          className="space-y-4"
+          className="space-y-5"
           onSubmit={(e) => {
             e.preventDefault();
-            save.mutate();
+            save.mutate("complete");
           }}
         >
           <div className="space-y-2">
-            <Label>Organization name</Label>
-            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+            <Label htmlFor="ci-profile-name">Organization name</Label>
+            <Input
+              id="ci-profile-name"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              required
+            />
           </div>
+
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Type</Label>
+              <Label>Organization type</Label>
               <Select
                 value={form.organization_type}
                 onValueChange={(v) => setForm({ ...form, organization_type: v as CiOrganizationType })}
@@ -199,110 +210,185 @@ export function CiOrganizationOverviewTab() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Industry</Label>
-              <Input value={form.industry} onChange={(e) => setForm({ ...form, industry: e.target.value })} />
+              <Label htmlFor="ci-profile-website">Website</Label>
+              <Input
+                id="ci-profile-website"
+                value={form.website}
+                onChange={(e) => setForm({ ...form, website: e.target.value })}
+                placeholder="https://"
+              />
             </div>
           </div>
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Website</Label>
-              <Input value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} />
-            </div>
-            <div className="space-y-2">
-              <Label>Location</Label>
-              <Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
-            </div>
-          </div>
+
           <div className="space-y-2">
-            <Label>What they do</Label>
+            <Label htmlFor="ci-profile-contact">Primary contact</Label>
+            <Input
+              id="ci-profile-contact"
+              value={form.primary_contact}
+              onChange={(e) => setForm({ ...form, primary_contact: e.target.value })}
+              placeholder="Name, and role or email if you have it"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="ci-profile-does">What does the organization do?</Label>
             <Textarea
+              id="ci-profile-does"
               rows={3}
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
             />
           </div>
+
           <div className="space-y-2">
-            <Label>Who they speak to</Label>
+            <Label htmlFor="ci-profile-serve">Who does the organization serve?</Label>
             <Textarea
+              id="ci-profile-serve"
               rows={2}
               value={form.primary_audiences}
               onChange={(e) => setForm({ ...form, primary_audiences: e.target.value })}
             />
           </div>
+
           <div className="space-y-2">
-            <Label>What they want communications to do</Label>
+            <Label htmlFor="ci-profile-goals">
+              What does the organization want communications to accomplish?
+            </Label>
             <Textarea
+              id="ci-profile-goals"
               rows={2}
               value={form.communication_goals}
               onChange={(e) => setForm({ ...form, communication_goals: e.target.value })}
             />
           </div>
+
           <div className="space-y-2">
-            <Label>What needs care</Label>
+            <Label htmlFor="ci-profile-care">What currently needs care or attention?</Label>
             <Textarea
+              id="ci-profile-care"
               rows={2}
               value={form.major_challenges}
               onChange={(e) => setForm({ ...form, major_challenges: e.target.value })}
             />
           </div>
+
           <div className="space-y-2">
-            <Label>Media or visibility concerns</Label>
+            <Label htmlFor="ci-profile-media">Media or visibility concerns</Label>
             <Textarea
+              id="ci-profile-media"
               rows={2}
               value={form.pr_media_concerns}
               onChange={(e) => setForm({ ...form, pr_media_concerns: e.target.value })}
             />
           </div>
+
           <div className="space-y-2">
-            <Label>Reputation concerns</Label>
+            <Label htmlFor="ci-profile-reputation">Reputation concerns</Label>
             <Textarea
+              id="ci-profile-reputation"
               rows={2}
               value={form.reputation_concerns}
               onChange={(e) => setForm({ ...form, reputation_concerns: e.target.value })}
             />
           </div>
+
           <div className="space-y-2">
-            <Label>Upcoming dates</Label>
+            <Label htmlFor="ci-profile-dates">
+              Upcoming dates, launches, events, or announcements
+            </Label>
             <Textarea
+              id="ci-profile-dates"
               rows={2}
               value={form.upcoming_events}
               onChange={(e) => setForm({ ...form, upcoming_events: e.target.value })}
             />
           </div>
-          <div className="space-y-2">
-            <Label>People who speak for them</Label>
-            <Textarea
-              rows={2}
-              value={form.spokespeople}
-              onChange={(e) => setForm({ ...form, spokespeople: e.target.value })}
-              placeholder="One name per line. Add a role after a dash if you know it."
-            />
-          </div>
+
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Instagram</Label>
-              <Input value={form.instagram} onChange={(e) => setForm({ ...form, instagram: e.target.value })} />
+              <Label htmlFor="ci-profile-instagram">Instagram</Label>
+              <Input
+                id="ci-profile-instagram"
+                value={form.instagram}
+                onChange={(e) => setForm({ ...form, instagram: e.target.value })}
+              />
             </div>
             <div className="space-y-2">
-              <Label>Facebook</Label>
-              <Input value={form.facebook} onChange={(e) => setForm({ ...form, facebook: e.target.value })} />
+              <Label htmlFor="ci-profile-facebook">Facebook</Label>
+              <Input
+                id="ci-profile-facebook"
+                value={form.facebook}
+                onChange={(e) => setForm({ ...form, facebook: e.target.value })}
+              />
             </div>
             <div className="space-y-2">
-              <Label>LinkedIn</Label>
-              <Input value={form.linkedin} onChange={(e) => setForm({ ...form, linkedin: e.target.value })} />
+              <Label htmlFor="ci-profile-tiktok">TikTok</Label>
+              <Input
+                id="ci-profile-tiktok"
+                value={form.tiktok}
+                onChange={(e) => setForm({ ...form, tiktok: e.target.value })}
+              />
             </div>
             <div className="space-y-2">
-              <Label>TikTok</Label>
-              <Input value={form.tiktok} onChange={(e) => setForm({ ...form, tiktok: e.target.value })} />
+              <Label htmlFor="ci-profile-linkedin">LinkedIn</Label>
+              <Input
+                id="ci-profile-linkedin"
+                value={form.linkedin}
+                onChange={(e) => setForm({ ...form, linkedin: e.target.value })}
+              />
             </div>
           </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="ci-profile-other">Other communication channels</Label>
+            <Input
+              id="ci-profile-other"
+              value={form.other}
+              onChange={(e) => setForm({ ...form, other: e.target.value })}
+              placeholder="YouTube, newsletter, Google Business, etc."
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="ci-profile-services">Current services, products, or programs</Label>
+            <Textarea
+              id="ci-profile-services"
+              rows={3}
+              value={form.current_services}
+              onChange={(e) => setForm({ ...form, current_services: e.target.value })}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="ci-profile-notes">Notes</Label>
+            <Textarea
+              id="ci-profile-notes"
+              rows={3}
+              value={form.assessment_notes}
+              onChange={(e) => setForm({ ...form, assessment_notes: e.target.value })}
+              placeholder="Anything else the assessment team should know."
+            />
+          </div>
+
           <div className="flex flex-wrap gap-3">
-            <Button type="submit" disabled={save.isPending}>
-              {save.isPending ? "Saving…" : "Save organization notes"}
+            <Button
+              type="button"
+              variant="outline"
+              disabled={save.isPending}
+              onClick={() => save.mutate("draft")}
+            >
+              {save.isPending ? "Saving…" : "Save draft"}
             </Button>
-            <Button asChild type="button" variant="outline">
-              <Link to={`/hq/intelligence/organizations/${org.id}/health`}>Complete Assessment</Link>
+            <Button type="submit" disabled={save.isPending || !form.name.trim()}>
+              {save.isPending ? "Saving…" : "Save & continue to assessment"}
             </Button>
+            {profileStatus === "complete" ? (
+              <Button asChild type="button" variant="ghost">
+                <Link to={`/hq/intelligence/organizations/${org.id}/health`}>
+                  Go to Step 2
+                </Link>
+              </Button>
+            ) : null}
           </div>
         </form>
       </section>
@@ -322,93 +408,100 @@ export function CiOrganizationOverviewTab() {
               disabled={reopenOnboarding.isPending}
               onClick={() => reopenOnboarding.mutate()}
             >
-              Reopen for client
+              Reopen client onboarding
             </Button>
           ) : null}
-          <form
-            className="flex flex-col sm:flex-row gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              invite.mutate();
-            }}
-          >
-            <Label htmlFor="ci-invite-email" className="sr-only">
-              Email
-            </Label>
-            <Input
-              id="ci-invite-email"
-              type="email"
-              required
-              placeholder="owner@example.com"
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-            />
-            <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as CiMemberRole)}>
-              <SelectTrigger className="sm:w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CI_MEMBER_ROLES.map((role) => (
-                  <SelectItem key={role} value={role}>
-                    {CI_MEMBER_ROLE_LABELS[role]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button type="submit" disabled={invite.isPending}>
-              Invite
+          <div className="grid sm:grid-cols-[1fr_auto_auto] gap-2 items-end">
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="client@example.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Role</Label>
+              <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as CiMemberRole)}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CI_MEMBER_ROLES.map((role) => (
+                    <SelectItem key={role} value={role}>
+                      {CI_MEMBER_ROLE_LABELS[role]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              type="button"
+              disabled={!inviteEmail.trim() || invite.isPending}
+              onClick={() => invite.mutate()}
+            >
+              {invite.isPending ? "Creating…" : "Create invite"}
             </Button>
-          </form>
+          </div>
           {lastInviteLink ? (
-            <p className="break-all text-xs">
-              Invite link:{" "}
-              <a href={lastInviteLink} className="text-primary underline">
-                {lastInviteLink}
-              </a>
-            </p>
+            <div className="rounded-md border border-border bg-muted/40 px-3 py-2 break-all">
+              <p className="text-xs text-muted-foreground mb-1">Copy this link and send it:</p>
+              <p className="text-sm">{lastInviteLink}</p>
+            </div>
           ) : null}
-          <ul className="space-y-2">
-            {invitations
-              .filter((item) => !item.revoked_at && !item.accepted_at)
-              .map((item) => (
-                <li key={item.id} className="flex flex-wrap items-center justify-between gap-2">
+          {invitations.length ? (
+            <ul className="space-y-2">
+              {invitations.map((row) => (
+                <li key={row.id} className="flex flex-wrap items-center justify-between gap-2">
                   <span>
-                    {item.email} · {CI_MEMBER_ROLE_LABELS[item.member_role]}
+                    {row.email} · {CI_MEMBER_ROLE_LABELS[row.member_role]}
+                    {row.accepted_at ? " · accepted" : row.revoked_at ? " · revoked" : " · pending"}
                   </span>
-                  <Button type="button" size="sm" variant="outline" onClick={() => revokeInvite.mutate(item.id)}>
-                    Revoke
+                  {!row.accepted_at && !row.revoked_at ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => revokeInvite.mutate(row.id)}
+                    >
+                      Revoke
+                    </Button>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {members.length ? (
+            <ul className="space-y-2">
+              {members.map((member) => (
+                <li key={member.id} className="flex flex-wrap items-center justify-between gap-2">
+                  <span>
+                    {member.email || member.user_id} · {CI_MEMBER_ROLE_LABELS[member.role]}
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => revokeMember.mutate(member.id)}
+                  >
+                    Remove
                   </Button>
                 </li>
               ))}
-          </ul>
-          <ul className="space-y-2">
-            {members.map((m) => (
-              <li key={m.id} className="flex flex-wrap items-center justify-between gap-2">
-                <span>
-                  {m.full_name || m.email || m.user_id} · {CI_MEMBER_ROLE_LABELS[m.member_role]}
-                </span>
-                {m.status === "active" ? (
-                  <Button type="button" size="sm" variant="outline" onClick={() => revokeMember.mutate(m.id)}>
-                    Remove access
-                  </Button>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </details>
-
-      <details className="rounded-xl border border-border bg-background px-4 py-3 text-sm">
-        <summary className="cursor-pointer font-medium text-destructive">Delete this client</summary>
-        <div className="mt-3 space-y-3">
-          <p className="text-muted-foreground">
-            Removes the communications workspace and portal access. The HQ client record stays.
-          </p>
-          <Button type="button" variant="destructive" onClick={() => setDeleteOpen(true)}>
-            Delete {org.name}
+            </ul>
+          ) : null}
+          <Button
+            type="button"
+            variant="ghost"
+            className="px-0 text-destructive hover:bg-transparent hover:text-destructive"
+            onClick={() => setDeleteOpen(true)}
+          >
+            Delete this client
           </Button>
         </div>
       </details>
+
       <CiDeleteClientDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}

@@ -114,6 +114,9 @@ export function CiOpsDashboardPage() {
           <details className="text-sm text-muted-foreground">
             <summary className="cursor-pointer text-foreground">More tools</summary>
             <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2">
+              <Link to="/hq/intelligence/assessments" className="text-primary underline underline-offset-4">
+                Assessments
+              </Link>
               <Link to="/hq/intelligence/organizations" className="text-primary underline underline-offset-4">
                 All clients
               </Link>

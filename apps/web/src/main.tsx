@@ -184,6 +184,16 @@ const CiOrganizationHealthTab = React.lazy(() =>
     default: m.CiOrganizationHealthTab,
   })),
 );
+const CiOrganizationPrioritiesTab = React.lazy(() =>
+  import('@/features/communications-intelligence/pages/CiOrganizationPrioritiesTab').then((m) => ({
+    default: m.CiOrganizationPrioritiesTab,
+  })),
+);
+const CiAssessmentsDashboardPage = React.lazy(() =>
+  import('@/features/communications-intelligence/pages/CiAssessmentsDashboardPage').then((m) => ({
+    default: m.CiAssessmentsDashboardPage,
+  })),
+);
 const CiOrganizationMessagingTab = React.lazy(() =>
   import('@/features/communications-intelligence/pages/CiOrganizationMessagingTab').then((m) => ({
     default: m.CiOrganizationMessagingTab,
@@ -202,6 +212,11 @@ const CiPortalDashboardPage = React.lazy(() =>
 const CiPortalHealthPage = React.lazy(() =>
   import('@/features/communications-intelligence/portal/CiPortalHealthPage').then((m) => ({
     default: m.CiPortalHealthPage,
+  })),
+);
+const CiPortalPrioritiesPage = React.lazy(() =>
+  import('@/features/communications-intelligence/portal/CiPortalPrioritiesPage').then((m) => ({
+    default: m.CiPortalPrioritiesPage,
   })),
 );
 const CiPortalMessagingPage = React.lazy(() =>
@@ -429,11 +444,13 @@ createRoot(document.getElementById('root')!).render(
                   <Route path="settings" element={<HqSettingsPage />} />
                   <Route path="intelligence" element={<CiModuleGate />}>
                     <Route index element={<CiOpsDashboardPage />} />
+                    <Route path="assessments" element={<CiAssessmentsDashboardPage />} />
                     <Route path="organizations" element={<CiOrganizationsListPage />} />
                     <Route path="organizations/:orgId" element={<CiOrganizationWorkspacePage />}>
                       <Route index element={<CiOrganizationGuidePage />} />
                       <Route path="overview" element={<CiOrganizationOverviewTab />} />
                       <Route path="intelligence" element={<CiOrganizationIntelligenceTab />} />
+                      <Route path="priorities" element={<CiOrganizationPrioritiesTab />} />
                       <Route path="health" element={<CiOrganizationHealthTab />} />
                       <Route path="messaging" element={<CiOrganizationMessagingTab />} />
                       <Route path="opportunities" element={<CiOrganizationOpportunitiesTab />} />
@@ -460,7 +477,8 @@ createRoot(document.getElementById('root')!).render(
                   <Route path="onboarding" element={<CiPortalOnboardingPage />} />
                   <Route path="opportunities" element={<CiPortalOpportunitiesPage />} />
                   <Route path="actions" element={<CiPortalActionsPage />} />
-                  <Route path="health" element={<CiPortalHealthPage />} />
+                  <Route path="priorities" element={<CiPortalPrioritiesPage />} />
+                  <Route path="health" element={<Navigate to="/portal/priorities" replace />} />
                   <Route path="messaging" element={<CiPortalMessagingPage />} />
                   <Route path="counsel" element={<CiPortalCounselPage />} />
                   <Route path="counsel/new" element={<CiPortalCounselNewPage />} />

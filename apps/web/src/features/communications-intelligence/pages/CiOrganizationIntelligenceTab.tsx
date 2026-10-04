@@ -155,10 +155,15 @@ export function CiOrganizationIntelligenceTab() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="font-serif text-xl font-bold">What needs attention</h2>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gold-dark">
+            Communications Assessment · Step 3 of 3
+          </p>
+          <h2 className="font-serif text-xl font-bold mt-1">
+            Communications Priorities & Recommendations
+          </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Write recommendations in plain language. The client should understand why it matters and
-            what to do next.
+            Turn internal findings into a client-facing recommendations draft. AI can help draft,
+            but a JahKnowsPR strategist or owner must review and approve before it is shared.
           </p>
         </div>
         <Button onClick={openCreate}>

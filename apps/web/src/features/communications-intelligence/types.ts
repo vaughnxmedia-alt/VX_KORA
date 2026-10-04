@@ -37,6 +37,10 @@ export const CI_ORG_TYPES: CiOrganizationType[] = [
   "other",
 ];
 
+export type CiAssessmentProfileStatus = "draft" | "complete";
+
+export type CiOnboardingStatus = "not_started" | "in_progress" | "completed";
+
 export type CiOrganization = {
   id: string;
   hq_client_id: string | null;
@@ -54,6 +58,10 @@ export type CiOrganization = {
   social_channels: CiSocialChannels;
   pr_media_concerns: string | null;
   reputation_concerns: string | null;
+  primary_contact: string | null;
+  current_services: string | null;
+  assessment_notes: string | null;
+  assessment_profile_status: CiAssessmentProfileStatus;
   has_approved_messaging: boolean | null;
   onboarding_status: CiOnboardingStatus;
   onboarding_completed_at: string | null;
@@ -63,8 +71,6 @@ export type CiOrganization = {
   created_at: string;
   updated_at: string;
 };
-
-export type CiOnboardingStatus = "not_started" | "in_progress" | "completed";
 
 export type CiSpokesperson = {
   name: string;
@@ -134,6 +140,10 @@ export type CiOrgProfileInput = {
   social_channels?: CiSocialChannels;
   pr_media_concerns?: string | null;
   reputation_concerns?: string | null;
+  primary_contact?: string | null;
+  current_services?: string | null;
+  assessment_notes?: string | null;
+  assessment_profile_status?: CiAssessmentProfileStatus;
   has_approved_messaging?: boolean | null;
   onboarding_status?: CiOnboardingStatus;
 };
@@ -1209,6 +1219,10 @@ export const CI_WORKSPACE_TABS = [
 ] as const;
 
 export const CI_MORE_TOOLS = [
+  { id: "intelligence", label: "Legacy recommendations" },
+  { id: "opportunities", label: "Opportunities" },
+  { id: "actions", label: "Next actions" },
+  { id: "preview", label: "Client preview" },
   { id: "messaging", label: "Approved language" },
   { id: "notes", label: "Internal notes" },
   { id: "counsel", label: "Client questions" },

@@ -61,13 +61,35 @@ import type {
   CiOrgActivitySummary,
   CiReportStatus,
 } from "./types";
-import { ciFriendlyError, isHealthAssessed, workflowFromCounts } from "./workspace";
+import {
+  ciFriendlyError,
+  hasOrgProfile,
+  isHealthAssessed,
+  workflowFromCounts,
+} from "./workspace";
 import {
   CI_ACTIVE_INTELLIGENCE_STATUSES,
   CI_ACTIVE_OPPORTUNITY_STATUSES,
   CI_OPEN_ACTION_STATUSES,
   CI_OPEN_COUNSEL_STATUSES,
 } from "./types";
+import {
+  CI_ASSESSMENT_CATEGORIES,
+  type CiAssessmentSection,
+  type CiAssessmentSectionWrite,
+  type CiAssessmentStep3Status,
+  type CiAssessmentWorkflowStatus,
+  type CiCommunicationAssessment,
+  type CiCommunicationPriority,
+  type CiCommunicationPriorityWrite,
+  type CiLookedSource,
+} from "./assessmentTypes";
+import {
+  buildInternalFindingsReport,
+  countFilledSections,
+  deriveWorkflowStatus,
+  profileSnapshotFromOrg,
+} from "./assessmentHelpers";
 
 const COUNSEL_REQUEST_COLUMNS =
   "id, organization_id, subject, request_type, description, urgency, link_url, attachment_path, status, submitted_by, created_at, updated_at, intelligence_item_id, opportunity_id, action_item_id";
@@ -442,6 +464,18 @@ export const ciApi = {
       if (input.reputation_concerns !== undefined) {
         payload.reputation_concerns = emptyStringToNull(input.reputation_concerns);
       }
+      if (input.primary_contact !== undefined) {
+        payload.primary_contact = emptyStringToNull(input.primary_contact);
+      }
+      if (input.current_services !== undefined) {
+        payload.current_services = emptyStringToNull(input.current_services);
+      }
+      if (input.assessment_notes !== undefined) {
+        payload.assessment_notes = emptyStringToNull(input.assessment_notes);
+      }
+      if (input.assessment_profile_status !== undefined) {
+        payload.assessment_profile_status = input.assessment_profile_status;
+      }
       if (input.has_approved_messaging !== undefined) {
         payload.has_approved_messaging = input.has_approved_messaging;
       }
@@ -595,6 +629,380 @@ export const ciApi = {
     remove: async (id: string): Promise<void> => {
       const { error } = await db.from("ci_admin_notes").delete().eq("id", id);
       if (error) throw error;
+    },
+  },
+
+  assessments: {
+    list: async (filters?: {
+      workflow_status?: CiAssessmentWorkflowStatus | "all";
+    }): Promise<CiCommunicationAssessment[]> => {
+      let q = db
+        .from("ci_communication_assessments")
+        .select("*")
+        .order("updated_at", { ascending: false });
+      if (filters?.workflow_status && filters.workflow_status !== "all") {
+        q = q.eq("workflow_status", filters.workflow_status);
+      }
+      const { data, error } = await q;
+      if (error) throw new Error(ciFriendlyError(error));
+      const rows = (data ?? []) as CiCommunicationAssessment[];
+      const orgIds = [...new Set(rows.map((r) => r.organization_id))];
+      const assigneeIds = [...new Set(rows.map((r) => r.assigned_to).filter(Boolean))] as string[];
+      const [orgs, profiles] = await Promise.all([
+        orgIds.length
+          ? db.from("ci_organizations").select("id, name").in("id", orgIds)
+          : Promise.resolve({ data: [] }),
+        assigneeIds.length
+          ? db.from("profiles").select("id, full_name").in("id", assigneeIds)
+          : Promise.resolve({ data: [] }),
+      ]);
+      const orgMap = new Map(
+        ((orgs.data ?? []) as { id: string; name: string }[]).map((o) => [o.id, o.name]),
+      );
+      const nameMap = new Map(
+        ((profiles.data ?? []) as { id: string; full_name: string | null }[]).map((p) => [
+          p.id,
+          p.full_name,
+        ]),
+      );
+      return rows.map((row) => ({
+        ...row,
+        organization_name: orgMap.get(row.organization_id) ?? "Client",
+        assigned_name: row.assigned_to ? nameMap.get(row.assigned_to) ?? null : null,
+      }));
+    },
+
+    listForOrganization: async (organizationId: string): Promise<CiCommunicationAssessment[]> => {
+      const { data, error } = await db
+        .from("ci_communication_assessments")
+        .select("*")
+        .eq("organization_id", organizationId)
+        .order("updated_at", { ascending: false });
+      if (error) throw new Error(ciFriendlyError(error));
+      return (data ?? []) as CiCommunicationAssessment[];
+    },
+
+    get: async (id: string): Promise<CiCommunicationAssessment> => {
+      const { data, error } = await db
+        .from("ci_communication_assessments")
+        .select("*")
+        .eq("id", id)
+        .single();
+      if (error) throw new Error(ciFriendlyError(error));
+      return data as CiCommunicationAssessment;
+    },
+
+    ensureForOrganization: async (
+      organizationId: string,
+      userId?: string | null,
+    ): Promise<CiCommunicationAssessment> => {
+      const existing = await ciApi.assessments.listForOrganization(organizationId);
+      const open = existing.find((row) => !["delivered"].includes(row.workflow_status));
+      if (open) return open;
+      const org = await ciApi.organizations.get(organizationId);
+      const { data, error } = await db
+        .from("ci_communication_assessments")
+        .insert({
+          organization_id: organizationId,
+          title: `${org.name} Communications Assessment`,
+          workflow_status: hasOrgProfile(org) ? "profile_complete" : "draft_profile",
+          assigned_to: userId ?? null,
+          created_by: userId ?? null,
+          profile_snapshot: profileSnapshotFromOrg(org),
+        })
+        .select("*")
+        .single();
+      if (error) throw new Error(ciFriendlyError(error));
+      const assessment = data as CiCommunicationAssessment;
+      await Promise.all(
+        CI_ASSESSMENT_CATEGORIES.map((category) =>
+          db.from("ci_assessment_sections").upsert(
+            {
+              assessment_id: assessment.id,
+              category,
+              where_looked: [],
+              status_label: "not_enough_information",
+            },
+            { onConflict: "assessment_id,category" },
+          ),
+        ),
+      );
+      return assessment;
+    },
+
+    syncProfileSnapshot: async (assessmentId: string, organizationId: string) => {
+      const org = await ciApi.organizations.get(organizationId);
+      const current = await ciApi.assessments.get(assessmentId);
+      const snapshot = profileSnapshotFromOrg(org);
+      const advanced: CiAssessmentWorkflowStatus[] = [
+        "assessment_in_progress",
+        "assessment_complete",
+        "ready_for_chatgpt",
+        "recommendations_drafted",
+        "under_review",
+        "approved",
+        "delivered",
+      ];
+      const nextStatus = advanced.includes(current.workflow_status)
+        ? current.workflow_status
+        : hasOrgProfile(org)
+          ? "profile_complete"
+          : "draft_profile";
+      const { data, error } = await db
+        .from("ci_communication_assessments")
+        .update({
+          profile_snapshot: snapshot,
+          workflow_status: nextStatus,
+        })
+        .eq("id", assessmentId)
+        .select("*")
+        .single();
+      if (error) throw new Error(ciFriendlyError(error));
+      return data as CiCommunicationAssessment;
+    },
+
+    refreshWorkflowStatus: async (assessmentId: string): Promise<CiCommunicationAssessment> => {
+      const assessment = await ciApi.assessments.get(assessmentId);
+      const sections = await ciApi.assessments.listSections(assessmentId);
+      const priorities = await ciApi.assessments.listPriorities(assessmentId);
+      const org = await ciApi.organizations.get(assessment.organization_id);
+      const next = deriveWorkflowStatus({
+        profileComplete: hasOrgProfile(org) || assessment.workflow_status !== "draft_profile",
+        filledSections: countFilledSections(sections),
+        hasFindings: Boolean(assessment.findings_report?.trim()),
+        priorityCount: priorities.filter((p) => p.title.trim()).length,
+        step3Status: assessment.step3_status,
+      });
+      if (next === assessment.workflow_status) return assessment;
+      const { data, error } = await db
+        .from("ci_communication_assessments")
+        .update({ workflow_status: next })
+        .eq("id", assessmentId)
+        .select("*")
+        .single();
+      if (error) throw new Error(ciFriendlyError(error));
+      return data as CiCommunicationAssessment;
+    },
+
+    listSections: async (assessmentId: string): Promise<CiAssessmentSection[]> => {
+      const { data, error } = await db
+        .from("ci_assessment_sections")
+        .select("*")
+        .eq("assessment_id", assessmentId);
+      if (error) throw new Error(ciFriendlyError(error));
+      return ((data ?? []) as CiAssessmentSection[]).map((row) => ({
+        ...row,
+        where_looked: Array.isArray(row.where_looked)
+          ? (row.where_looked as CiLookedSource[])
+          : [],
+      }));
+    },
+
+    upsertSection: async (input: CiAssessmentSectionWrite): Promise<CiAssessmentSection> => {
+      const score =
+        input.internal_score == null || Number.isNaN(Number(input.internal_score))
+          ? null
+          : Number(input.internal_score);
+      if (score != null && (score < 1 || score > 5)) {
+        throw new Error("Internal score must be between 1 and 5.");
+      }
+      const payload = {
+        assessment_id: input.assessment_id,
+        category: input.category,
+        where_looked: input.where_looked ?? [],
+        what_observed: emptyStringToNull(input.what_observed),
+        status_label: input.status_label ?? "not_enough_information",
+        short_assessment: emptyStringToNull(input.short_assessment),
+        why_could_matter: emptyStringToNull(input.why_could_matter),
+        potential_next_step: emptyStringToNull(input.potential_next_step),
+        internal_score: score,
+        assessed_by: input.assessed_by ?? null,
+        assessed_at: input.assessed_at || new Date().toISOString(),
+      };
+      const { data, error } = await db
+        .from("ci_assessment_sections")
+        .upsert(payload, { onConflict: "assessment_id,category" })
+        .select("*")
+        .single();
+      if (error) throw new Error(ciFriendlyError(error));
+      await ciApi.assessments.refreshWorkflowStatus(input.assessment_id);
+      const row = data as CiAssessmentSection;
+      return {
+        ...row,
+        where_looked: Array.isArray(row.where_looked) ? (row.where_looked as CiLookedSource[]) : [],
+      };
+    },
+
+    generateFindingsReport: async (
+      assessmentId: string,
+      userId?: string | null,
+    ): Promise<CiCommunicationAssessment> => {
+      const assessment = await ciApi.assessments.get(assessmentId);
+      const org = await ciApi.organizations.get(assessment.organization_id);
+      const snapshot = profileSnapshotFromOrg(org);
+      const sections = await ciApi.assessments.listSections(assessmentId);
+      if (countFilledSections(sections) < CI_ASSESSMENT_CATEGORIES.length) {
+        throw new Error("Finish all six assessment sections before generating the findings report.");
+      }
+      if (!hasOrgProfile(org)) {
+        throw new Error("Finish the organization profile before generating the findings report.");
+      }
+      const report = buildInternalFindingsReport(snapshot, sections);
+      const { data, error } = await db
+        .from("ci_communication_assessments")
+        .update({
+          profile_snapshot: snapshot,
+          findings_report: report,
+          findings_generated_at: new Date().toISOString(),
+          findings_generated_by: userId ?? null,
+          workflow_status: "ready_for_chatgpt",
+        })
+        .eq("id", assessmentId)
+        .select("*")
+        .single();
+      if (error) throw new Error(ciFriendlyError(error));
+      return data as CiCommunicationAssessment;
+    },
+
+    listPriorities: async (assessmentId: string): Promise<CiCommunicationPriority[]> => {
+      const { data, error } = await db
+        .from("ci_communication_priorities")
+        .select("*")
+        .eq("assessment_id", assessmentId)
+        .order("sort_order", { ascending: true });
+      if (error) throw new Error(ciFriendlyError(error));
+      return (data ?? []) as CiCommunicationPriority[];
+    },
+
+    savePriorities: async (input: {
+      assessment_id: string;
+      priorities: CiCommunicationPriorityWrite[];
+      recommended_order?: string | null;
+      overall_direction?: string | null;
+      submit_for_review?: boolean;
+    }): Promise<CiCommunicationPriority[]> => {
+      if (input.priorities.length < 1 || input.priorities.length > 5) {
+        throw new Error("Add between 1 and 5 priorities.");
+      }
+      for (const item of input.priorities) {
+        if (!item.title.trim()) throw new Error("Each priority needs a title.");
+      }
+      await db.from("ci_communication_priorities").delete().eq("assessment_id", input.assessment_id);
+      const rows = input.priorities.map((item, index) => ({
+        assessment_id: input.assessment_id,
+        sort_order: index + 1,
+        title: item.title.trim(),
+        priority_level: item.priority_level,
+        what_we_noticed: emptyStringToNull(item.what_we_noticed),
+        why_it_matters: emptyStringToNull(item.why_it_matters),
+        recommendation: emptyStringToNull(item.recommendation),
+        next_practical_step: emptyStringToNull(item.next_practical_step),
+        support_type: item.support_type,
+        recommended_service: item.recommended_service ?? null,
+      }));
+      const { data, error } = await db
+        .from("ci_communication_priorities")
+        .insert(rows)
+        .select("*")
+        .order("sort_order", { ascending: true });
+      if (error) throw new Error(ciFriendlyError(error));
+      const step3: CiAssessmentStep3Status = input.submit_for_review ? "under_review" : "draft";
+      const workflow: CiAssessmentWorkflowStatus = input.submit_for_review
+        ? "under_review"
+        : "recommendations_drafted";
+      const { error: updateError } = await db
+        .from("ci_communication_assessments")
+        .update({
+          recommended_order: emptyStringToNull(input.recommended_order),
+          overall_direction: emptyStringToNull(input.overall_direction),
+          step3_status: step3,
+          workflow_status: workflow,
+        })
+        .eq("id", input.assessment_id);
+      if (updateError) throw new Error(ciFriendlyError(updateError));
+      return (data ?? []) as CiCommunicationPriority[];
+    },
+
+    setStep3Status: async (input: {
+      assessment_id: string;
+      status: CiAssessmentStep3Status;
+      actor_id?: string | null;
+    }): Promise<CiCommunicationAssessment> => {
+      const payload: Record<string, unknown> = {
+        step3_status: input.status,
+        workflow_status:
+          input.status === "draft"
+            ? "recommendations_drafted"
+            : (input.status as CiAssessmentWorkflowStatus),
+      };
+      if (input.status === "under_review") payload.reviewed_by = input.actor_id ?? null;
+      if (input.status === "approved") {
+        payload.approved_by = input.actor_id ?? null;
+        payload.approved_at = new Date().toISOString();
+      }
+      if (input.status === "delivered") {
+        payload.delivered_at = new Date().toISOString();
+      }
+      const { data, error } = await db
+        .from("ci_communication_assessments")
+        .update(payload)
+        .eq("id", input.assessment_id)
+        .select("*")
+        .single();
+      if (error) throw new Error(ciFriendlyError(error));
+      if (input.status === "approved") {
+        const assessment = data as CiCommunicationAssessment;
+        const priorities = await ciApi.assessments.listPriorities(input.assessment_id);
+        const { data: versions } = await db
+          .from("ci_assessment_versions")
+          .select("version_number")
+          .eq("assessment_id", input.assessment_id)
+          .order("version_number", { ascending: false })
+          .limit(1);
+        const nextVersion =
+          (((versions ?? []) as { version_number: number }[])[0]?.version_number ?? 0) + 1;
+        await db.from("ci_assessment_versions").insert({
+          assessment_id: input.assessment_id,
+          version_number: nextVersion,
+          created_by: input.actor_id ?? null,
+          note: "Approved client-facing recommendations",
+          snapshot: {
+            recommended_order: assessment.recommended_order,
+            overall_direction: assessment.overall_direction,
+            priorities,
+            approved_at: assessment.approved_at,
+          },
+        });
+      }
+      return data as CiCommunicationAssessment;
+    },
+
+    loadApprovedForPortal: async (
+      userId: string,
+      organizationId?: string,
+    ): Promise<{
+      organization: CiOrganization;
+      assessment: CiCommunicationAssessment;
+      priorities: CiCommunicationPriority[];
+    } | null> => {
+      const resolved = await resolvePortalOrganization(userId, organizationId);
+      if (!resolved) return null;
+      const { data, error } = await db
+        .from("ci_communication_assessments")
+        .select("*")
+        .eq("organization_id", resolved.organizationId)
+        .in("workflow_status", ["approved", "delivered"])
+        .order("approved_at", { ascending: false })
+        .limit(1);
+      if (error) throw new Error(ciFriendlyError(error));
+      const assessment = ((data ?? []) as CiCommunicationAssessment[])[0];
+      if (!assessment) return null;
+      const priorities = await ciApi.assessments.listPriorities(assessment.id);
+      return {
+        organization: resolved.organization,
+        assessment,
+        priorities,
+      };
     },
   },
 

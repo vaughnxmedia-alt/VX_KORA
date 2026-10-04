@@ -5,19 +5,17 @@ import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/components/AuthProvider";
 import { ciApi } from "../api";
-import {
-  CI_ACTIVE_INTELLIGENCE_STATUSES,
-  CI_ACTIVE_OPPORTUNITY_STATUSES,
-  CI_MORE_TOOLS,
-  CI_ORG_STATUS_LABELS,
-} from "../types";
-import { healthRowsByCategory, workflowFromCounts } from "../workspace";
+import { CI_MORE_TOOLS, CI_ORG_STATUS_LABELS } from "../types";
+import { countFilledSections } from "../assessmentHelpers";
+import { workflowFromCounts } from "../workspace";
 import { CiDeleteClientDialog } from "./CiDeleteClientDialog";
 
 export function CiOrganizationWorkspacePage() {
   const { orgId } = useParams<{ orgId: string }>();
   const location = useLocation();
+  const { user } = useAuth();
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const { data: org, isLoading, error } = useQuery({
@@ -29,13 +27,12 @@ export function CiOrganizationWorkspacePage() {
   const { data: counts } = useQuery({
     queryKey: ["ci", "workflow", orgId],
     queryFn: async () => {
-      const [health, intel, opps, actions] = await Promise.all([
-        ciApi.health.listForOrganization(orgId!),
-        ciApi.intelligence.list(orgId!),
-        ciApi.opportunities.list(orgId!),
-        ciApi.actions.list(orgId!),
+      const assessment = await ciApi.assessments.ensureForOrganization(orgId!, user?.id);
+      const [sections, priorities] = await Promise.all([
+        ciApi.assessments.listSections(assessment.id),
+        ciApi.assessments.listPriorities(assessment.id),
       ]);
-      return { health, intel, opps, actions };
+      return { assessment, sections, priorities };
     },
     enabled: Boolean(orgId),
   });
@@ -62,16 +59,14 @@ export function CiOrganizationWorkspacePage() {
   }
 
   const flow = workflowFromCounts(org, {
-      assessedCategories: counts
-      ? healthRowsByCategory(counts.health).filter((row) => row.assessed).length
-      : 0,
-    recommendationCount: (counts?.intel ?? []).filter((item) =>
-      CI_ACTIVE_INTELLIGENCE_STATUSES.includes(item.status),
-    ).length,
-    opportunityCount: (counts?.opps ?? []).filter((item) =>
-      CI_ACTIVE_OPPORTUNITY_STATUSES.includes(item.status),
-    ).length,
-    actionCount: (counts?.actions ?? []).filter((item) => item.status !== "cancelled").length,
+    assessedCategories: counts ? countFilledSections(counts.sections) : 0,
+    recommendationCount:
+      counts?.assessment.step3_status === "approved" ||
+      counts?.assessment.step3_status === "delivered"
+        ? 1
+        : 0,
+    opportunityCount: 0,
+    actionCount: 0,
     approvedMessagingCount: 0,
   });
 

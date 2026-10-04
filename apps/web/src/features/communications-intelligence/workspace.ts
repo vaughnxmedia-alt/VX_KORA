@@ -606,7 +606,10 @@ export function ciDraftFromHqClient(client: HqClient): {
       industry: create.industry,
       website: create.website,
       description: create.description,
+      primary_contact: client.primary_contact?.trim() || null,
+      current_services: client.service ? INTERESTED_SERVICE_LABELS[client.service] : null,
       communication_goals: client.service ? INTERESTED_SERVICE_LABELS[client.service] : null,
+      assessment_profile_status: "draft",
       key_spokespersons: client.primary_contact?.trim()
         ? [{ name: client.primary_contact.trim() }]
         : [],
@@ -620,15 +623,37 @@ export function hasOrgProfile(org: {
   industry?: string | null;
   website?: string | null;
   location?: string | null;
+  primary_audiences?: string | null;
+  primary_contact?: string | null;
+  current_services?: string | null;
+  assessment_notes?: string | null;
   onboarding_status?: string | null;
+  assessment_profile_status?: string | null;
 }) {
-  return Boolean(
+  if (org.assessment_profile_status === "complete") return true;
+
+  const legacyContent = Boolean(
     org.onboarding_status === "completed" ||
       (org.description && org.description.trim()) ||
       (org.industry && org.industry.trim()) ||
       (org.website && org.website.trim()) ||
-      (org.location && org.location.trim()),
+      (org.location && org.location.trim()) ||
+      (org.primary_audiences && org.primary_audiences.trim()),
   );
+
+  // Before the Step 1 fields existed, rows defaulted to draft. Treat those with
+  // existing profile content as complete until staff starts the new draft flow.
+  const usingNewDraftFields = Boolean(
+    (org.primary_contact && org.primary_contact.trim()) ||
+      (org.current_services && org.current_services.trim()) ||
+      (org.assessment_notes && org.assessment_notes.trim()),
+  );
+
+  if (org.assessment_profile_status === "draft") {
+    return legacyContent && !usingNewDraftFields;
+  }
+
+  return legacyContent;
 }
 
 export function workflowFromCounts(org: {
@@ -638,83 +663,53 @@ export function workflowFromCounts(org: {
   industry?: string | null;
   website?: string | null;
   location?: string | null;
+  primary_audiences?: string | null;
   onboarding_status?: string | null;
+  assessment_profile_status?: string | null;
 }, counts: CiWorkflowCounts) {
   const profileDone = hasOrgProfile(org);
   const assessmentDone = counts.assessedCategories >= CI_HEALTH_CATEGORIES.length;
   const recommendationsDone = counts.recommendationCount > 0;
-  const opportunitiesDone = counts.opportunityCount > 0;
-  const actionsDone = counts.actionCount > 0;
-  const clientReady =
-    profileDone && assessmentDone && recommendationsDone && opportunitiesDone && actionsDone;
+  const clientReady = profileDone && assessmentDone && recommendationsDone;
 
   const steps = [
     {
       id: 1,
-      title: "Organization profile",
-      summary: "Understand who they are, who they serve, and what they already have in place.",
+      title: "Organization Profile",
+      summary: "Capture who they are, who they serve, what they offer, and what needs care.",
       done: profileDone,
-      cta: "Review Organization",
+      cta: "Open Profile",
       href: `/hq/intelligence/organizations/${org.id}/overview`,
     },
     {
       id: 2,
-      title: "Communications assessment",
+      title: "Internal Communications Assessment",
       summary:
-        "Look at their website, socials, and organization profile. Write what you see — the client does not fill this out.",
+        "Staff-only judgment of messaging, visibility, reputation, media readiness, crisis readiness, and brand consistency.",
       done: assessmentDone,
       cta: "Complete Assessment",
       href: `/hq/intelligence/organizations/${org.id}/health`,
     },
     {
       id: 3,
-      title: "What needs attention",
-      summary: "Turn findings into clear recommendations the client can understand.",
+      title: "Communications Priorities & Recommendations",
+      summary:
+        "Enter the client-facing priorities from ChatGPT. A JahKnowsPR strategist or owner must review and approve before anything is shared.",
       done: recommendationsDone,
-      cta: "Add Recommendation",
-      href: `/hq/intelligence/organizations/${org.id}/intelligence`,
-    },
-    {
-      id: 4,
-      title: "Opportunities",
-      summary: "Add media, visibility, partnership, speaking, community, or storytelling opportunities.",
-      done: opportunitiesDone,
-      cta: "Add Opportunity",
-      href: `/hq/intelligence/organizations/${org.id}/opportunities`,
-    },
-    {
-      id: 5,
-      title: "Action plan",
-      summary: "Convert recommendations and opportunities into specific next actions.",
-      done: actionsDone,
-      cta: "Build Action Plan",
-      href: `/hq/intelligence/organizations/${org.id}/actions`,
-    },
-    {
-      id: 6,
-      title: "Client ready",
-      summary: "Preview what the client will see before you share it.",
-      done: clientReady,
-      cta: "Preview Client Portal",
-      href: `/hq/intelligence/organizations/${org.id}/preview`,
+      cta: "Open Recommendations",
+      href: `/hq/intelligence/organizations/${org.id}/priorities`,
     },
   ] as const;
 
-  const next = steps.find((step) => !step.done) ?? steps[5];
+  const next = steps.find((step) => !step.done) ?? steps[2];
   const doneCount = steps.filter((step) => step.done).length;
   const stage = clientReady
-    ? "Ready to share"
+    ? "Assessment ready"
     : next.id === 1
-      ? "Getting started"
+      ? "Profile in progress"
       : next.id === 2
         ? "Needs assessment"
-        : next.id === 3
-          ? "Needs recommendations"
-          : next.id === 4
-            ? "Needs opportunities"
-            : next.id === 5
-              ? "Needs action plan"
-              : "Review before sharing";
+        : "Needs recommendations";
 
   return { steps, next, doneCount, total: steps.length, stage, clientReady };
 }

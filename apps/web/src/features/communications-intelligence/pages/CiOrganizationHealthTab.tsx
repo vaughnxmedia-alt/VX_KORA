@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -23,60 +23,57 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ciApi } from "../api";
+import { CI_EMPLOYEE_CHATGPT_PROMPT } from "../assessmentPrompt";
 import {
-  CI_HEALTH_GUIDE,
-  dateInputToIso,
-  formatCiDate,
-  healthRowsByCategory,
-  healthSummaryPhrases,
-  intelligenceDraftFromHealth,
-  toDateInputValue,
-  type CiWorkspaceContext,
-} from "../workspace";
-import {
-  CI_HEALTH_CATEGORY_LABELS,
-  CI_HEALTH_STATUS_LABELS,
-  CI_HEALTH_STATUSES,
-  CI_INTELLIGENCE_CATEGORY_LABELS,
-  type CiHealthCategory,
-  type CiHealthCheck,
-  type CiHealthStatus,
-  type CiHealthWriteInput,
-  type CiIntelligenceWriteInput,
-} from "../types";
+  CI_ASSESSMENT_CATEGORIES,
+  CI_ASSESSMENT_CATEGORY_LABELS,
+  CI_ASSESSMENT_SECTION_STATUS_LABELS,
+  CI_ASSESSMENT_SECTION_STATUSES,
+  CI_LOOKED_SOURCE_LABELS,
+  CI_LOOKED_SOURCES,
+  type CiAssessmentSection,
+  type CiAssessmentSectionCategory,
+  type CiAssessmentSectionStatus,
+  type CiAssessmentSectionWrite,
+  type CiLookedSource,
+} from "../assessmentTypes";
+import { countFilledSections, sectionIsFilled } from "../assessmentHelpers";
+import { ciFriendlyError, hasOrgProfile, type CiWorkspaceContext } from "../workspace";
 
-function emptyForm(organizationId: string, category: CiHealthCategory): CiHealthWriteInput {
+function emptyForm(
+  assessmentId: string,
+  category: CiAssessmentSectionCategory,
+): CiAssessmentSectionWrite {
   return {
-    organization_id: organizationId,
+    assessment_id: assessmentId,
     category,
-    status_label: "not_assessed",
-    score: null,
-    explanation: "",
-    why_it_matters: "",
-    recommended_improvement: "",
-    assessed_at: null,
+    where_looked: [],
+    what_observed: "",
+    status_label: "not_enough_information",
+    short_assessment: "",
+    why_could_matter: "",
+    potential_next_step: "",
+    internal_score: null,
   };
 }
 
-function openableUrl(value: string): string {
-  const trimmed = value.trim();
-  if (!trimmed) return "";
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  return `https://${trimmed}`;
+function toForm(assessmentId: string, row: CiAssessmentSection | null, category: CiAssessmentSectionCategory) {
+  if (!row) return emptyForm(assessmentId, category);
+  return {
+    assessment_id: assessmentId,
+    category,
+    where_looked: row.where_looked ?? [],
+    what_observed: row.what_observed ?? "",
+    status_label: row.status_label,
+    short_assessment: row.short_assessment ?? "",
+    why_could_matter: row.why_could_matter ?? "",
+    potential_next_step: row.potential_next_step ?? "",
+    internal_score: row.internal_score,
+  };
 }
 
-function toForm(organizationId: string, category: CiHealthCategory, row: CiHealthCheck | null): CiHealthWriteInput {
-  if (!row) return emptyForm(organizationId, category);
-  return {
-    organization_id: organizationId,
-    category,
-    status_label: row.status_label ?? "not_assessed",
-    score: row.score,
-    explanation: row.explanation ?? "",
-    why_it_matters: row.why_it_matters ?? "",
-    recommended_improvement: row.recommended_improvement ?? "",
-    assessed_at: row.assessed_at,
-  };
+async function copyText(value: string) {
+  await navigator.clipboard.writeText(value);
 }
 
 export function CiOrganizationHealthTab() {
@@ -84,395 +81,353 @@ export function CiOrganizationHealthTab() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [intelOpen, setIntelOpen] = useState(false);
-  const [category, setCategory] = useState<CiHealthCategory>("messaging");
-  const [form, setForm] = useState<CiHealthWriteInput>(emptyForm(org.id, "messaging"));
-  const [intelForm, setIntelForm] = useState<CiIntelligenceWriteInput | null>(null);
+  const [category, setCategory] = useState<CiAssessmentSectionCategory>("messaging");
+  const [form, setForm] = useState<CiAssessmentSectionWrite | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
 
-  const { data: rows = [], isLoading, error } = useQuery({
-    queryKey: ["ci", "health", org.id],
-    queryFn: () => ciApi.health.listForOrganization(org.id),
+  const { data: assessment, isLoading: assessmentLoading } = useQuery({
+    queryKey: ["ci", "assessment", "current", org.id],
+    queryFn: () => ciApi.assessments.ensureForOrganization(org.id, user?.id),
   });
 
-  const cards = healthRowsByCategory(rows);
-  const summary = healthSummaryPhrases(rows);
-  const guide = CI_HEALTH_GUIDE[category];
-  const website = org.website?.trim() || "";
-  const socials = Object.entries(org.social_channels ?? {}).filter(
-    (entry): entry is [string, string] => Boolean(entry[1]?.trim()),
-  );
+  const { data: sections = [], isLoading } = useQuery({
+    queryKey: ["ci", "assessment", "sections", assessment?.id],
+    queryFn: () => ciApi.assessments.listSections(assessment!.id),
+    enabled: Boolean(assessment?.id),
+  });
+
+  const filled = countFilledSections(sections);
+  const profileReady = hasOrgProfile(org);
+  const allSectionsDone = filled >= CI_ASSESSMENT_CATEGORIES.length;
+  const canGenerate = profileReady && allSectionsDone;
 
   const save = useMutation({
     mutationFn: async () => {
-      const wroteSomething = Boolean(
-        form.explanation?.trim() || form.why_it_matters?.trim() || form.recommended_improvement?.trim(),
-      );
-      if (!wroteSomething) {
-        throw new Error("Write what you see, then choose how this area looks today.");
+      if (!form || !assessment) throw new Error("Nothing to save.");
+      if (!form.what_observed?.trim() && !form.short_assessment?.trim()) {
+        throw new Error("Write what you observed, or a short assessment, before saving.");
       }
-      if ((form.status_label ?? "not_assessed") === "not_assessed") {
-        throw new Error("Choose how this area looks today — Strong, Stable, Needs Attention, or High Priority.");
-      }
-      const score = form.score == null ? null : Number(form.score);
-      if (score != null && (score < 0 || score > 100 || Number.isNaN(score))) {
-        throw new Error("Score must be between 0 and 100, or left blank.");
-      }
-      return ciApi.health.upsert({
+      return ciApi.assessments.upsertSection({
         ...form,
-        organization_id: org.id,
-        score,
         assessed_by: user?.id ?? null,
-        assessed_at: dateInputToIso(toDateInputValue(form.assessed_at) || toDateInputValue(new Date().toISOString())),
       });
     },
     onSuccess: () => {
-      toast.success("Assessment updated");
+      toast.success("Section saved. Stick to what you actually observed.");
       setOpen(false);
-      void qc.invalidateQueries({ queryKey: ["ci", "health", org.id] });
+      void qc.invalidateQueries({ queryKey: ["ci", "assessment"] });
       void qc.invalidateQueries({ queryKey: ["ci", "workflow", org.id] });
-      void qc.invalidateQueries({ queryKey: ["ci", "ops"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(ciFriendlyError(e)),
   });
 
-  const createIntel = useMutation({
+  const generate = useMutation({
     mutationFn: async () => {
-      if (!intelForm?.title.trim()) throw new Error("Title is required");
-      return ciApi.intelligence.create({
-        ...intelForm,
-        organization_id: org.id,
-        created_by: user?.id ?? null,
-      });
+      if (!assessment) throw new Error("No assessment yet.");
+      await ciApi.assessments.syncProfileSnapshot(assessment.id, org.id);
+      return ciApi.assessments.generateFindingsReport(assessment.id, user?.id);
     },
     onSuccess: () => {
-      toast.success("Recommendation added. Review it in What needs attention.");
-      setIntelOpen(false);
-      setIntelForm(null);
-      void qc.invalidateQueries({ queryKey: ["ci", "intelligence", org.id] });
+      toast.success("Internal Findings Report ready to copy.");
+      setReportOpen(true);
+      void qc.invalidateQueries({ queryKey: ["ci", "assessment"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(ciFriendlyError(e)),
   });
 
-  const openEdit = (nextCategory: CiHealthCategory, row: CiHealthCheck | null) => {
-    setCategory(nextCategory);
-    setForm(toForm(org.id, nextCategory, row));
+  const cards = useMemo(
+    () =>
+      CI_ASSESSMENT_CATEGORIES.map((cat) => {
+        const row = sections.find((s) => s.category === cat) ?? null;
+        return { category: cat, row, filled: sectionIsFilled(row) };
+      }),
+    [sections],
+  );
+
+  const openEdit = (cat: CiAssessmentSectionCategory) => {
+    if (!assessment) return;
+    const row = sections.find((s) => s.category === cat) ?? null;
+    setCategory(cat);
+    setForm(toForm(assessment.id, row, cat));
     setOpen(true);
   };
 
-  const openIntel = (nextCategory: CiHealthCategory, row: CiHealthCheck | null, status: CiHealthStatus) => {
-    setIntelForm(intelligenceDraftFromHealth(org.id, nextCategory, row, status));
-    setIntelOpen(true);
+  const toggleLooked = (source: CiLookedSource) => {
+    if (!form) return;
+    const current = form.where_looked ?? [];
+    const next = current.includes(source)
+      ? current.filter((item) => item !== source)
+      : [...current, source];
+    setForm({ ...form, where_looked: next });
   };
+
+  if (assessmentLoading || isLoading) {
+    return <p className="text-sm text-muted-foreground">Opening the internal assessment…</p>;
+  }
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="font-serif text-xl font-bold">Communications assessment</h2>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gold-dark">
+          Communications Assessment · Step 2 of 3 · Internal only
+        </p>
+        <h2 className="font-serif text-xl font-bold mt-1">Internal Communications Assessment</h2>
         <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-          This is your judgment of what a stranger would see today. You do not need a document from
-          the client. Open each area, look at the places listed there, and write what you find.
+          Document what you actually observe. Do not invent gaps. This section never appears in the
+          client portal.
         </p>
         <p className="mt-2 text-sm">
-          <Link className="underline underline-offset-4" to={`/hq/intelligence/organizations/${org.id}/overview`}>
-            Start with the organization profile
+          <Link
+            className="underline underline-offset-4"
+            to={`/hq/intelligence/organizations/${org.id}/overview`}
+          >
+            Organization profile
           </Link>
-          {website ? (
+          {org.website ? (
             <>
               {" · "}
-              <a className="underline underline-offset-4" href={openableUrl(website)} target="_blank" rel="noreferrer">
-                Open their website
+              <a
+                className="underline underline-offset-4"
+                href={org.website.startsWith("http") ? org.website : `https://${org.website}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Website
               </a>
             </>
           ) : null}
         </p>
       </div>
 
-      <div className="rounded-lg border border-border bg-background px-4 py-4">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gold-dark">Summary</p>
-        {summary.length ? (
-          <ul className="mt-2 space-y-1">
-            {summary.map((phrase) => (
-              <li key={phrase} className="font-serif text-lg">
-                {phrase}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="mt-2 text-sm text-muted-foreground">All six areas are not assessed yet.</p>
-        )}
-        <p className="mt-3 text-sm text-muted-foreground">
-          {cards.filter((card) => card.assessed).length} of 6 areas assessed.
-          {cards.every((card) => card.assessed)
-            ? " Next: turn the important findings into a recommendation."
-            : " Open each remaining area, write what you see, and save."}
+      <div className="rounded-lg border border-border bg-background px-4 py-4 space-y-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gold-dark">Progress</p>
+        <p className="text-sm text-muted-foreground">
+          {filled} of 6 sections documented.
+          {!profileReady
+            ? " Finish the organization profile before generating the findings report."
+            : allSectionsDone
+              ? " Ready to generate the Internal Findings Report for ChatGPT."
+              : " Open each remaining section and write what you see."}
         </p>
-        {cards.every((card) => card.assessed) ? (
-          <Button asChild className="mt-3">
-            <Link to={`/hq/intelligence/organizations/${org.id}/intelligence`}>Add Recommendation</Link>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            disabled={!canGenerate || generate.isPending}
+            onClick={() => generate.mutate()}
+          >
+            {generate.isPending ? "Generating…" : "Generate Internal Findings Report"}
           </Button>
-        ) : null}
+          {assessment?.findings_report ? (
+            <Button type="button" variant="outline" onClick={() => setReportOpen(true)}>
+              Open Findings Report
+            </Button>
+          ) : null}
+          {assessment?.findings_report ? (
+            <Button asChild variant="ghost">
+              <Link to={`/hq/intelligence/organizations/${org.id}/priorities`}>Go to Step 3</Link>
+            </Button>
+          ) : null}
+        </div>
       </div>
 
-      {error ? <p className="text-sm text-destructive">{(error as Error).message}</p> : null}
-
-      {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
-      ) : (
-        <div className="grid gap-3 md:grid-cols-2">
-          {cards.map(({ category: cat, row, status, assessed }) => (
-            <article key={cat} className="rounded-lg border border-border bg-background p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="font-serif text-lg font-bold">{CI_HEALTH_CATEGORY_LABELS[cat]}</h3>
-                  <p className="mt-1 text-xs uppercase tracking-[0.08em] text-muted-foreground">
-                    {assessed && status === "not_assessed" ? "Reviewed" : CI_HEALTH_STATUS_LABELS[status]}
-                  </p>
-                  <p className="mt-2 text-sm text-muted-foreground">{CI_HEALTH_GUIDE[cat].ask}</p>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Where to look: {CI_HEALTH_GUIDE[cat].look[0]}
-                  </p>
-                </div>
-                <div className="flex flex-col items-end gap-1">
-                  <Button type="button" variant="outline" size="sm" onClick={() => openEdit(cat, row)}>
-                    Edit
-                  </Button>
-                  {status === "needs_attention" || status === "high_priority" ? (
-                    <Button type="button" variant="ghost" size="sm" onClick={() => openIntel(cat, row, status)}>
-                      Add Recommendation
-                    </Button>
-                  ) : null}
-                </div>
-              </div>
-              {row?.explanation ? (
-                <p className="mt-3 text-sm leading-relaxed">{row.explanation}</p>
-              ) : (
-                <p className="mt-3 text-sm text-muted-foreground">No assessment written yet.</p>
-              )}
-              {row?.recommended_improvement ? (
-                <p className="mt-3 text-sm leading-relaxed">
-                  <span className="font-medium">Recommended improvement: </span>
-                  {row.recommended_improvement}
+      <div className="grid gap-3 md:grid-cols-2">
+        {cards.map(({ category: cat, row, filled: done }) => (
+          <article key={cat} className="rounded-lg border border-border bg-background p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="font-serif text-lg font-bold">
+                  {CI_ASSESSMENT_CATEGORY_LABELS[cat]}
+                </h3>
+                <p className="mt-1 text-xs uppercase tracking-[0.08em] text-muted-foreground">
+                  {row
+                    ? CI_ASSESSMENT_SECTION_STATUS_LABELS[row.status_label]
+                    : "Not Enough Information"}
+                  {done ? " · Documented" : " · Not started"}
                 </p>
-              ) : null}
-              <p className="mt-4 text-xs text-muted-foreground">
-                {row?.assessed_at
-                  ? `Last reviewed ${formatCiDate(row.assessed_at)}${row.reviewer_name ? ` · ${row.reviewer_name}` : ""}`
-                  : "Not reviewed yet"}
-              </p>
-            </article>
-          ))}
-        </div>
-      )}
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={() => openEdit(cat)}>
+                Edit
+              </Button>
+            </div>
+            {row?.what_observed ? (
+              <p className="mt-3 text-sm leading-relaxed">{row.what_observed}</p>
+            ) : (
+              <p className="mt-3 text-sm text-muted-foreground">No observations written yet.</p>
+            )}
+          </article>
+        ))}
+      </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-serif text-2xl">
-              {CI_HEALTH_CATEGORY_LABELS[category]}
+              {CI_ASSESSMENT_CATEGORY_LABELS[category]}
             </DialogTitle>
-            <DialogDescription>{guide.ask}</DialogDescription>
+            <DialogDescription>
+              Write evidence-based notes. If you did not look somewhere, do not claim you did.
+            </DialogDescription>
           </DialogHeader>
-          <div className="rounded-md border border-border bg-muted/40 px-3 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gold-dark">
-              Where to look
-            </p>
-            <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm">
-              {guide.look.map((item) => (
-                <li key={item} className="leading-relaxed">
-                  {item}
-                </li>
-              ))}
-            </ul>
-            {website || socials.length ? (
-              <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-sm">
-                {website ? (
-                  <a className="underline underline-offset-4" href={openableUrl(website)} target="_blank" rel="noreferrer">
-                    Website
-                  </a>
-                ) : null}
-                {socials.map(([name, url]) => (
-                  <a
-                    key={name}
-                    className="underline underline-offset-4 capitalize"
-                    href={openableUrl(url)}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {name.replaceAll("_", " ")}
-                  </a>
-                ))}
-                <Link className="underline underline-offset-4" to={`/hq/intelligence/organizations/${org.id}/overview`}>
-                  Organization profile
-                </Link>
-              </div>
-            ) : (
-              <p className="mt-3 text-sm">
-                <Link className="underline underline-offset-4" to={`/hq/intelligence/organizations/${org.id}/overview`}>
-                  Open the organization profile
-                </Link>
-              </p>
-            )}
-            <p className="mt-3 text-sm text-muted-foreground">{guide.write}</p>
-            {category === "messaging" ? (
-              <p className="mt-2 text-sm text-muted-foreground">
-                This is not the approved-language library. That comes later. Here you are judging
-                how clear they sound in public today.
-              </p>
-            ) : null}
-          </div>
-          <form
-            className="space-y-4"
-            onSubmit={(e) => {
-              e.preventDefault();
-              save.mutate();
-            }}
-          >
-            <div className="grid sm:grid-cols-2 gap-4">
+          {form ? (
+            <form
+              className="space-y-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                save.mutate();
+              }}
+            >
               <div className="space-y-2">
-                <Label>How this looks today</Label>
+                <Label>Where we looked</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {CI_LOOKED_SOURCES.map((source) => {
+                    const checked = form.where_looked?.includes(source);
+                    return (
+                      <label
+                        key={source}
+                        className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={Boolean(checked)}
+                          onChange={() => toggleLooked(source)}
+                        />
+                        {CI_LOOKED_SOURCE_LABELS[source]}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>What we observed</Label>
+                <Textarea
+                  rows={4}
+                  value={form.what_observed ?? ""}
+                  onChange={(e) => setForm({ ...form, what_observed: e.target.value })}
+                  placeholder="Evidence only — what a stranger would see or hear."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
                 <Select
-                  value={form.status_label && form.status_label !== "not_assessed" ? form.status_label : undefined}
-                  onValueChange={(v) => setForm({ ...form, status_label: v as CiHealthStatus })}
+                  value={form.status_label}
+                  onValueChange={(v) =>
+                    setForm({ ...form, status_label: v as CiAssessmentSectionStatus })
+                  }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Choose one" />
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {CI_HEALTH_STATUSES.filter((s) => s !== "not_assessed").map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {CI_HEALTH_STATUS_LABELS[s]}
+                    {CI_ASSESSMENT_SECTION_STATUSES.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {CI_ASSESSMENT_SECTION_STATUS_LABELS[status]}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Last reviewed</Label>
+                <Label>Short internal assessment</Label>
+                <Textarea
+                  rows={3}
+                  value={form.short_assessment ?? ""}
+                  onChange={(e) => setForm({ ...form, short_assessment: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Why this could matter</Label>
+                <Textarea
+                  rows={3}
+                  value={form.why_could_matter ?? ""}
+                  onChange={(e) => setForm({ ...form, why_could_matter: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Potential practical next step</Label>
+                <Textarea
+                  rows={3}
+                  value={form.potential_next_step ?? ""}
+                  onChange={(e) => setForm({ ...form, potential_next_step: e.target.value })}
+                  placeholder="Internal suggestion only — not client-facing."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Internal score (1–5, optional)</Label>
                 <Input
-                  type="date"
-                  value={toDateInputValue(form.assessed_at)}
-                  onChange={(e) => setForm({ ...form, assessed_at: e.target.value || null })}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Short assessment</Label>
-              <Textarea
-                rows={4}
-                value={form.explanation ?? ""}
-                onChange={(e) => setForm({ ...form, explanation: e.target.value })}
-                placeholder={guide.example}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Why this matters</Label>
-              <Textarea
-                rows={3}
-                value={form.why_it_matters ?? ""}
-                onChange={(e) => setForm({ ...form, why_it_matters: e.target.value })}
-                placeholder="Why should the organization care?"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Recommended improvement</Label>
-              <Textarea
-                rows={3}
-                value={form.recommended_improvement ?? ""}
-                onChange={(e) => setForm({ ...form, recommended_improvement: e.target.value })}
-                placeholder="The next practical step."
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Internal score (optional)</Label>
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                value={form.score ?? ""}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    score: e.target.value === "" ? null : Number(e.target.value),
-                  })
-                }
-              />
-              <p className="text-xs text-muted-foreground">
-                Staff-only context. Not shown as a grade in the client portal.
-              </p>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={save.isPending}>
-                {save.isPending ? "Saving…" : "Save assessment"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={intelOpen} onOpenChange={setIntelOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="font-serif text-2xl">Add Recommendation</DialogTitle>
-            <DialogDescription>
-              Review this draft before it appears in the Intelligence tab and client portal.
-            </DialogDescription>
-          </DialogHeader>
-          {intelForm ? (
-            <form
-              className="space-y-4"
-              onSubmit={(e) => {
-                e.preventDefault();
-                createIntel.mutate();
-              }}
-            >
-              <div className="space-y-2">
-                <Label>Title *</Label>
-                <Input
-                  value={intelForm.title}
-                  onChange={(e) => setIntelForm({ ...intelForm, title: e.target.value })}
-                  required
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Category: {CI_INTELLIGENCE_CATEGORY_LABELS[intelForm.category]}
-              </p>
-              <div className="space-y-2">
-                <Label>Description</Label>
-                <Textarea
-                  rows={3}
-                  value={intelForm.description ?? ""}
-                  onChange={(e) => setIntelForm({ ...intelForm, description: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Why it matters</Label>
-                <Textarea
-                  rows={3}
-                  value={intelForm.why_it_matters ?? ""}
-                  onChange={(e) => setIntelForm({ ...intelForm, why_it_matters: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Recommended action</Label>
-                <Textarea
-                  rows={3}
-                  value={intelForm.recommended_action ?? ""}
-                  onChange={(e) => setIntelForm({ ...intelForm, recommended_action: e.target.value })}
+                  type="number"
+                  min={1}
+                  max={5}
+                  value={form.internal_score ?? ""}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      internal_score: e.target.value === "" ? null : Number(e.target.value),
+                    })
+                  }
                 />
               </div>
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIntelOpen(false)}>
+                <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={createIntel.isPending}>
-                  {createIntel.isPending ? "Creating…" : "Create item"}
+                <Button type="submit" disabled={save.isPending}>
+                  {save.isPending ? "Saving…" : "Save section"}
                 </Button>
               </DialogFooter>
             </form>
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-2xl">Internal Findings Report</DialogTitle>
+            <DialogDescription>
+              Internal only. Copy this into ChatGPT with the approved employee prompt. Do not send
+              this report to the client.
+            </DialogDescription>
+          </DialogHeader>
+          <pre className="whitespace-pre-wrap rounded-md border border-border bg-muted/40 p-4 text-sm leading-relaxed">
+            {assessment?.findings_report || "Generate the report first."}
+          </pre>
+          <div className="rounded-md border border-border px-4 py-3 space-y-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gold-dark">
+              Next step
+            </p>
+            <p className="text-sm leading-relaxed">
+              Copy this Internal Findings Report and paste it into the approved JahKnowsPR
+              Communications Priorities prompt in ChatGPT.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                disabled={!assessment?.findings_report}
+                onClick={async () => {
+                  if (!assessment?.findings_report) return;
+                  await copyText(assessment.findings_report);
+                  toast.success("Report copied.");
+                }}
+              >
+                Copy Report
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={async () => {
+                  await copyText(CI_EMPLOYEE_CHATGPT_PROMPT);
+                  toast.success("Employee prompt copied.");
+                }}
+              >
+                Copy Employee Prompt
+              </Button>
+              <Button asChild variant="ghost">
+                <Link to={`/hq/intelligence/organizations/${org.id}/priorities`}>
+                  Enter ChatGPT results in Step 3
+                </Link>
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

@@ -105,6 +105,7 @@ export function CiAddClientDialog({
           website: form.website,
           location: form.location,
           description: form.description,
+          assessment_profile_status: "draft",
         });
       }
       return org;
