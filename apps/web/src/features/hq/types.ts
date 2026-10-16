@@ -195,6 +195,177 @@ export type HqContentPost = {
   updated_at: string | null;
 };
 
+export type JourneyStatus =
+  | "not_started"
+  | "in_progress"
+  | "awaiting_client"
+  | "internal_review"
+  | "blocked"
+  | "completed"
+  | "on_hold"
+  | "cancelled";
+
+export const JOURNEY_STATUSES: JourneyStatus[] = [
+  "not_started",
+  "in_progress",
+  "awaiting_client",
+  "internal_review",
+  "blocked",
+  "completed",
+  "on_hold",
+  "cancelled",
+];
+
+export const JOURNEY_STATUS_LABELS: Record<JourneyStatus, string> = {
+  not_started: "Not Started",
+  in_progress: "In Progress",
+  awaiting_client: "Awaiting Client",
+  internal_review: "Internal Review",
+  blocked: "Blocked",
+  completed: "Completed",
+  on_hold: "On Hold",
+  cancelled: "Cancelled",
+};
+
+export type JourneyService = Exclude<InterestedService, "other">;
+
+export type NoteKind = "meeting" | "decision" | "next_step" | "note";
+export type CommChannel = "email" | "call" | "meeting" | "message";
+
+export const NOTE_KIND_LABELS: Record<NoteKind, string> = {
+  meeting: "Meeting",
+  decision: "Decision",
+  next_step: "Next step",
+  note: "Note",
+};
+
+export const COMM_CHANNEL_LABELS: Record<CommChannel, string> = {
+  email: "Email",
+  call: "Call",
+  meeting: "Meeting",
+  message: "Message",
+};
+
+export type HqStaff = {
+  id: string;
+  full_name: string | null;
+  hq_role: string | null;
+};
+
+export type HqJourneyTemplate = {
+  id: string;
+  service_key: JourneyService;
+  version: number;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  created_at: string;
+};
+
+export type HqTemplateStage = {
+  id: string;
+  template_id: string;
+  position: number;
+  name: string;
+  description: string | null;
+  requires_approval: boolean;
+};
+
+export type HqTemplateTask = {
+  id: string;
+  stage_id: string;
+  position: number;
+  title: string;
+  description: string | null;
+  is_milestone: boolean;
+  is_deliverable: boolean;
+  requires_approval: boolean;
+  relative_due_days: number | null;
+};
+
+export type HqEngagement = {
+  id: string;
+  client_id: string;
+  template_id: string | null;
+  service_key: JourneyService;
+  title: string;
+  status: JourneyStatus;
+  owner_id: string | null;
+  start_date: string | null;
+  target_end_date: string | null;
+  follow_up_date: string | null;
+  current_stage_id: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  client?: { id: string; client_name: string; company: string | null } | null;
+  current_stage?: { id: string; name: string; position: number; status: JourneyStatus } | null;
+};
+
+export type HqEngagementStage = {
+  id: string;
+  engagement_id: string;
+  position: number;
+  name: string;
+  description: string | null;
+  requires_approval: boolean;
+  status: JourneyStatus;
+  approved_by: string | null;
+  approved_at: string | null;
+};
+
+export type HqEngagementTask = {
+  id: string;
+  engagement_id: string;
+  stage_id: string;
+  position: number;
+  title: string;
+  description: string | null;
+  status: JourneyStatus;
+  assignee_id: string | null;
+  due_date: string | null;
+  is_milestone: boolean;
+  is_deliverable: boolean;
+  requires_approval: boolean;
+  approval_status: "not_required" | "pending" | "approved" | "changes_requested";
+  approved_at: string | null;
+  completed_at: string | null;
+};
+
+export type HqEngagementNote = {
+  id: string;
+  engagement_id: string;
+  task_id: string | null;
+  author_id: string | null;
+  kind: NoteKind;
+  body: string;
+  created_at: string;
+};
+
+export type HqEngagementCommunication = {
+  id: string;
+  client_id: string;
+  engagement_id: string | null;
+  author_id: string | null;
+  channel: CommChannel;
+  subject: string | null;
+  body: string;
+  occurred_on: string;
+  created_at: string;
+};
+
+export type HqEngagementDocument = {
+  id: string;
+  engagement_id: string;
+  task_id: string | null;
+  uploaded_by: string | null;
+  file_name: string;
+  storage_path: string;
+  mime_type: string | null;
+  created_at: string;
+};
+
 /** Permission matrix for HQ modules */
 export function canAccessHqModule(
   role: HqRole | null,
@@ -205,19 +376,20 @@ export function canAccessHqModule(
     | "tasks"
     | "content"
     | "intelligence"
+    | "journeys"
     | "team"
     | "settings",
 ): boolean {
   if (!role) return false;
   if (role === "owner") return true;
   if (role === "strategist") {
-    return ["dashboard", "crm", "clients", "tasks", "content", "intelligence"].includes(module);
+    return ["dashboard", "crm", "clients", "tasks", "content", "intelligence", "journeys"].includes(module);
   }
   if (role === "creative") {
-    return ["dashboard", "tasks", "content", "clients", "intelligence"].includes(module);
+    return ["dashboard", "tasks", "content", "clients", "intelligence", "journeys"].includes(module);
   }
   if (role === "intern") {
-    return ["dashboard", "tasks", "content"].includes(module);
+    return ["dashboard", "tasks", "content", "journeys"].includes(module);
   }
   return false;
 }

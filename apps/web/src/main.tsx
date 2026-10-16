@@ -129,6 +129,9 @@ const HqClientDetailPage = React.lazy(() =>
   import('@/features/hq/pages/HqClientsPages').then((m) => ({ default: m.HqClientDetailPage })),
 );
 const HqTasksPage = React.lazy(() => import('@/features/hq/pages/HqTasksPage'));
+const HqJourneysPage = React.lazy(() => import('@/features/hq/pages/HqJourneysPage'));
+const HqEngagementPage = React.lazy(() => import('@/features/hq/pages/HqEngagementPage'));
+const HqJourneyTemplatesPage = React.lazy(() => import('@/features/hq/pages/HqJourneyTemplatesPage'));
 const HqContentListPage = React.lazy(() =>
   import('@/features/hq/pages/HqContentPages').then((m) => ({ default: m.HqContentListPage })),
 );
@@ -438,6 +441,9 @@ createRoot(document.getElementById('root')!).render(
                   <Route path="clients" element={<HqClientsListPage />} />
                   <Route path="clients/:id" element={<HqClientDetailPage />} />
                   <Route path="tasks" element={<HqTasksPage />} />
+                  <Route path="journeys" element={<HqJourneysPage />} />
+                  <Route path="journeys/templates" element={<HqJourneyTemplatesPage />} />
+                  <Route path="journeys/:engagementId" element={<HqEngagementPage />} />
                   <Route path="content" element={<HqContentListPage />} />
                   <Route path="content/:id" element={<HqContentEditorPage />} />
                   <Route path="team" element={<HqTeamPage />} />

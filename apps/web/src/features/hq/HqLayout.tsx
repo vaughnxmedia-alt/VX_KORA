@@ -4,6 +4,7 @@ import {
   Users,
   Building2,
   CheckSquare,
+  Route,
   BookOpen,
   Newspaper,
   Briefcase,
@@ -40,6 +41,7 @@ const BUSINESS: NavItem[] = [
   { label: "CRM", to: "/hq/crm", icon: Users, module: "crm" },
   { label: "Clients", to: "/hq/clients", icon: Building2, module: "clients" },
   { label: "Tasks", to: "/hq/tasks", icon: CheckSquare, module: "tasks" },
+  { label: "Journeys", to: "/hq/journeys", icon: Route, module: "journeys" },
 ];
 
 const INTELLIGENCE: NavItem[] = [
@@ -165,7 +167,7 @@ export function HqLayout() {
         <div className="px-3 pt-2">
           <p className="text-[10px] uppercase tracking-[0.14em] text-white/30 mb-2">Later</p>
           <p className="text-xs text-white/35 leading-relaxed">
-            Sessions · Projects · Media · Pitches · Placements · Revenue · Documents
+            Media · Pitches · Placements · Revenue
           </p>
         </div>
       </nav>

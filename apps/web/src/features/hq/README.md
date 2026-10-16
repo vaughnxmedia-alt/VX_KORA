@@ -31,6 +31,7 @@ Existing admins are auto-seeded as HQ **owner**.
 | CRM | `/hq/crm`, `/hq/crm/:id` |
 | Clients | `/hq/clients`, `/hq/clients/:id` |
 | Tasks | `/hq/tasks` |
+| Journeys | `/hq/journeys`, `/hq/journeys/:id`, `/hq/journeys/templates` (Owner) |
 | Communications Intelligence | `/hq/intelligence`, `/hq/intelligence/organizations`, `/hq/intelligence/pilot`, `/hq/intelligence/learning`, `/hq/intelligence/counsel`, org tabs for intelligence, health, messaging, opportunities, actions, counsel, outcomes, reports, and pilot |
 | Content CMS | `/hq/content`, `/hq/content/:id` |
 | Team | `/hq/team` (Owner) |
@@ -47,6 +48,14 @@ Published posts use `blog_posts` with `publication_status = live` and `content_t
 
 Drafts remain private via existing blog RLS (staff-only for unpublished).
 
+## Client journeys
+
+Apply `apps/web/supabase/migrations/20261015220000_hq_client_journeys.sql` after HQ V1.
+
+One `hq_clients` row stays the permanent client. Each service is an `hq_engagements` row copied from a versioned template (`session`, `project`, or `counsel`). Editing a template publishes a new version and does not change engagements already opened.
+
+Owners approve stages and deliverables. Strategists open, customize, and reassign engagements. Other HQ staff see only engagements they own, are assigned to, or have tasks on. Notes, communications, and the activity log cannot be edited or deleted.
+
 ## Not in V1
 
-Sessions workflow, projects, media contacts, pitches, placements, revenue, documents, invoicing.
+Media contacts, pitches, placements, revenue, invoicing.

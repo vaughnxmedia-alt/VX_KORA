@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { hqApi } from "../api";
+import { journeyApi } from "../journeyApi";
 import { ciApi } from "@/features/communications-intelligence/api";
 import { LEAD_STAGE_LABELS, TASK_STATUS_LABELS } from "../types";
 import { resolvePublicationStatus } from "@/lib/blog-publication-status";
@@ -50,6 +51,11 @@ export default function HqDashboardPage() {
     queryKey: ["hq", "content"],
     queryFn: () => hqApi.content.list(),
     retry: 1,
+  });
+  const { data: engagements = [], isError: journeysMissing } = useQuery({
+    queryKey: ["hq", "engagements"],
+    queryFn: () => journeyApi.engagements.list(),
+    retry: 0,
   });
   const { data: activity = [] } = useQuery({
     queryKey: ["hq", "activity"],
@@ -106,6 +112,15 @@ export default function HqDashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard label="New Leads" value={newLeads} to="/hq/crm" />
         <StatCard label="Active Clients" value={activeClients} to="/hq/clients" />
+        <StatCard
+          label="Open Engagements"
+          value={
+            journeysMissing
+              ? "—"
+              : engagements.filter((row) => row.status !== "completed" && row.status !== "cancelled").length
+          }
+          to="/hq/journeys"
+        />
         <StatCard label="Follow-Ups Due" value={followUpsDue} to="/hq/crm" />
         <StatCard label="Tasks Due This Week" value={tasksDueWeek} to="/hq/tasks" />
         <StatCard label="Draft Content" value={drafts} to="/hq/content?status=draft" />

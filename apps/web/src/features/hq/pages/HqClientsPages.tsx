@@ -2,6 +2,9 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { hqApi, logHqActivity } from "../api";
+import { journeyApi } from "../journeyApi";
+import { JourneyStatusBadge, migrationHint } from "../journeyUi";
+import { JOURNEY_STATUS_LABELS } from "../types";
 import {
   CLIENT_STATUS_LABELS,
   INTERESTED_SERVICE_LABELS,
@@ -233,7 +236,7 @@ export function HqClientDetailPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { user } = useAuth();
-  const [tab, setTab] = useState<"overview" | "notes" | "tasks" | "content" | "future">("overview");
+  const [tab, setTab] = useState<"overview" | "notes" | "tasks" | "journeys" | "content" | "future">("overview");
 
   const { data: client, isLoading } = useQuery({
     queryKey: ["hq", "clients", id],
@@ -249,6 +252,12 @@ export function HqClientDetailPage() {
     queryKey: ["hq", "content"],
     queryFn: () => hqApi.content.list(),
     enabled: !isNew,
+  });
+  const journeys = useQuery({
+    queryKey: ["hq", "engagements"],
+    queryFn: () => journeyApi.engagements.list(),
+    enabled: !isNew && tab === "journeys",
+    retry: 0,
   });
 
   const save = useMutation({
@@ -284,6 +293,7 @@ export function HqClientDetailPage() {
     { id: "overview" as const, label: "Overview" },
     { id: "notes" as const, label: "Notes" },
     { id: "tasks" as const, label: "Tasks" },
+    { id: "journeys" as const, label: "Journeys" },
     { id: "content" as const, label: "Content / Case Studies" },
     { id: "future" as const, label: "Coming soon" },
   ];
@@ -345,6 +355,36 @@ export function HqClientDetailPage() {
         </div>
       ) : null}
 
+      {!isNew && tab === "journeys" ? (
+        <div className="space-y-3">
+          <Button size="sm" asChild>
+            <Link to={`/hq/journeys?new=1&client=${id}`}>Open engagement</Link>
+          </Button>
+          {journeys.isError ? (
+            <p className="text-sm text-amber-900">{migrationHint(journeys.error)}</p>
+          ) : (
+            <ul className="text-sm space-y-2">
+              {(journeys.data ?? [])
+                .filter((row) => row.client_id === id)
+                .map((row) => (
+                  <li key={row.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-2">
+                    <Link to={`/hq/journeys/${row.id}`} className="font-medium text-primary hover:underline">
+                      {row.title}
+                    </Link>
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      {row.current_stage?.name || JOURNEY_STATUS_LABELS[row.status]}
+                      <JourneyStatusBadge status={row.status} />
+                    </span>
+                  </li>
+                ))}
+              {!(journeys.data ?? []).some((row) => row.client_id === id) && !journeys.isLoading ? (
+                <li className="text-muted-foreground">No engagements yet. The client record stays here across every service.</li>
+              ) : null}
+            </ul>
+          )}
+        </div>
+      ) : null}
+
       {!isNew && tab === "content" ? (
         <ul className="text-sm space-y-1">
           {clientContent.map((c) => (
@@ -364,8 +404,6 @@ export function HqClientDetailPage() {
         <div className="rounded-lg border border-dashed border-border bg-muted/20 p-6 text-sm text-muted-foreground space-y-2">
           <p>Placeholders for Version 2+</p>
           <ul className="list-disc pl-5 space-y-1">
-            <li>Sessions</li>
-            <li>Projects</li>
             <li>Media</li>
             <li>Documents</li>
             <li>Revenue</li>
