@@ -65,6 +65,7 @@ export default function HqJourneyTemplatesPage() {
     if (templateId) setParams({ template: templateId });
   };
 
+  const serviceChoices = (services.data ?? []).filter((service) => service.is_active);
   const visible = (templates.data ?? []).filter((template) => showArchived || template.status !== "archived");
   const selected = visible.find((template) => template.id === selectedId) ?? visible.find((template) => template.is_active) ?? visible[0];
   const stageList = (stages.data ?? [])
@@ -102,7 +103,7 @@ export default function HqJourneyTemplatesPage() {
 
       {creating && canEdit ? (
         <CreateTemplate
-          services={services.data ?? []}
+          services={serviceChoices}
           onCreated={async (id) => {
             setCreating(false);
             await refresh(id);
@@ -138,7 +139,7 @@ export default function HqJourneyTemplatesPage() {
             tasks={tasks.data ?? []}
             deliverables={deliverables.data ?? []}
             staff={staff.data ?? []}
-            services={services.data ?? []}
+            services={serviceChoices}
             canEdit={canEdit}
             onChanged={refresh}
           />
