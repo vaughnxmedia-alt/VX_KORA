@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { SectionHeader } from "@/components/public/SectionHeader";
 import { InsightCard } from "@/components/public/InsightCard";
-import { insightSeries } from "@/content/insightsSeries";
+import { listedInsightSeries } from "@/content/insightsSeries";
 
 export function HomeInsights() {
   return (
@@ -17,8 +17,8 @@ export function HomeInsights() {
             Insights hub →
           </Link>
         </div>
-        <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
-          {insightSeries.map((series) => (
+        <div className="grid md:grid-cols-2 gap-6 lg:gap-8">
+          {listedInsightSeries.map((series) => (
             <InsightCard key={series.id} series={series} />
           ))}
         </div>

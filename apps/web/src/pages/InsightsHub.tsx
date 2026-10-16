@@ -3,7 +3,7 @@ import { StructuredData } from "@/components/StructuredData";
 import { breadcrumbListSchema } from "@/lib/structured-data";
 import { SectionHeader } from "@/components/public/SectionHeader";
 import { InsightCard } from "@/components/public/InsightCard";
-import { insightSeries } from "@/content/insightsSeries";
+import { listedInsightSeries } from "@/content/insightsSeries";
 
 export default function InsightsHub() {
   useEffect(() => {
@@ -11,7 +11,7 @@ export default function InsightsHub() {
     const meta = document.querySelector('meta[name="description"]');
     meta?.setAttribute(
       "content",
-      "Thought leadership from JahKnowsPR: The Brief, SPAM Report, and PR Court.",
+      "Thought leadership from JahKnowsPR: The Brief and SPAM Report.",
     );
   }, []);
 
@@ -34,8 +34,8 @@ export default function InsightsHub() {
         </div>
       </section>
       <section className="py-16 md:py-20 px-4 sm:px-6">
-        <div className="max-w-7xl mx-auto grid md:grid-cols-3 gap-8">
-          {insightSeries.map((series) => (
+        <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-8">
+          {listedInsightSeries.map((series) => (
             <InsightCard key={series.id} series={series} />
           ))}
         </div>

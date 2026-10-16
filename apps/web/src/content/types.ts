@@ -59,6 +59,8 @@ export type InsightSeries = {
   tagline: string;
   description: string;
   href: string;
+  /** Hidden series stay reachable by URL and are omitted from public listings. */
+  listed?: boolean;
 };
 
 export type ProcessStep = {

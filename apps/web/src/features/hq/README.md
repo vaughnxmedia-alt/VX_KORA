@@ -34,7 +34,7 @@ Existing admins are auto-seeded as HQ **owner**.
 | Journeys | `/hq/journeys`, `/hq/journeys/:id` |
 | Journey templates | `/hq/settings/services` and `/hq/journeys/templates` (Owner edits; other staff can preview) |
 | Client portal | `/hq/intelligence`, `/hq/intelligence/organizations`, `/hq/intelligence/pilot`, `/hq/intelligence/learning`, `/hq/intelligence/counsel`, org tabs for intelligence, health, messaging, opportunities, actions, counsel, outcomes, reports, and pilot |
-| The Brief | `/hq/content`, `/hq/content/:id` — SPAM Report and PR Court are filters. `/insights/spam-report` and `/the-brief/:slug` stay in place |
+| The Brief | `/hq/content`, `/hq/content/:id` — SPAM Report is a filter. PR Court is hidden for now. `/insights/spam-report` and `/the-brief/:slug` stay in place |
 | Internal case studies | `/hq/case-studies` — drafts tied to engagements. Public `/work` is unchanged |
 | Team | `/hq/team` (Owner) |
 | Settings | `/hq/settings` |
@@ -45,7 +45,7 @@ Published posts use `blog_posts` with `publication_status = live` and `content_t
 
 - `the-brief` → `/the-brief` (and `/insights/the-brief`)
 - `spam-report` → `/insights/spam-report`
-- `pr-court` → `/insights/pr-court`
+- `pr-court` → `/insights/pr-court` (hidden from public listings and the HQ library for now; the URL still resolves)
 - `case-study` / `firm-news` → listed in HQ; public surfaces expand later
 
 Drafts remain private via existing blog RLS (staff-only for unpublished).

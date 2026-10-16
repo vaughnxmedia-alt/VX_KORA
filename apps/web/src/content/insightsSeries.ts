@@ -24,9 +24,12 @@ export const insightSeries: InsightSeries[] = [
     description:
       "Long-form examination of public responses, campaigns, controversies, and strategic mistakes—so judgment improves before the next crisis or launch.",
     href: "/insights/pr-court",
+    listed: false,
   },
 ];
 
 export function getInsightSeries(id: InsightSeries["id"]): InsightSeries | undefined {
   return insightSeries.find((s) => s.id === id);
 }
+
+export const listedInsightSeries = insightSeries.filter((series) => series.listed !== false);

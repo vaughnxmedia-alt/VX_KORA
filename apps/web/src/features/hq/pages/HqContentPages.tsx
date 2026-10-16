@@ -53,7 +53,6 @@ const BRIEF_FILTERS: { id: ContentType | ""; label: string }[] = [
   { id: "", label: "All" },
   { id: "the-brief", label: "The Brief" },
   { id: "spam-report", label: "SPAM Report" },
-  { id: "pr-court", label: "PR Court" },
   { id: "firm-news", label: "Firm news" },
   { id: "case-study", label: "Case-study posts" },
 ];
@@ -71,6 +70,7 @@ export function HqContentListPage() {
 
   const filtered = useMemo(() => {
     return posts.filter((p) => {
+      if (!typeFilter && p.content_type === "pr-court") return false;
       if (typeFilter && (p.content_type || "the-brief") !== typeFilter) return false;
       if (statusFilter && statusFilter !== "all") {
         const st = resolvePublicationStatus(p);
@@ -95,7 +95,7 @@ export function HqContentListPage() {
         <div>
           <h1 className="font-serif text-3xl font-bold">The Brief</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            One library. SPAM Report and PR Court are filters. Articles stay at /the-brief/:slug, and the
+            One library. SPAM Report is a filter. Articles stay at /the-brief/:slug, and the
             SPAM hub stays at /insights/spam-report. Engagement case studies are a separate internal record.
           </p>
         </div>
@@ -374,7 +374,9 @@ export function HqContentEditorPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(CONTENT_TYPE_LABELS).map(([k, label]) => (
+                  {Object.entries(CONTENT_TYPE_LABELS)
+                    .filter(([k]) => k !== "pr-court" || active.content_type === "pr-court")
+                    .map(([k, label]) => (
                     <SelectItem key={k} value={k}>
                       {label}
                     </SelectItem>
