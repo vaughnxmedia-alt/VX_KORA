@@ -443,6 +443,7 @@ createRoot(document.getElementById('root')!).render(
                   <Route path="tasks" element={<HqTasksPage />} />
                   <Route path="journeys" element={<HqJourneysPage />} />
                   <Route path="journeys/templates" element={<HqJourneyTemplatesPage />} />
+                  <Route path="settings/services" element={<HqJourneyTemplatesPage />} />
                   <Route path="journeys/:engagementId" element={<HqEngagementPage />} />
                   <Route path="content" element={<HqContentListPage />} />
                   <Route path="content/:id" element={<HqContentEditorPage />} />

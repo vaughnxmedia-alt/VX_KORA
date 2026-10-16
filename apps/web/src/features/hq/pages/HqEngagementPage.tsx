@@ -24,9 +24,11 @@ import {
   COMM_CHANNEL_LABELS,
   INTERESTED_SERVICE_LABELS,
   JOURNEY_STATUSES,
+  DELIVERABLE_STATUS_LABELS,
   JOURNEY_STATUS_LABELS,
   NOTE_KIND_LABELS,
   type CommChannel,
+  type DeliverableStatus,
   type JourneyStatus,
   type NoteKind,
 } from "../types";
@@ -79,6 +81,17 @@ export default function HqEngagementPage() {
     queryKey: ["hq", "staff"],
     queryFn: () => journeyApi.staff(),
   });
+  const focusStageId = stageId ?? engagement.data?.current_stage_id ?? null;
+  const gaps = useQuery({
+    queryKey: ["hq", "stage-gaps", focusStageId],
+    queryFn: () => journeyApi.stageGaps(focusStageId as string),
+    enabled: Boolean(focusStageId),
+  });
+  const deliverables = useQuery({
+    queryKey: ["hq", "engagement-deliverables", engagementId],
+    queryFn: () => journeyApi.engagementDeliverables(engagementId),
+    enabled: Boolean(engagementId),
+  });
 
   const refresh = async () => {
     await Promise.all([
@@ -89,6 +102,8 @@ export default function HqEngagementPage() {
       qc.invalidateQueries({ queryKey: ["hq", "engagement-comms", engagementId] }),
       qc.invalidateQueries({ queryKey: ["hq", "engagement-docs", engagementId] }),
       qc.invalidateQueries({ queryKey: ["hq", "engagement-activity", engagementId] }),
+      qc.invalidateQueries({ queryKey: ["hq", "engagement-deliverables", engagementId] }),
+      qc.invalidateQueries({ queryKey: ["hq", "stage-gaps"] }),
       qc.invalidateQueries({ queryKey: ["hq", "engagements"] }),
       qc.invalidateQueries({ queryKey: ["hq", "engagement-tasks", "open"] }),
     ]);
@@ -210,14 +225,54 @@ export default function HqEngagementPage() {
               {canAdvance && selected.id === row.current_stage_id && selected.status !== "completed" ? (
                 <Button
                   size="sm"
-                  disabled={selected.requires_approval && !selected.approved_at}
+                  disabled={(gaps.data ?? []).length > 0}
                   onClick={() => run.mutate(() => journeyApi.advanceStage(selected.id))}
                 >
-                  {selected.requires_approval && !selected.approved_at ? "Approval required" : "Advance stage"}
+                  {(gaps.data ?? []).length > 0 ? "Requirements remaining" : "Advance stage"}
+                </Button>
+              ) : null}
+              {selected.completion_rules?.includes("client_response") && !selected.client_response_at && canAdvance ? (
+                <Button size="sm" variant="outline" onClick={() => run.mutate(() => journeyApi.markClientResponse(selected.id))}>
+                  Client responded
                 </Button>
               ) : null}
             </div>
           </div>
+          {(gaps.data ?? []).length > 0 && selected.id === row.current_stage_id ? (
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+              <p className="font-medium">Still required before this stage can advance</p>
+              <ul className="mt-1 list-disc pl-5">
+                {(gaps.data ?? []).map((gap) => (
+                  <li key={gap}>{gap}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {(deliverables.data ?? []).some((item) => item.stage_id === selected.id) ? (
+            <div className="space-y-2">
+              <h3 className="font-medium">Deliverables</h3>
+              {(deliverables.data ?? [])
+                .filter((item) => item.stage_id === selected.id)
+                .map((item) => (
+                  <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                    <span>{item.name}{item.is_required ? "" : " · optional"}</span>
+                    <Select
+                      value={item.status}
+                      onValueChange={(value) =>
+                        run.mutate(() => journeyApi.setDeliverableStatus(item.id, value as DeliverableStatus))
+                      }
+                    >
+                      <SelectTrigger className="w-44 h-8"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {(Object.keys(DELIVERABLE_STATUS_LABELS) as DeliverableStatus[]).map((status) => (
+                          <SelectItem key={status} value={status}>{DELIVERABLE_STATUS_LABELS[status]}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
+            </div>
+          ) : null}
 
           <ul className="space-y-3">
             {stageTasks.map((task) => (

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useHqAuth } from "../HqAuth";
@@ -130,6 +131,15 @@ export function HqSettingsPage() {
   return (
     <div className="space-y-4 max-w-xl">
       <h1 className="font-serif text-3xl font-bold">Settings</h1>
+      <div className="rounded-lg border border-border bg-background p-5 text-sm space-y-2">
+        <p className="font-medium text-foreground">Services</p>
+        <p className="text-muted-foreground">
+          Journey templates define the stages, tasks, deliverables, and completion rules for each service.
+        </p>
+        <Button asChild size="sm">
+          <Link to="/hq/settings/services">Journey templates</Link>
+        </Button>
+      </div>
       <div className="rounded-lg border border-border bg-background p-5 text-sm text-muted-foreground space-y-2">
         <p>JahKnowsPR HQ Version 1 uses your existing Supabase project and authentication.</p>
         <p>

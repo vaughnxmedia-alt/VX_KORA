@@ -30,11 +30,18 @@ export const journeyApi = {
     return unwrap(error, (data ?? []) as HqStaff[]);
   },
 
+  services: async () => {
+    const { data, error } = await db
+      .from("hq_services")
+      .select("id,service_key,name,description,is_active")
+      .order("name");
+    return unwrap(error, (data ?? []) as import("./types").HqService[]);
+  },
   templates: {
     list: async (): Promise<HqJourneyTemplate[]> => {
       const { data, error } = await db
         .from("hq_journey_templates")
-        .select("id,service_key,version,name,description,is_active,created_at")
+        .select("id,service_key,version,name,description,is_active,status,created_at")
         .order("service_key")
         .order("version", { ascending: false });
       return unwrap(error, (data ?? []) as HqJourneyTemplate[]);
@@ -42,7 +49,9 @@ export const journeyApi = {
     stages: async (): Promise<HqTemplateStage[]> => {
       const { data, error } = await db
         .from("hq_journey_template_stages")
-        .select("id,template_id,position,name,description,requires_approval")
+        .select(
+          "id,template_id,position,name,description,requires_approval,completion_rules,assignment_rule,specific_user_id,archived_at",
+        )
         .order("position");
       return unwrap(error, (data ?? []) as HqTemplateStage[]);
     },
@@ -50,25 +59,167 @@ export const journeyApi = {
       const { data, error } = await db
         .from("hq_journey_template_tasks")
         .select(
-          "id,stage_id,position,title,description,is_milestone,is_deliverable,requires_approval,relative_due_days",
+          "id,stage_id,position,title,description,instructions,is_milestone,is_deliverable,requires_approval,relative_due_days,task_type,assignment_rule,specific_user_id,is_required,due_rule,archived_at",
         )
         .order("position");
       return unwrap(error, (data ?? []) as HqTemplateTask[]);
     },
-    publish: async (input: {
-      service_key: string;
-      name: string;
-      description: string;
-      stages: unknown[];
-    }) => {
-      const { data, error } = await db.rpc("hq_save_template_version", {
-        p_service_key: input.service_key,
-        p_name: input.name,
-        p_description: input.description,
-        p_stages: input.stages,
+    deliverables: async () => {
+      const { data, error } = await db
+        .from("hq_journey_template_deliverables")
+        .select("id,stage_id,position,name,description,is_required,archived_at")
+        .order("position");
+      return unwrap(error, (data ?? []) as import("./types").HqTemplateDeliverable[]);
+    },
+    create: async (serviceKey: string, name: string, description: string) => {
+      const { data, error } = await db.rpc("hq_create_template", {
+        p_service_key: serviceKey,
+        p_name: name,
+        p_description: description,
       });
       return unwrap(error, data as string);
     },
+    update: async (id: string, name: string, description: string, serviceKey: string) => {
+      const { data, error } = await db.rpc("hq_update_template", {
+        p_template_id: id,
+        p_name: name,
+        p_description: description,
+        p_service_key: serviceKey,
+      });
+      return unwrap(error, data as string);
+    },
+    setStatus: async (id: string, status: "active" | "inactive" | "archived") => {
+      const { error } = await db.rpc("hq_set_template_status", { p_template_id: id, p_status: status });
+      unwrap(error, null);
+    },
+    duplicate: async (id: string) => {
+      const { data, error } = await db.rpc("hq_duplicate_template", { p_template_id: id });
+      return unwrap(error, data as string);
+    },
+    saveStage: async (input: {
+      template_id: string;
+      stage_id: string | null;
+      name: string;
+      description: string;
+      completion_rules: string[];
+      assignment_rule: string;
+      specific_user_id: string | null;
+    }) => {
+      const { data, error } = await db.rpc("hq_save_template_stage", {
+        p_template_id: input.template_id,
+        p_stage_id: input.stage_id,
+        p_name: input.name,
+        p_description: input.description,
+        p_completion_rules: input.completion_rules,
+        p_assignment_rule: input.assignment_rule,
+        p_specific_user_id: input.specific_user_id,
+      });
+      return unwrap(error, data as { template_id: string; stage_id: string });
+    },
+    reorder: async (templateId: string, stageIds: string[]) => {
+      const { data, error } = await db.rpc("hq_reorder_template_stages", {
+        p_template_id: templateId,
+        p_stage_ids: stageIds,
+      });
+      return unwrap(error, data as string);
+    },
+    archiveStage: async (templateId: string, stageId: string) => {
+      const { data, error } = await db.rpc("hq_archive_template_stage", {
+        p_template_id: templateId,
+        p_stage_id: stageId,
+      });
+      return unwrap(error, data as string);
+    },
+    saveTask: async (input: {
+      template_id: string;
+      stage_id: string;
+      task_id: string | null;
+      title: string;
+      description: string;
+      instructions: string;
+      task_type: string;
+      assignment_rule: string;
+      specific_user_id: string | null;
+      is_required: boolean;
+      due_rule: { kind: string; amount?: number | null; label?: string | null };
+    }) => {
+      const { data, error } = await db.rpc("hq_save_template_task", {
+        p_template_id: input.template_id,
+        p_stage_id: input.stage_id,
+        p_task_id: input.task_id,
+        p_title: input.title,
+        p_description: input.description,
+        p_instructions: input.instructions,
+        p_task_type: input.task_type,
+        p_assignment_rule: input.assignment_rule,
+        p_specific_user_id: input.specific_user_id,
+        p_is_required: input.is_required,
+        p_due_rule: input.due_rule,
+      });
+      return unwrap(error, data as { template_id: string; stage_id: string; task_id: string });
+    },
+    archiveTask: async (templateId: string, stageId: string, taskId: string) => {
+      const { data, error } = await db.rpc("hq_archive_template_task", {
+        p_template_id: templateId,
+        p_stage_id: stageId,
+        p_task_id: taskId,
+      });
+      return unwrap(error, data as string);
+    },
+    saveDeliverable: async (input: {
+      template_id: string;
+      stage_id: string;
+      deliverable_id: string | null;
+      name: string;
+      description: string;
+      is_required: boolean;
+    }) => {
+      const { data, error } = await db.rpc("hq_save_template_deliverable", {
+        p_template_id: input.template_id,
+        p_stage_id: input.stage_id,
+        p_deliverable_id: input.deliverable_id,
+        p_name: input.name,
+        p_description: input.description,
+        p_is_required: input.is_required,
+      });
+      return unwrap(error, data as { template_id: string; stage_id: string; deliverable_id: string });
+    },
+    archiveDeliverable: async (templateId: string, stageId: string, deliverableId: string) => {
+      const { data, error } = await db.rpc("hq_archive_template_deliverable", {
+        p_template_id: templateId,
+        p_stage_id: stageId,
+        p_deliverable_id: deliverableId,
+      });
+      return unwrap(error, data as string);
+    },
+    saveService: async (key: string, name: string, description: string) => {
+      const { data, error } = await db.rpc("hq_upsert_service", {
+        p_service_key: key,
+        p_name: name,
+        p_description: description,
+      });
+      return unwrap(error, data as string);
+    },
+  },
+  stageGaps: async (stageId: string) => {
+    const { data, error } = await db.rpc("hq_stage_requirement_gaps", { p_stage_id: stageId });
+    return unwrap(error, (data ?? []) as string[]);
+  },
+  markClientResponse: async (stageId: string) => {
+    const { error } = await db.rpc("hq_mark_client_response", { p_stage_id: stageId });
+    unwrap(error, null);
+  },
+  engagementDeliverables: async (engagementId: string) => {
+    const { data, error } = await db
+      .from("hq_engagement_deliverables")
+      .select("id,engagement_id,stage_id,name,description,is_required,status")
+      .eq("engagement_id", engagementId)
+      .order("position");
+    return unwrap(error, (data ?? []) as import("./types").HqEngagementDeliverable[]);
+  },
+  setDeliverableStatus: async (id: string, status: string) => {
+    const { error } = await db.rpc("hq_set_deliverable_status", { p_deliverable_id: id, p_status: status });
+    unwrap(error, null);
   },
 
   engagements: {
@@ -131,7 +282,7 @@ export const journeyApi = {
     const { data, error } = await db
       .from("hq_engagement_stages")
       .select(
-        "id,engagement_id,position,name,description,requires_approval,status,approved_by,approved_at",
+        "id,engagement_id,position,name,description,requires_approval,status,approved_by,approved_at,completion_rules,client_response_at",
       )
       .eq("engagement_id", engagementId)
       .order("position");

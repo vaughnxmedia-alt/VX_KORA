@@ -252,13 +252,85 @@ export type HqStaff = {
   hq_role: string | null;
 };
 
+export type AssignmentRule = "account_lead" | "strategist" | "management" | "specific" | "unassigned";
+export type TaskType = "internal" | "client" | "meeting" | "deliverable" | "approval" | "follow_up";
+export type DueRuleKind =
+  | "none"
+  | "same_day"
+  | "days_after_stage"
+  | "days_before_appointment"
+  | "hours_after_meeting"
+  | "custom";
+export type CompletionRule =
+  | "all_required_tasks"
+  | "required_document"
+  | "deliverable_approved"
+  | "management_approval"
+  | "client_response"
+  | "meeting_completed";
+export type DeliverableStatus = "draft" | "internal_review" | "approved" | "client_review" | "final";
+
+export const ASSIGNMENT_RULE_LABELS: Record<AssignmentRule, string> = {
+  account_lead: "Account lead",
+  strategist: "Strategist",
+  management: "Management",
+  specific: "Specific employee",
+  unassigned: "Unassigned until the engagement begins",
+};
+
+export const TASK_TYPE_LABELS: Record<TaskType, string> = {
+  internal: "Internal",
+  client: "Client",
+  meeting: "Meeting",
+  deliverable: "Deliverable",
+  approval: "Approval",
+  follow_up: "Follow-Up",
+};
+
+export const DUE_RULE_LABELS: Record<DueRuleKind, string> = {
+  none: "No deadline",
+  same_day: "Same day",
+  days_after_stage: "Days after the stage begins",
+  days_before_appointment: "Days before the appointment",
+  hours_after_meeting: "Hours after the meeting",
+  custom: "Custom",
+};
+
+export const COMPLETION_RULE_LABELS: Record<CompletionRule, string> = {
+  all_required_tasks: "All required tasks completed",
+  required_document: "Required document uploaded",
+  deliverable_approved: "Deliverable approved",
+  management_approval: "Management approval",
+  client_response: "Client response received",
+  meeting_completed: "Meeting completed",
+};
+
+export const DELIVERABLE_STATUS_LABELS: Record<DeliverableStatus, string> = {
+  draft: "Draft",
+  internal_review: "Internal Review",
+  approved: "Approved",
+  client_review: "Client Review",
+  final: "Final",
+};
+
+export type HqService = {
+  id: string;
+  service_key: string;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+};
+
+export type DueRule = { kind: DueRuleKind; amount?: number | null; label?: string | null };
+
 export type HqJourneyTemplate = {
   id: string;
-  service_key: JourneyService;
+  service_key: string;
   version: number;
   name: string;
   description: string | null;
   is_active: boolean;
+  status?: "active" | "inactive" | "archived";
   created_at: string;
 };
 
@@ -269,6 +341,10 @@ export type HqTemplateStage = {
   name: string;
   description: string | null;
   requires_approval: boolean;
+  completion_rules?: CompletionRule[];
+  assignment_rule?: AssignmentRule;
+  specific_user_id?: string | null;
+  archived_at?: string | null;
 };
 
 export type HqTemplateTask = {
@@ -277,10 +353,37 @@ export type HqTemplateTask = {
   position: number;
   title: string;
   description: string | null;
+  instructions?: string | null;
   is_milestone: boolean;
   is_deliverable: boolean;
   requires_approval: boolean;
   relative_due_days: number | null;
+  task_type?: TaskType;
+  assignment_rule?: AssignmentRule;
+  specific_user_id?: string | null;
+  is_required?: boolean;
+  due_rule?: DueRule | null;
+  archived_at?: string | null;
+};
+
+export type HqTemplateDeliverable = {
+  id: string;
+  stage_id: string;
+  position: number;
+  name: string;
+  description: string | null;
+  is_required: boolean;
+  archived_at?: string | null;
+};
+
+export type HqEngagementDeliverable = {
+  id: string;
+  engagement_id: string;
+  stage_id: string;
+  name: string;
+  description: string | null;
+  is_required: boolean;
+  status: DeliverableStatus;
 };
 
 export type HqEngagement = {
@@ -313,6 +416,8 @@ export type HqEngagementStage = {
   status: JourneyStatus;
   approved_by: string | null;
   approved_at: string | null;
+  completion_rules?: CompletionRule[];
+  client_response_at?: string | null;
 };
 
 export type HqEngagementTask = {

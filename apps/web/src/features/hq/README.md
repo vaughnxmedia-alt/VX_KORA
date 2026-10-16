@@ -31,7 +31,8 @@ Existing admins are auto-seeded as HQ **owner**.
 | CRM | `/hq/crm`, `/hq/crm/:id` |
 | Clients | `/hq/clients`, `/hq/clients/:id` |
 | Tasks | `/hq/tasks` |
-| Journeys | `/hq/journeys`, `/hq/journeys/:id`, `/hq/journeys/templates` (Owner) |
+| Journeys | `/hq/journeys`, `/hq/journeys/:id` |
+| Journey templates | `/hq/settings/services` and `/hq/journeys/templates` (Owner edits; other staff can preview) |
 | Communications Intelligence | `/hq/intelligence`, `/hq/intelligence/organizations`, `/hq/intelligence/pilot`, `/hq/intelligence/learning`, `/hq/intelligence/counsel`, org tabs for intelligence, health, messaging, opportunities, actions, counsel, outcomes, reports, and pilot |
 | Content CMS | `/hq/content`, `/hq/content/:id` |
 | Team | `/hq/team` (Owner) |
@@ -50,11 +51,11 @@ Drafts remain private via existing blog RLS (staff-only for unpublished).
 
 ## Client journeys
 
-Apply `apps/web/supabase/migrations/20261015220000_hq_client_journeys.sql` after HQ V1.
+Apply `apps/web/supabase/migrations/20261015220000_hq_client_journeys.sql`, then `20261015233000_hq_journey_template_builder.sql`.
 
-One `hq_clients` row stays the permanent client. Each service is an `hq_engagements` row copied from a versioned template (`session`, `project`, or `counsel`). Editing a template publishes a new version and does not change engagements already opened.
+One `hq_clients` row stays the permanent client. Each service is an `hq_engagements` row copied from a versioned journey template. Services live in `hq_services`. Owners edit master templates from Settings → Services. If a template already has engagements, the next edit forks a new version and leaves the open journey unchanged. Stages, tasks, deliverables, assignment rules, due-date rules, and completion requirements are stored on the template and copied onto the engagement.
 
-Owners approve stages and deliverables. Strategists open, customize, and reassign engagements. Other HQ staff see only engagements they own, are assigned to, or have tasks on. Notes, communications, and the activity log cannot be edited or deleted.
+Owners approve stages and deliverables. Strategists open, customize, and reassign engagements. Other HQ staff see only engagements they own, are assigned to, or have tasks on. Notes, communications, and the activity log cannot be edited or deleted. Templates are archived, not deleted.
 
 ## Not in V1
 
