@@ -43,11 +43,20 @@ function slugify(title: string) {
 function publicPathFor(post: Pick<HqContentPost, "content_type" | "slug">) {
   const slug = post.slug || "";
   if (post.content_type === "the-brief") return `/the-brief/${slug}`;
-  if (post.content_type === "spam-report") return `/insights/spam-report`;
-  if (post.content_type === "pr-court") return `/insights/pr-court`;
+  if (post.content_type === "spam-report") return `/the-brief/${slug}`;
+  if (post.content_type === "pr-court") return `/the-brief/${slug}`;
   if (post.content_type === "case-study") return `/work`;
   return `/insights`;
 }
+
+const BRIEF_FILTERS: { id: ContentType | ""; label: string }[] = [
+  { id: "", label: "All" },
+  { id: "the-brief", label: "The Brief" },
+  { id: "spam-report", label: "SPAM Report" },
+  { id: "pr-court", label: "PR Court" },
+  { id: "firm-news", label: "Firm news" },
+  { id: "case-study", label: "Case-study posts" },
+];
 
 export function HqContentListPage() {
   const [params] = useSearchParams();
@@ -84,15 +93,43 @@ export function HqContentListPage() {
     <div className="space-y-6 max-w-6xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-serif text-3xl font-bold">Content</h1>
+          <h1 className="font-serif text-3xl font-bold">The Brief</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Publish The Brief, SPAM Report, PR Court, Case Studies, and Firm News
+            One library. SPAM Report and PR Court are filters. Articles stay at /the-brief/:slug, and the
+            SPAM hub stays at /insights/spam-report. Engagement case studies are a separate internal record.
           </p>
         </div>
         <Button onClick={() => navigate("/hq/content/new")}>
           <Plus className="h-4 w-4 mr-1" />
           New post
         </Button>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {BRIEF_FILTERS.map((series) => {
+          const active = (typeFilter || "") === series.id;
+          const href = series.id
+            ? statusFilter && statusFilter !== "all"
+              ? `/hq/content?type=${series.id}&status=${statusFilter}`
+              : `/hq/content?type=${series.id}`
+            : statusFilter && statusFilter !== "all"
+              ? `/hq/content?status=${statusFilter}`
+              : "/hq/content";
+          return (
+            <Link
+              key={series.id || "all"}
+              to={href}
+              className={cn(
+                "rounded-full border px-3 py-1 text-sm",
+                active
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border text-muted-foreground",
+              )}
+            >
+              {series.label}
+            </Link>
+          );
+        })}
       </div>
 
       <div className="flex flex-wrap gap-2">

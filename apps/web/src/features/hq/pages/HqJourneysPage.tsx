@@ -43,6 +43,7 @@ export default function HqJourneysPage() {
   const [params, setParams] = useSearchParams();
   const showNew = params.get("new") === "1";
   const presetClient = params.get("client") ?? "";
+  const presetService = params.get("service") ?? "";
 
   const [service, setService] = useState<string>("all");
   const [status, setStatus] = useState<string>("open");
@@ -60,6 +61,11 @@ export default function HqJourneysPage() {
     queryFn: () => journeyApi.openTasks(),
     enabled: !engagements.isError,
     retry: 1,
+  });
+  const myWork = useQuery({
+    queryKey: ["hq", "my-journey-work"],
+    queryFn: () => journeyApi.myWork(),
+    retry: 0,
   });
   const staff = useQuery({
     queryKey: ["hq", "staff"],
@@ -113,10 +119,6 @@ export default function HqJourneysPage() {
     return true;
   });
 
-  const myTasks = (tasks.data ?? []).filter(
-    (task) => task.assignee_id === user?.id && isOpen(task.status),
-  );
-
   const followUps = (engagements.data ?? []).filter(
     (row) =>
       row.status !== "cancelled" &&
@@ -128,15 +130,15 @@ export default function HqJourneysPage() {
     <div className="space-y-6 max-w-6xl">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-serif text-3xl font-bold">Client journeys</h1>
+          <h1 className="font-serif text-3xl font-bold">Journeys</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Engagements from inquiry through completion and follow-up.
+            Session, project, and counsel. One engagement for each service a client buys.
           </p>
         </div>
         <div className="flex gap-2">
           {canApprove ? (
             <Button variant="outline" asChild>
-              <Link to="/hq/journeys/templates">Templates</Link>
+              <Link to="/hq/settings/services">Templates</Link>
             </Button>
           ) : null}
           {canManage ? (
@@ -187,24 +189,28 @@ export default function HqJourneysPage() {
         </button>
       </div> : null}
 
-      {!canManage ? (
-        <section className="rounded-lg border border-border bg-background p-5">
-          <h2 className="font-serif text-xl font-bold">Your work</h2>
-          <ul className="mt-3 space-y-2 text-sm">
-            {myTasks.map((task) => (
-              <li key={task.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
+      <section className="rounded-lg border border-border bg-background p-5">
+        <h2 className="font-serif text-xl font-bold">My work</h2>
+        <ul className="mt-3 space-y-2 text-sm">
+          {(myWork.data ?? []).map((task) => (
+            <li key={task.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
+              <div>
                 <Link to={`/hq/journeys/${task.engagement_id}`} className="font-medium text-primary hover:underline">
                   {task.title}
                 </Link>
-                <span className="text-muted-foreground">
-                  {task.due_date ? format(parseISO(task.due_date), "MMM d") : "No due date"}
-                </span>
-              </li>
-            ))}
-            {!myTasks.length ? <li className="text-muted-foreground">No open tasks assigned to you.</li> : null}
-          </ul>
-        </section>
-      ) : null}
+                <p className="text-muted-foreground">
+                  {task.client_name || "Client"}
+                  {task.stage_name ? ` · ${task.stage_name}` : ""}
+                </p>
+              </div>
+              <span className="text-muted-foreground">
+                {task.due_date ? format(parseISO(task.due_date), "MMM d") : "No due date"}
+              </span>
+            </li>
+          ))}
+          {!myWork.data?.length ? <li className="text-muted-foreground">No open tasks assigned to you.</li> : null}
+        </ul>
+      </section>
 
       {showNew && canManage ? (
         <OpenEngagementForm
@@ -212,6 +218,7 @@ export default function HqJourneysPage() {
           templates={(templates.data ?? []).filter((t) => t.is_active)}
           staff={staff.data ?? []}
           presetClient={presetClient}
+          presetService={presetService}
           defaultOwner={user?.id ?? ""}
           onCancel={() => {
             const next = new URLSearchParams(params);
@@ -311,6 +318,7 @@ function OpenEngagementForm({
   templates,
   staff,
   presetClient,
+  presetService,
   defaultOwner,
   onCancel,
   onCreated,
@@ -319,6 +327,7 @@ function OpenEngagementForm({
   templates: { id: string; name: string; service_key: string }[];
   staff: { id: string; full_name: string | null }[];
   presetClient: string;
+  presetService: string;
   defaultOwner: string;
   onCancel: () => void;
   onCreated: (id: string) => void;
@@ -326,7 +335,8 @@ function OpenEngagementForm({
   const [clientId, setClientId] = useState(presetClient);
   const [templateId, setTemplateId] = useState("");
   const [ownerId, setOwnerId] = useState(defaultOwner);
-  const selectedTemplate = templateId || templates[0]?.id || "";
+  const presetTemplate = templates.find((template) => template.service_key === presetService)?.id ?? "";
+  const selectedTemplate = templateId || presetTemplate || templates[0]?.id || "";
   const [title, setTitle] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");

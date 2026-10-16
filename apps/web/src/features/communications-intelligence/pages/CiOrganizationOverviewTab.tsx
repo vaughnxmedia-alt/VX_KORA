@@ -14,6 +14,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ciApi } from "../api";
+import { journeyApi } from "@/features/hq/journeyApi";
+import { INTERESTED_SERVICE_LABELS } from "@/features/hq/types";
 import { CiDeleteClientDialog } from "./CiDeleteClientDialog";
 import {
   CI_MEMBER_ROLE_LABELS,
@@ -171,6 +173,14 @@ export function CiOrganizationOverviewTab() {
           <p className="mt-2 text-xs uppercase tracking-[0.08em] text-muted-foreground">
             {profileStatus === "complete" ? "Marked complete" : "Draft in progress"}
           </p>
+          {org.hq_client_id ? (
+            <p className="mt-3 text-sm">
+              <Link to={`/hq/clients/${org.hq_client_id}`} className="text-primary underline">
+                HQ client profile
+              </Link>
+              <PortalJourneys clientId={org.hq_client_id} />
+            </p>
+          ) : null}
         </div>
 
         <form
@@ -509,5 +519,30 @@ export function CiOrganizationOverviewTab() {
         organizationName={org.name}
       />
     </div>
+  );
+}
+
+function PortalJourneys({ clientId }: { clientId: string }) {
+  const journeys = useQuery({
+    queryKey: ["hq", "engagements"],
+    queryFn: () => journeyApi.engagements.list(),
+    retry: 0,
+  });
+  const open = (journeys.data ?? []).filter(
+    (row) => row.client_id === clientId && row.status !== "completed" && row.status !== "cancelled",
+  );
+  if (!open.length) return null;
+  return (
+    <span className="mt-2 block text-muted-foreground">
+      Open journeys:{" "}
+      {open.map((row, index) => (
+        <span key={row.id}>
+          {index > 0 ? ", " : ""}
+          <Link to={`/hq/journeys/${row.id}`} className="text-primary underline">
+            {INTERESTED_SERVICE_LABELS[row.service_key]}
+          </Link>
+        </span>
+      ))}
+    </span>
   );
 }

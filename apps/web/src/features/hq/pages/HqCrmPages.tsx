@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { hqApi, logHqActivity } from "../api";
+import { ClientHomeTabs } from "./HqClientsPages";
 import {
   LEAD_STAGE_LABELS,
   LEAD_STAGES,
@@ -214,7 +215,7 @@ export function HqCrmListPage() {
     <div className="space-y-6 max-w-6xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-serif text-3xl font-bold">CRM</h1>
+          <h1 className="font-serif text-3xl font-bold">Inquiries</h1>
           <p className="text-muted-foreground text-sm mt-1">Pipeline for strategic communications opportunities</p>
         </div>
         <div className="flex gap-2">
@@ -234,6 +235,7 @@ export function HqCrmListPage() {
           </Button>
         </div>
       </div>
+      <ClientHomeTabs current="inquiries" />
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
@@ -379,7 +381,9 @@ export function HqCrmEditorPage() {
     onSuccess: (client) => {
       void qc.invalidateQueries({ queryKey: ["hq"] });
       toast.success("Converted to client");
-      navigate(`/hq/clients/${client.id}`);
+      const service = lead?.interested_service;
+      const offer = service && service !== "other" ? `?journey=${service}` : "";
+      navigate(`/hq/clients/${client.id}${offer}`);
     },
     onError: (e: Error) => toast.error(e.message),
   });

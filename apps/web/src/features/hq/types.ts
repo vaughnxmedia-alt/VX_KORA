@@ -471,6 +471,54 @@ export type HqEngagementDocument = {
   created_at: string;
 };
 
+export type HqEngagementAssignment = {
+  id: string;
+  engagement_id: string;
+  user_id: string;
+  assignment_role: "lead" | "contributor";
+  assigned_at: string;
+};
+
+export type CaseApprovalStatus = "not_requested" | "requested" | "approved" | "declined";
+export type CasePublicationStatus = "internal" | "copied";
+
+export const CASE_APPROVAL_LABELS: Record<CaseApprovalStatus, string> = {
+  not_requested: "Not requested",
+  requested: "Requested",
+  approved: "Approved",
+  declined: "Declined",
+};
+
+export type HqCaseStudy = {
+  id: string;
+  engagement_id: string;
+  client_id: string;
+  title: string;
+  objectives: string;
+  work_performed: string;
+  outcomes: string;
+  evidence: string;
+  approval_status: CaseApprovalStatus;
+  publication_status: CasePublicationStatus;
+  blog_post_id: string | null;
+  created_at: string;
+  updated_at: string;
+  client?: { client_name: string } | null;
+  engagement?: { title: string; service_key: JourneyService; status: JourneyStatus } | null;
+};
+
+export type MyJourneyWork = {
+  id: string;
+  title: string;
+  status: JourneyStatus;
+  due_date: string | null;
+  engagement_id: string;
+  stage_name: string | null;
+  client_name: string | null;
+  engagement_title: string | null;
+  service_key: JourneyService;
+};
+
 /** Permission matrix for HQ modules */
 export function canAccessHqModule(
   role: HqRole | null,

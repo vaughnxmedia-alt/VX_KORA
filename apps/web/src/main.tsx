@@ -135,6 +135,7 @@ const HqJourneyTemplatesPage = React.lazy(() => import('@/features/hq/pages/HqJo
 const HqContentListPage = React.lazy(() =>
   import('@/features/hq/pages/HqContentPages').then((m) => ({ default: m.HqContentListPage })),
 );
+const HqCaseStudiesPage = React.lazy(() => import('@/features/hq/pages/HqCaseStudiesPage'));
 const HqContentEditorPage = React.lazy(() =>
   import('@/features/hq/pages/HqContentPages').then((m) => ({ default: m.HqContentEditorPage })),
 );
@@ -446,6 +447,7 @@ createRoot(document.getElementById('root')!).render(
                   <Route path="settings/services" element={<HqJourneyTemplatesPage />} />
                   <Route path="journeys/:engagementId" element={<HqEngagementPage />} />
                   <Route path="content" element={<HqContentListPage />} />
+                  <Route path="case-studies" element={<HqCaseStudiesPage />} />
                   <Route path="content/:id" element={<HqContentEditorPage />} />
                   <Route path="team" element={<HqTeamPage />} />
                   <Route path="settings" element={<HqSettingsPage />} />

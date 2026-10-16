@@ -21,14 +21,17 @@ import { useHqAuth } from "../HqAuth";
 import { journeyApi } from "../journeyApi";
 import { JourneyStatusBadge } from "../journeyUi";
 import {
+  CASE_APPROVAL_LABELS,
   COMM_CHANNEL_LABELS,
   INTERESTED_SERVICE_LABELS,
   JOURNEY_STATUSES,
   DELIVERABLE_STATUS_LABELS,
   JOURNEY_STATUS_LABELS,
   NOTE_KIND_LABELS,
+  type CaseApprovalStatus,
   type CommChannel,
   type DeliverableStatus,
+  type HqCaseStudy,
   type JourneyStatus,
   type NoteKind,
 } from "../types";
@@ -92,6 +95,16 @@ export default function HqEngagementPage() {
     queryFn: () => journeyApi.engagementDeliverables(engagementId),
     enabled: Boolean(engagementId),
   });
+  const team = useQuery({
+    queryKey: ["hq", "engagement-team", engagementId],
+    queryFn: () => journeyApi.assignments(engagementId),
+    enabled: Boolean(engagementId),
+  });
+  const caseStudy = useQuery({
+    queryKey: ["hq", "case-study", engagementId],
+    queryFn: () => journeyApi.caseStudies.get(engagementId),
+    enabled: Boolean(engagementId),
+  });
 
   const refresh = async () => {
     await Promise.all([
@@ -106,6 +119,10 @@ export default function HqEngagementPage() {
       qc.invalidateQueries({ queryKey: ["hq", "stage-gaps"] }),
       qc.invalidateQueries({ queryKey: ["hq", "engagements"] }),
       qc.invalidateQueries({ queryKey: ["hq", "engagement-tasks", "open"] }),
+      qc.invalidateQueries({ queryKey: ["hq", "engagement-team", engagementId] }),
+      qc.invalidateQueries({ queryKey: ["hq", "case-study", engagementId] }),
+      qc.invalidateQueries({ queryKey: ["hq", "case-studies"] }),
+      qc.invalidateQueries({ queryKey: ["hq", "my-journey-work"] }),
     ]);
   };
 
@@ -156,6 +173,46 @@ export default function HqEngagementPage() {
         <Meta label="Target end" value={row.target_end_date ? format(parseISO(row.target_end_date), "MMM d, yyyy") : "—"} />
         <Meta label="Follow-up" value={row.follow_up_date ? format(parseISO(row.follow_up_date), "MMM d, yyyy") : "—"} />
       </div>
+
+      <section className="rounded-lg border border-border bg-background p-5 space-y-3">
+        <div>
+          <h2 className="font-serif text-xl font-bold">Team</h2>
+          <p className="text-sm text-muted-foreground">People who can see and work this engagement.</p>
+        </div>
+        <ul className="space-y-2 text-sm">
+          {(team.data ?? []).map((member) => (
+            <li key={member.id} className="flex items-center justify-between gap-3">
+              <span>
+                {staffName(member.user_id)}
+                <span className="text-muted-foreground"> · {member.assignment_role === "lead" ? "Lead" : "Contributor"}</span>
+              </span>
+              {canManage && member.user_id !== row.owner_id ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => run.mutate(() => journeyApi.setAssignment(row.id, member.user_id, "remove"))}
+                >
+                  Remove
+                </Button>
+              ) : null}
+            </li>
+          ))}
+          {!team.data?.length ? <li className="text-muted-foreground">No one is assigned yet.</li> : null}
+        </ul>
+        {canManage ? (
+          <TeamAdd
+            staff={(staff.data ?? []).filter((person) => !(team.data ?? []).some((member) => member.user_id === person.id))}
+            onAdd={(userId) => run.mutate(() => journeyApi.setAssignment(row.id, userId, "contributor"))}
+          />
+        ) : null}
+      </section>
+
+      <CaseStudyPanel
+        engagementId={row.id}
+        record={caseStudy.data ?? null}
+        canPrepare={canManage}
+        onChange={(work) => run.mutate(work)}
+      />
 
       {canManage ? (
         <div className="flex flex-wrap gap-3">
@@ -585,6 +642,164 @@ function CommForm({
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+function TeamAdd({
+  staff,
+  onAdd,
+}: {
+  staff: { id: string; full_name: string | null }[];
+  onAdd: (userId: string) => void;
+}) {
+  const [userId, setUserId] = useState("");
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Select value={userId || undefined} onValueChange={setUserId}>
+        <SelectTrigger className="w-56"><SelectValue placeholder="Add a teammate" /></SelectTrigger>
+        <SelectContent>
+          {staff.map((person) => (
+            <SelectItem key={person.id} value={person.id}>{person.full_name || "Staff"}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Button
+        type="button"
+        variant="outline"
+        disabled={!userId}
+        onClick={() => {
+          onAdd(userId);
+          setUserId("");
+        }}
+      >
+        Add contributor
+      </Button>
+    </div>
+  );
+}
+
+function CaseStudyPanel({
+  engagementId,
+  record,
+  canPrepare,
+  onChange,
+}: {
+  engagementId: string;
+  record: HqCaseStudy | null;
+  canPrepare: boolean;
+  onChange: (work: () => Promise<unknown>) => void;
+}) {
+  if (!record) {
+    return (
+      <section className="rounded-lg border border-border bg-background p-5 space-y-3">
+        <h2 className="font-serif text-xl font-bold">Internal case study</h2>
+        <p className="text-sm text-muted-foreground">
+          Closing this engagement requires an unpublished draft. It is not added to /work.
+        </p>
+        <Button type="button" variant="outline" onClick={() => onChange(() => journeyApi.caseStudies.ensure(engagementId))}>
+          Create draft
+        </Button>
+      </section>
+    );
+  }
+  return <CaseStudyForm key={record.updated_at} engagementId={engagementId} record={record} canPrepare={canPrepare} onChange={onChange} />;
+}
+
+function CaseStudyForm({
+  engagementId,
+  record,
+  canPrepare,
+  onChange,
+}: {
+  engagementId: string;
+  record: HqCaseStudy;
+  canPrepare: boolean;
+  onChange: (work: () => Promise<unknown>) => void;
+}) {
+  const [objectives, setObjectives] = useState(record.objectives);
+  const [workPerformed, setWorkPerformed] = useState(record.work_performed);
+  const [outcomes, setOutcomes] = useState(record.outcomes);
+  const [evidence, setEvidence] = useState(record.evidence);
+  const [approval, setApproval] = useState<CaseApprovalStatus>(record.approval_status);
+
+  return (
+    <section className="rounded-lg border border-border bg-background p-5 space-y-4">
+      <div>
+        <h2 className="font-serif text-xl font-bold">Internal case study</h2>
+        <p className="text-sm text-muted-foreground">
+          Draft only. Closing the engagement checks that this record exists. Copying it creates an unpublished
+          Brief draft. Public /work stays a separate manual step.
+        </p>
+      </div>
+      <div className="grid gap-4">
+        <div className="space-y-2">
+          <Label>Objectives</Label>
+          <Textarea value={objectives} onChange={(e) => setObjectives(e.target.value)} rows={3} />
+        </div>
+        <div className="space-y-2">
+          <Label>Work performed</Label>
+          <Textarea value={workPerformed} onChange={(e) => setWorkPerformed(e.target.value)} rows={3} />
+        </div>
+        <div className="space-y-2">
+          <Label>Outcomes</Label>
+          <Textarea value={outcomes} onChange={(e) => setOutcomes(e.target.value)} rows={3} />
+        </div>
+        <div className="space-y-2">
+          <Label>Evidence</Label>
+          <Textarea value={evidence} onChange={(e) => setEvidence(e.target.value)} rows={3} />
+        </div>
+        <div className="space-y-2">
+          <Label>Client approval</Label>
+          <Select value={approval} onValueChange={(value) => setApproval(value as CaseApprovalStatus)}>
+            <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {(Object.keys(CASE_APPROVAL_LABELS) as CaseApprovalStatus[]).map((key) => (
+                <SelectItem key={key} value={key}>{CASE_APPROVAL_LABELS[key]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          onClick={() =>
+            onChange(() =>
+              journeyApi.caseStudies.save({
+                engagement_id: engagementId,
+                objectives,
+                work_performed: workPerformed,
+                outcomes,
+                evidence,
+                approval_status: approval,
+              }),
+            )
+          }
+        >
+          Save draft
+        </Button>
+        {canPrepare && !record.blog_post_id ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() =>
+              onChange(async () => {
+                const postId = await journeyApi.caseStudies.copyDraft(engagementId);
+                toast.success("Unpublished draft saved in The Brief");
+                return postId;
+              })
+            }
+          >
+            Copy to an unpublished draft
+          </Button>
+        ) : null}
+        {record.blog_post_id ? (
+          <Button type="button" variant="ghost" asChild>
+            <Link to={`/hq/content/${record.blog_post_id}`}>Open the Brief draft</Link>
+          </Button>
+        ) : null}
+      </div>
     </section>
   );
 }

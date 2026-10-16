@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { hqApi, logHqActivity } from "../api";
 import { journeyApi } from "../journeyApi";
@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { Plus, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { cn } from "@/lib/utils";
+import { useHqAuth } from "../HqAuth";
 
 const emptyClient = (): Partial<HqClient> & { client_name: string } => ({
   client_name: "",
@@ -166,6 +167,36 @@ function ClientForm({
   );
 }
 
+export function ClientHomeTabs({ current }: { current: "clients" | "inquiries" }) {
+  const { can } = useHqAuth();
+  return (
+    <div className="flex gap-2">
+      <Link
+        to="/hq/clients"
+        className={cn(
+          "rounded-full border px-3 py-1 text-sm",
+          current === "clients" ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground",
+        )}
+      >
+        Clients
+      </Link>
+      {can("crm") ? (
+        <Link
+          to="/hq/crm"
+          className={cn(
+            "rounded-full border px-3 py-1 text-sm",
+            current === "inquiries"
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-border text-muted-foreground",
+          )}
+        >
+          Inquiries
+        </Link>
+      ) : null}
+    </div>
+  );
+}
+
 export function HqClientsListPage() {
   const navigate = useNavigate();
   const { data: clients = [], isLoading } = useQuery({
@@ -178,13 +209,14 @@ export function HqClientsListPage() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="font-serif text-3xl font-bold">Clients</h1>
-          <p className="text-sm text-muted-foreground mt-1">Active and prospect relationships</p>
+          <p className="text-sm text-muted-foreground mt-1">Profiles, inquiries, and the engagements opened for each client.</p>
         </div>
         <Button onClick={() => navigate("/hq/clients/new")}>
           <Plus className="h-4 w-4 mr-1" />
           New client
         </Button>
       </div>
+      <ClientHomeTabs current="clients" />
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : (
@@ -233,6 +265,8 @@ export function HqClientsListPage() {
 export function HqClientDetailPage() {
   const { id } = useParams();
   const isNew = !id || id === "new";
+  const [params] = useSearchParams();
+  const offer = params.get("journey");
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { user } = useAuth();
@@ -259,6 +293,20 @@ export function HqClientDetailPage() {
     enabled: !isNew && tab === "journeys",
     retry: 0,
   });
+  const portal = useQuery({
+    queryKey: ["hq", "linked-portal", id],
+    queryFn: () => journeyApi.linkedPortal(id as string),
+    enabled: !isNew && Boolean(id),
+    retry: 0,
+  });
+  const offerTemplates = useQuery({
+    queryKey: ["hq", "journey-templates"],
+    queryFn: () => journeyApi.templates.list(),
+    enabled: offer === "session" || offer === "project" || offer === "counsel",
+  });
+  const matchingTemplate = (offerTemplates.data ?? []).find(
+    (template) => template.is_active && template.service_key === offer,
+  );
 
   const save = useMutation({
     mutationFn: async (row: Partial<HqClient> & { client_name: string }) => {
@@ -305,6 +353,41 @@ export function HqClientDetailPage() {
         Back to clients
       </Button>
       <h1 className="font-serif text-3xl font-bold">{isNew ? "New client" : client?.client_name}</h1>
+
+      {!isNew && (offer === "session" || offer === "project" || offer === "counsel") ? (
+        <div className="rounded-lg border border-border bg-background p-4 text-sm">
+          <p className="font-medium">
+            This inquiry asked for {INTERESTED_SERVICE_LABELS[offer]}.
+          </p>
+          {matchingTemplate ? (
+            <p className="mt-1 text-muted-foreground">
+              The matching journey is {matchingTemplate.name}. Opening it is a separate step.
+            </p>
+          ) : (
+            <p className="mt-1 text-muted-foreground">
+              There is no active template for that service yet. An owner can publish one in Settings.
+            </p>
+          )}
+          <Button className="mt-3" variant="outline" asChild>
+            <Link to={`/hq/journeys?new=1&client=${id}&service=${offer}`}>Review the journey</Link>
+          </Button>
+        </div>
+      ) : null}
+
+      {!isNew && portal.data?.length ? (
+        <p className="text-sm text-muted-foreground">
+          Client portal:{" "}
+          {portal.data.map((org) => (
+            <Link
+              key={org.organization_id}
+              to={`/hq/intelligence/organizations/${org.organization_id}/overview`}
+              className="text-primary underline"
+            >
+              {org.organization_name}
+            </Link>
+          ))}
+        </p>
+      ) : null}
 
       {!isNew ? (
         <div className="flex flex-wrap gap-2 border-b border-border pb-2">

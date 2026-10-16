@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { hqApi, logHqActivity } from "../api";
+import { journeyApi } from "../journeyApi";
 import {
   TASK_PRIORITY_LABELS,
   TASK_STATUS_LABELS,
@@ -30,7 +31,7 @@ import {
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
-import { addDays, endOfDay, isSameDay, isWithinInterval, parseISO, startOfDay } from "date-fns";
+import { addDays, endOfDay, format, isSameDay, isWithinInterval, parseISO, startOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
 
 type ViewFilter = "my" | "today" | "week" | "completed" | "all";
@@ -53,6 +54,11 @@ export default function HqTasksPage() {
   const { data: clients = [] } = useQuery({
     queryKey: ["hq", "clients"],
     queryFn: () => hqApi.clients.list(),
+  });
+  const journeyWork = useQuery({
+    queryKey: ["hq", "my-journey-work"],
+    queryFn: () => journeyApi.myWork(),
+    retry: 0,
   });
 
   const filtered = useMemo(() => {
@@ -123,7 +129,9 @@ export default function HqTasksPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-serif text-3xl font-bold">Tasks</h1>
-          <p className="text-sm text-muted-foreground mt-1">Lightweight ops tracking—not a second Asana</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Journey work assigned to you, plus the shorter ops list.
+          </p>
         </div>
         <Button
           onClick={() => {
@@ -141,6 +149,37 @@ export default function HqTasksPage() {
           New task
         </Button>
       </div>
+
+      <section className="rounded-lg border border-border bg-background p-5">
+        <h2 className="font-serif text-xl font-bold">My work</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Open journey tasks assigned to you, with the client and stage.</p>
+        {journeyWork.isLoading ? (
+          <p className="mt-3 text-sm text-muted-foreground">Loading…</p>
+        ) : (
+          <ul className="mt-3 space-y-2 text-sm">
+            {(journeyWork.data ?? []).map((task) => (
+              <li key={task.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
+                <div>
+                  <Link to={`/hq/journeys/${task.engagement_id}`} className="font-medium text-primary hover:underline">
+                    {task.title}
+                  </Link>
+                  <p className="text-muted-foreground">
+                    {task.client_name || "Client"}
+                    {task.stage_name ? ` · ${task.stage_name}` : ""}
+                    {task.engagement_title ? ` · ${task.engagement_title}` : ""}
+                  </p>
+                </div>
+                <span className="text-muted-foreground">
+                  {task.due_date ? format(parseISO(task.due_date), "MMM d") : "No due date"}
+                </span>
+              </li>
+            ))}
+            {!journeyWork.data?.length ? (
+              <li className="text-muted-foreground">No open journey tasks assigned to you.</li>
+            ) : null}
+          </ul>
+        )}
+      </section>
 
       <div className="flex flex-wrap gap-2">
         {views.map((v) => (

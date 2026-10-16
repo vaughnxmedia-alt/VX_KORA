@@ -6,8 +6,11 @@ import type {
   HqEngagementDocument,
   HqEngagementNote,
   HqEngagementStage,
+  HqEngagementAssignment,
   HqEngagementTask,
+  HqCaseStudy,
   HqJourneyTemplate,
+  MyJourneyWork,
   HqStaff,
   HqTemplateStage,
   HqTemplateTask,
@@ -275,6 +278,84 @@ export const journeyApi = {
         p_owner_id: ownerId,
       });
       unwrap(error, null);
+    },
+  },
+
+  assignments: async (engagementId: string): Promise<HqEngagementAssignment[]> => {
+    const { data, error } = await db
+      .from("hq_engagement_assignments")
+      .select("id,engagement_id,user_id,assignment_role,assigned_at")
+      .eq("engagement_id", engagementId)
+      .order("assigned_at");
+    return unwrap(error, (data ?? []) as HqEngagementAssignment[]);
+  },
+
+  setAssignment: async (engagementId: string, userId: string, role: "contributor" | "lead" | "remove") => {
+    const { error } = await db.rpc("hq_set_engagement_assignment", {
+      p_engagement_id: engagementId,
+      p_user_id: userId,
+      p_role: role,
+    });
+    unwrap(error, null);
+  },
+
+  myWork: async (): Promise<MyJourneyWork[]> => {
+    const { data, error } = await db.rpc("hq_my_journey_work");
+    return unwrap(error, (data ?? []) as MyJourneyWork[]);
+  },
+
+  linkedPortal: async (clientId: string): Promise<{ organization_id: string; organization_name: string }[]> => {
+    const { data, error } = await db.rpc("hq_linked_portal", { p_client_id: clientId });
+    return unwrap(error, (data ?? []) as { organization_id: string; organization_name: string }[]);
+  },
+
+  caseStudies: {
+    list: async (): Promise<HqCaseStudy[]> => {
+      const { data, error } = await db
+        .from("hq_engagement_case_studies")
+        .select(
+          "id,engagement_id,client_id,title,objectives,work_performed,outcomes,evidence,approval_status,publication_status,blog_post_id,created_at,updated_at, client:hq_clients(client_name), engagement:hq_engagements(title,service_key,status)",
+        )
+        .order("updated_at", { ascending: false });
+      return unwrap(error, (data ?? []) as HqCaseStudy[]);
+    },
+    get: async (engagementId: string): Promise<HqCaseStudy | null> => {
+      const { data, error } = await db
+        .from("hq_engagement_case_studies")
+        .select(
+          "id,engagement_id,client_id,title,objectives,work_performed,outcomes,evidence,approval_status,publication_status,blog_post_id,created_at,updated_at",
+        )
+        .eq("engagement_id", engagementId)
+        .maybeSingle();
+      return unwrap(error, (data ?? null) as HqCaseStudy | null);
+    },
+    ensure: async (engagementId: string) => {
+      const { data, error } = await db.rpc("hq_ensure_case_study", { p_engagement_id: engagementId });
+      return unwrap(error, data as string);
+    },
+    save: async (input: {
+      engagement_id: string;
+      objectives: string;
+      work_performed: string;
+      outcomes: string;
+      evidence: string;
+      approval_status: HqCaseStudy["approval_status"];
+    }) => {
+      const { error } = await db.rpc("hq_save_case_study", {
+        p_engagement_id: input.engagement_id,
+        p_objectives: input.objectives,
+        p_work_performed: input.work_performed,
+        p_outcomes: input.outcomes,
+        p_evidence: input.evidence,
+        p_approval_status: input.approval_status,
+      });
+      unwrap(error, null);
+    },
+    copyDraft: async (engagementId: string) => {
+      const { data, error } = await db.rpc("hq_copy_case_study_to_brief", {
+        p_engagement_id: engagementId,
+      });
+      return unwrap(error, data as string);
     },
   },
 

@@ -27,14 +27,15 @@ Existing admins are auto-seeded as HQ **owner**.
 
 | Module | Route |
 |--------|--------|
-| Dashboard | `/hq` |
+| Today | `/hq` |
 | CRM | `/hq/crm`, `/hq/crm/:id` |
 | Clients | `/hq/clients`, `/hq/clients/:id` |
 | Tasks | `/hq/tasks` |
 | Journeys | `/hq/journeys`, `/hq/journeys/:id` |
 | Journey templates | `/hq/settings/services` and `/hq/journeys/templates` (Owner edits; other staff can preview) |
-| Communications Intelligence | `/hq/intelligence`, `/hq/intelligence/organizations`, `/hq/intelligence/pilot`, `/hq/intelligence/learning`, `/hq/intelligence/counsel`, org tabs for intelligence, health, messaging, opportunities, actions, counsel, outcomes, reports, and pilot |
-| Content CMS | `/hq/content`, `/hq/content/:id` |
+| Client portal | `/hq/intelligence`, `/hq/intelligence/organizations`, `/hq/intelligence/pilot`, `/hq/intelligence/learning`, `/hq/intelligence/counsel`, org tabs for intelligence, health, messaging, opportunities, actions, counsel, outcomes, reports, and pilot |
+| The Brief | `/hq/content`, `/hq/content/:id` — SPAM Report and PR Court are filters. `/insights/spam-report` and `/the-brief/:slug` stay in place |
+| Internal case studies | `/hq/case-studies` — drafts tied to engagements. Public `/work` is unchanged |
 | Team | `/hq/team` (Owner) |
 | Settings | `/hq/settings` |
 
@@ -56,6 +57,10 @@ Apply `apps/web/supabase/migrations/20261015220000_hq_client_journeys.sql`, then
 One `hq_clients` row stays the permanent client. Each service is an `hq_engagements` row copied from a versioned journey template. Services live in `hq_services`. Owners edit master templates from Settings → Services. If a template already has engagements, the next edit forks a new version and leaves the open journey unchanged. Stages, tasks, deliverables, assignment rules, due-date rules, and completion requirements are stored on the template and copied onto the engagement.
 
 Owners approve stages and deliverables. Strategists open, customize, and reassign engagements. Other HQ staff see only engagements they own, are assigned to, or have tasks on. Notes, communications, and the activity log cannot be edited or deleted. Templates are archived, not deleted.
+
+Opening an engagement creates an internal case-study draft. Closing the engagement requires that draft. Copying it writes an unpublished `blog_posts` row. Public `/work` is still the static case-study site.
+
+Apply `apps/web/supabase/migrations/20261016010000_hq_operating_reset.sql` after the journey migrations.
 
 ## Not in V1
 

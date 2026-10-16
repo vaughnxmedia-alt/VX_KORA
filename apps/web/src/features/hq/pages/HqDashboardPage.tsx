@@ -57,6 +57,11 @@ export default function HqDashboardPage() {
     queryFn: () => journeyApi.engagements.list(),
     retry: 0,
   });
+  const { data: journeyWork = [] } = useQuery({
+    queryKey: ["hq", "my-journey-work"],
+    queryFn: () => journeyApi.myWork(),
+    retry: 0,
+  });
   const { data: activity = [] } = useQuery({
     queryKey: ["hq", "activity"],
     queryFn: () => hqApi.activity.recent(15),
@@ -76,12 +81,16 @@ export default function HqDashboardPage() {
   const followUpsDue = leads.filter(
     (l) => l.next_follow_up_date && parseISO(l.next_follow_up_date) <= weekEnd,
   ).length;
-  const tasksDueWeek = tasks.filter(
-    (t) =>
-      t.status !== "complete" &&
-      t.due_date &&
-      isWithinInterval(parseISO(t.due_date), { start: startOfDay(today), end: weekEnd }),
-  ).length;
+  const tasksDueWeek =
+    tasks.filter(
+      (t) =>
+        t.status !== "complete" &&
+        t.due_date &&
+        isWithinInterval(parseISO(t.due_date), { start: startOfDay(today), end: weekEnd }),
+    ).length +
+    journeyWork.filter(
+      (t) => t.due_date && isWithinInterval(parseISO(t.due_date), { start: startOfDay(today), end: weekEnd }),
+    ).length;
   const drafts = content.filter((c) => resolvePublicationStatus(c) === "draft").length;
   const published = content.filter((c) => resolvePublicationStatus(c) === "live").length;
 
@@ -91,6 +100,7 @@ export default function HqDashboardPage() {
   const tasksToday = tasks.filter(
     (t) => t.status !== "complete" && t.due_date && isSameDay(parseISO(t.due_date), today),
   );
+  const journeyDueToday = journeyWork.filter((t) => t.due_date && isSameDay(parseISO(t.due_date), today));
   const recentLeads = [...leads]
     .sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))
     .slice(0, 5);
@@ -98,8 +108,8 @@ export default function HqDashboardPage() {
   return (
     <div className="space-y-8 max-w-6xl">
       <div>
-        <h1 className="font-serif text-3xl font-bold tracking-tight">Command Center</h1>
-        <p className="text-muted-foreground mt-1">JahKnowsPR HQ · Strategic Communications Operations</p>
+        <h1 className="font-serif text-3xl font-bold tracking-tight">Today</h1>
+        <p className="text-muted-foreground mt-1">Client work, follow-ups, and the journeys assigned to you.</p>
       </div>
 
       {leadsError ? (
@@ -131,9 +141,9 @@ export default function HqDashboardPage() {
         <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gold-dark">
-              Communications Intelligence
+              Client portal
             </p>
-            <h2 className="font-serif text-xl font-semibold">Strategic Counsel</h2>
+            <h2 className="font-serif text-xl font-semibold">Assessment requests</h2>
           </div>
           <Link to="/hq/intelligence/counsel" className="text-sm text-primary underline underline-offset-4">
             View counsel requests
@@ -175,13 +185,52 @@ export default function HqDashboardPage() {
               )}
             </div>
             <div>
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Journey work
+                </p>
+                <Link to="/hq/tasks" className="text-xs text-primary underline underline-offset-4">
+                  All tasks
+                </Link>
+              </div>
+              {journeyWork.length === 0 ? (
+                <p className="text-muted-foreground">No open journey tasks assigned to you.</p>
+              ) : (
+                <ul className="space-y-1">
+                  {journeyWork.slice(0, 8).map((task) => (
+                    <li key={task.id}>
+                      <Link to={`/hq/journeys/${task.engagement_id}`} className="text-primary hover:underline">
+                        {task.title}
+                      </Link>
+                      <span className="text-muted-foreground">
+                        {" "}
+                        · {task.client_name || "Client"}
+                        {task.stage_name ? ` · ${task.stage_name}` : ""}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                 Tasks due today
               </p>
-              {tasksToday.length === 0 ? (
+              {tasksToday.length === 0 && journeyDueToday.length === 0 ? (
                 <p className="text-muted-foreground">None</p>
               ) : (
                 <ul className="space-y-1">
+                  {journeyDueToday.map((t) => (
+                    <li key={t.id}>
+                      <Link to={`/hq/journeys/${t.engagement_id}`} className="text-primary hover:underline">
+                        {t.title}
+                      </Link>
+                      <span className="text-muted-foreground">
+                        {" "}
+                        · {t.client_name || "Client"} · Journey
+                      </span>
+                    </li>
+                  ))}
                   {tasksToday.map((t) => (
                     <li key={t.id}>
                       <Link to="/hq/tasks" className="text-primary hover:underline">

@@ -1,12 +1,9 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
-  Users,
   Building2,
-  CheckSquare,
   Route,
   BookOpen,
-  Newspaper,
   Briefcase,
   Settings,
   UserCog,
@@ -33,35 +30,27 @@ type NavItem = {
   module: Parameters<ReturnType<typeof useHqAuth>["can"]>[0];
 };
 
-const COMMAND: NavItem[] = [
-  { label: "Dashboard", to: "/hq", icon: LayoutDashboard, module: "dashboard" },
+const TODAY: NavItem[] = [
+  { label: "Today", to: "/hq", icon: LayoutDashboard, module: "dashboard" },
 ];
 
-const BUSINESS: NavItem[] = [
-  { label: "CRM", to: "/hq/crm", icon: Users, module: "crm" },
+const SERVICE: NavItem[] = [
   { label: "Clients", to: "/hq/clients", icon: Building2, module: "clients" },
-  { label: "Tasks", to: "/hq/tasks", icon: CheckSquare, module: "tasks" },
   { label: "Journeys", to: "/hq/journeys", icon: Route, module: "journeys" },
 ];
 
-const INTELLIGENCE: NavItem[] = [
-  {
-    label: "Communications",
-    to: "/hq/intelligence",
-    icon: Radar,
-    module: "intelligence",
-  },
-];
-
-const CONTENT: NavItem[] = [
-  { label: "The Brief", to: "/hq/content?type=the-brief", icon: BookOpen, module: "content" },
-  { label: "SPAM Report", to: "/hq/content?type=spam-report", icon: Newspaper, module: "content" },
-  { label: "Case Studies", to: "/hq/content?type=case-study", icon: Briefcase, module: "content" },
+const EDITORIAL: NavItem[] = [
+  { label: "The Brief", to: "/hq/content", icon: BookOpen, module: "content" },
+  { label: "Case studies", to: "/hq/case-studies", icon: Briefcase, module: "content" },
 ];
 
 const OPERATIONS: NavItem[] = [
   { label: "Team", to: "/hq/team", icon: UserCog, module: "team" },
   { label: "Settings", to: "/hq/settings", icon: Settings, module: "settings" },
+];
+
+const PORTAL: NavItem[] = [
+  { label: "Client portal", to: "/hq/intelligence", icon: Radar, module: "intelligence" },
 ];
 
 function NavSection({
@@ -154,22 +143,11 @@ export function HqLayout() {
         ) : null}
       </div>
       <nav className="flex-1 overflow-y-auto px-2 py-4">
-        <NavSection title="Command Center" items={COMMAND} can={can} onNavigate={() => setMobileOpen(false)} />
-        <NavSection title="Business" items={BUSINESS} can={can} onNavigate={() => setMobileOpen(false)} />
-        <NavSection
-          title="Communications"
-          items={INTELLIGENCE}
-          can={can}
-          onNavigate={() => setMobileOpen(false)}
-        />
-        <NavSection title="Content" items={CONTENT} can={can} onNavigate={() => setMobileOpen(false)} />
+        <NavSection title="Today" items={TODAY} can={can} onNavigate={() => setMobileOpen(false)} />
+        <NavSection title="Service" items={SERVICE} can={can} onNavigate={() => setMobileOpen(false)} />
+        <NavSection title="Editorial" items={EDITORIAL} can={can} onNavigate={() => setMobileOpen(false)} />
         <NavSection title="Operations" items={OPERATIONS} can={can} onNavigate={() => setMobileOpen(false)} />
-        <div className="px-3 pt-2">
-          <p className="text-[10px] uppercase tracking-[0.14em] text-white/30 mb-2">Later</p>
-          <p className="text-xs text-white/35 leading-relaxed">
-            Media · Pitches · Placements · Revenue
-          </p>
-        </div>
+        <NavSection title="Client portal" items={PORTAL} can={can} onNavigate={() => setMobileOpen(false)} />
       </nav>
       <div className="border-t border-white/10 p-3 space-y-2">
         <p className="truncate px-2 text-xs text-white/50">{user?.email}</p>
