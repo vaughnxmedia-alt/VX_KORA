@@ -96,20 +96,20 @@ function FounderPortrait({ name, src }: { name: string; src: string }) {
 
   return (
     <figure className="mx-auto w-full max-w-[280px]">
-      <div className="aspect-[4/5] overflow-hidden border border-border bg-[#0A1A35] shadow-sm">
-        {missing ? (
-          <div className="flex h-full flex-col justify-end bg-[linear-gradient(165deg,#0A1A35_0%,#16325c_62%,#8d7340_140%)] p-6">
-            <span className="font-serif text-5xl text-white">JV</span>
-          </div>
-        ) : (
-          <img
-            src={src}
-            alt={`Portrait of ${name}`}
-            className="h-full w-full object-cover object-top"
-            onError={() => setMissing(true)}
-          />
-        )}
-      </div>
+      {missing ? (
+        <div className="flex aspect-[4/5] flex-col justify-end border border-border bg-[linear-gradient(165deg,#0A1A35_0%,#16325c_62%,#8d7340_140%)] p-6">
+          <span className="font-serif text-5xl text-white">JV</span>
+        </div>
+      ) : (
+        <img
+          src={src}
+          alt={`Portrait of ${name}`}
+          width={819}
+          height={1024}
+          className="h-auto w-full border border-border"
+          onError={() => setMissing(true)}
+        />
+      )}
     </figure>
   );
 }
