@@ -29,7 +29,7 @@ export const firmProfile: FirmProfile = {
         "We work with leaders who think in years, not viral cycles—building trust that compounds.",
     },
   ],
-  founderName: "Jah (Justice Vaughn)",
+  founderName: "Jocelyn Vaughn",
   founderBio:
     "Founder of JahKnowsPR, focused on strategic communications counsel, public relations strategy, and helping leaders control narrative with intention. The firm’s editorial work—The Brief and related analysis—reflects how we think before we execute.",
 };
