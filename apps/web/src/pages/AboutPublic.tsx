@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { StructuredData } from "@/components/StructuredData";
 import { breadcrumbListSchema, personSchema } from "@/lib/structured-data";
@@ -63,17 +63,53 @@ export default function AboutPublic() {
         </div>
       </section>
 
-      <section className="py-16 px-4 sm:px-6 border-b border-border">
-        <div className="max-w-3xl mx-auto space-y-4">
-          <h2 className="text-2xl font-serif font-bold">{firmProfile.founderName}</h2>
-          <p className="text-muted-foreground leading-relaxed">{firmProfile.founderBio}</p>
-          <Button asChild variant="outline">
-            <Link to="/insights/the-brief">Read our analysis on The Brief</Link>
-          </Button>
+      <section className="py-16 md:py-20 px-4 sm:px-6 border-b border-border bg-cream/20">
+        <div className="max-w-6xl mx-auto grid gap-10 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-16 items-start">
+          <FounderPortrait name={firmProfile.founderName} src={firmProfile.founderPhoto} />
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold-dark">Founder</p>
+              <h2 className="font-serif text-3xl md:text-4xl font-bold tracking-tight">{firmProfile.founderName}</h2>
+              <p className="text-base font-medium text-foreground">{firmProfile.founderTitle}</p>
+            </div>
+            <div className="space-y-4">
+              {firmProfile.founderBio.map((paragraph) => (
+                <p key={paragraph.slice(0, 32)} className="text-muted-foreground leading-relaxed">
+                  {paragraph}
+                </p>
+              ))}
+            </div>
+            <Button asChild variant="outline">
+              <Link to="/insights/the-brief">Read our analysis on The Brief</Link>
+            </Button>
+          </div>
         </div>
       </section>
 
       <CTASection />
     </div>
+  );
+}
+
+function FounderPortrait({ name, src }: { name: string; src: string }) {
+  const [missing, setMissing] = useState(false);
+
+  return (
+    <figure className="mx-auto w-full max-w-[280px]">
+      <div className="aspect-[4/5] overflow-hidden border border-border bg-[#0A1A35] shadow-sm">
+        {missing ? (
+          <div className="flex h-full flex-col justify-end bg-[linear-gradient(165deg,#0A1A35_0%,#16325c_62%,#8d7340_140%)] p-6">
+            <span className="font-serif text-5xl text-white">JV</span>
+          </div>
+        ) : (
+          <img
+            src={src}
+            alt={`Portrait of ${name}`}
+            className="h-full w-full object-cover object-top"
+            onError={() => setMissing(true)}
+          />
+        )}
+      </div>
+    </figure>
   );
 }

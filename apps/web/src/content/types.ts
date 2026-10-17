@@ -81,7 +81,10 @@ export type FirmProfile = {
   approachIntro: string;
   values: { title: string; description: string }[];
   founderName: string;
-  founderBio: string;
+  founderTitle: string;
+  /** Public path. Add the portrait at apps/web/public/authors/jocelyn-vaughn.jpg */
+  founderPhoto: string;
+  founderBio: string[];
 };
 
 export const WORK_CATEGORY_LABELS: Record<WorkCategory, string> = {

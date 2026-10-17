@@ -148,11 +148,11 @@ export function personSchema() {
     "@context": "https://schema.org",
     "@type": "Person",
     "@id": `${SITE_ORIGIN}/about#founder`,
-    name: "Jah",
+    name: "Jocelyn Vaughn",
     url: absoluteUrl("/about"),
-    jobTitle: "Media Strategist",
+    jobTitle: "Founder & Principal Strategist",
     worksFor: { "@id": `${SITE_ORIGIN}/#organization` },
     description:
-      "Jah is a media strategist and military veteran who helps entrepreneurs and growing brands clarify their positioning, messaging, and authority strategy.",
+      "Jocelyn Vaughn is the Founder and Principal Strategist of JahKnowsPR, a strategic communications firm helping businesses, organizations, and personal brands communicate with greater clarity, intention, and impact.",
   };
 }
