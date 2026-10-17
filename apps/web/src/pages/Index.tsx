@@ -5,9 +5,9 @@ import { HomeHero } from "@/components/public/home/HomeHero";
 import { HomePositioning } from "@/components/public/home/HomePositioning";
 import { HomeOffers } from "@/components/public/home/HomeOffers";
 import { HomeSelectedWork } from "@/components/public/home/HomeSelectedWork";
+import { HomeFounder } from "@/components/public/home/HomeFounder";
 import { HomeInsights } from "@/components/public/home/HomeInsights";
-import { HomeApproach } from "@/components/public/home/HomeApproach";
-import { CTASection } from "@/components/public/CTASection";
+import { HomeClose } from "@/components/public/home/HomeClose";
 
 const Index = () => {
   useEffect(() => {
@@ -17,10 +17,12 @@ const Index = () => {
       "content",
       "JahKnowsPR is a strategic communications and public relations consultancy helping leaders make smarter decisions before they communicate publicly.",
     );
+    document.documentElement.classList.add("home-publication");
+    return () => document.documentElement.classList.remove("home-publication");
   }, []);
 
   return (
-    <div className="min-h-screen bg-background font-sans">
+    <div className="bg-background font-sans">
       <StructuredData
         id="home-org"
         data={[organizationSchema(), websiteSchema()]}
@@ -29,9 +31,9 @@ const Index = () => {
       <HomePositioning />
       <HomeOffers />
       <HomeSelectedWork />
+      <HomeFounder />
       <HomeInsights />
-      <HomeApproach />
-      <CTASection />
+      <HomeClose />
     </div>
   );
 };

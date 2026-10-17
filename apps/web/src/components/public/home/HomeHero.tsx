@@ -1,36 +1,43 @@
-import { Link } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
+import type { CSSProperties, MouseEvent } from "react";
 import { Button } from "@/components/ui/button";
-import { SESSION_CTA_PATH } from "@/content/firm";
-import { firmProfile } from "@/content/firm";
+
+const HERO_PORTRAIT = "/authors/jocelyn-vaughn-seated.jpg";
+
+function scrollToServices(event: MouseEvent<HTMLAnchorElement>) {
+  const target = document.getElementById("services");
+  if (!target) return;
+  event.preventDefault();
+  target.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 
 export function HomeHero() {
   return (
-    <section className="relative pt-28 pb-20 md:pt-36 md:pb-28 px-4 sm:px-6 border-b border-border bg-background">
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808006_1px,transparent_1px),linear-gradient(to_bottom,#80808006_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
-      <div className="max-w-4xl mx-auto relative z-10 space-y-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gold-dark">
-          {firmProfile.tagline}
-        </p>
-        <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif font-bold text-foreground leading-[1.05] tracking-tight text-balance">
-          Communication should be strategic before it becomes public.
+    <section
+      className="spread relative grid min-h-[calc(100svh-5rem)] bg-cream lg:grid-cols-2"
+      style={{ "--spread-layer": 1 } as CSSProperties}
+    >
+      <div className="hero-cross-copy relative z-[1] flex flex-col justify-center bg-primary px-6 py-12 text-primary-foreground sm:px-10 lg:px-14 lg:py-16">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-gold">JahKnowsPR</p>
+        <h1 className="hero-cross-line mt-6 max-w-[9ch] font-serif text-[clamp(2.7rem,5.6vw,5.4rem)] font-medium leading-[0.9] tracking-tight">
+          The way you’re seen changes everything.
         </h1>
-        <p className="text-lg md:text-xl text-muted-foreground leading-relaxed max-w-3xl">
-          JahKnowsPR is a strategic communications and public relations consultancy helping brands,
-          leaders, and organizations make smarter decisions about what they say, how they are positioned,
-          and how they are perceived.
+        <p className="hero-cross-line mt-6 max-w-sm text-base leading-relaxed text-primary-foreground/85 md:text-lg">
+          We shape the strategies, messages, and decisions behind how businesses, leaders, and organizations are understood.
         </p>
-        <div className="flex flex-col sm:flex-row gap-3 pt-2">
-          <Button asChild size="lg" variant="default" className="h-12 px-8 font-semibold">
-            <Link to={SESSION_CTA_PATH}>Book a Strategic Communications Session</Link>
-          </Button>
-          <Button asChild size="lg" variant="outline" className="h-12 px-8 font-semibold group">
-            <Link to="/work">
-              See Our Work
-              <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
-            </Link>
-          </Button>
-        </div>
+        <Button asChild size="lg" variant="secondary" className="hero-cross-line mt-8 h-12 w-fit px-7 font-semibold">
+          <a href="#services" onClick={scrollToServices}>
+            Explore Our Services
+          </a>
+        </Button>
+      </div>
+      <div className="hero-cross-figure relative z-[2] flex items-end justify-center px-4 pb-0 pt-2 lg:-ml-[12%] lg:px-0">
+        <img
+          src={HERO_PORTRAIT}
+          alt="Jocelyn Vaughn seated in a studio portrait"
+          width={819}
+          height={1024}
+          className="h-auto w-auto max-h-[46vh] max-w-full lg:max-h-[calc(100svh-5rem)]"
+        />
       </div>
     </section>
   );
