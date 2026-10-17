@@ -77,12 +77,13 @@ export default function AboutPublic() {
                 </p>
               ))}
             </div>
+            <div className="space-y-3 pt-2">
+              <p className="text-foreground leading-relaxed">Invite Jocelyn to speak at your event.</p>
+              <Button asChild>
+                <Link to="/request-presence">Request Presence</Link>
+              </Button>
+            </div>
           </div>
-        </div>
-        <div className="max-w-6xl mx-auto mt-10">
-          <Button asChild>
-            <Link to="/request-presence">Request Presence</Link>
-          </Button>
         </div>
       </section>
 
