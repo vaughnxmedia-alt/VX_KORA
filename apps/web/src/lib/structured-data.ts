@@ -153,6 +153,6 @@ export function personSchema() {
     jobTitle: "Founder & Principal Strategist",
     worksFor: { "@id": `${SITE_ORIGIN}/#organization` },
     description:
-      "Jocelyn Vaughn is the Founder and Principal Strategist of JahKnowsPR, a strategic communications firm helping businesses, organizations, and personal brands communicate with greater clarity, intention, and impact.",
+      "Jocelyn Vaughn is the Founder and Principal Strategist of JahKnowsPR. She helps businesses, organizations, and personal brands communicate with clarity and intention.",
   };
 }
