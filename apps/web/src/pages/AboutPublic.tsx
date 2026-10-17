@@ -115,7 +115,7 @@ function FounderPortrait({ name, src }: { name: string; src: string }) {
           <p>“Attention expires.</p>
           <p>Positioning compounds.”</p>
         </blockquote>
-        <p className="font-signature mt-2 text-[2.75rem] leading-none text-primary">Jocelyn Vaughn</p>
+        <p className="font-signature mt-1 text-[2.7rem] leading-none text-primary">Jocelyn Vaughn</p>
       </figcaption>
     </figure>
   );
