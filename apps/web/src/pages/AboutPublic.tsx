@@ -110,9 +110,12 @@ function FounderPortrait({ name, src }: { name: string; src: string }) {
           onError={() => setMissing(true)}
         />
       )}
-      <figcaption className="mt-4 space-y-1 text-foreground">
-        <p className="font-serif text-lg leading-snug">“Attention expires. Positioning compounds.”</p>
-        <p className="font-signature -mt-1 text-[2.75rem] leading-none text-primary">Jocelyn Vaughn</p>
+      <figcaption className="mt-5">
+        <blockquote className="font-serif text-[1.05rem] leading-snug text-foreground">
+          <p>“Attention expires.</p>
+          <p>Positioning compounds.”</p>
+        </blockquote>
+        <p className="font-signature mt-2 text-[2.75rem] leading-none text-primary">Jocelyn Vaughn</p>
       </figcaption>
     </figure>
   );
