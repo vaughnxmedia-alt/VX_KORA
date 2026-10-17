@@ -68,12 +68,13 @@ export const LEAD_SOURCE_LABELS: Record<LeadSource, string> = {
   other: "Other",
 };
 
-export type InterestedService = "session" | "project" | "counsel" | "other";
+export type InterestedService = "session" | "project" | "counsel" | "speaking" | "other";
 
 export const INTERESTED_SERVICE_LABELS: Record<InterestedService, string> = {
   session: "Strategic Communications Session",
   project: "Strategic Communications + PR Project",
   counsel: "Ongoing Strategic Communications Counsel",
+  speaking: "Speaking",
   other: "Other",
 };
 
@@ -227,7 +228,7 @@ export const JOURNEY_STATUS_LABELS: Record<JourneyStatus, string> = {
   cancelled: "Cancelled",
 };
 
-export type JourneyService = Exclude<InterestedService, "other">;
+export type JourneyService = Exclude<InterestedService, "other" | "speaking">;
 
 export type NoteKind = "meeting" | "decision" | "next_step" | "note";
 export type CommChannel = "email" | "call" | "meeting" | "message";

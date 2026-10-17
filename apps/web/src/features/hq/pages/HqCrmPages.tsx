@@ -382,7 +382,8 @@ export function HqCrmEditorPage() {
       void qc.invalidateQueries({ queryKey: ["hq"] });
       toast.success("Converted to client");
       const service = lead?.interested_service;
-      const offer = service && service !== "other" ? `?journey=${service}` : "";
+      const offer =
+        service === "session" || service === "project" || service === "counsel" ? `?journey=${service}` : "";
       navigate(`/hq/clients/${client.id}${offer}`);
     },
     onError: (e: Error) => toast.error(e.message),

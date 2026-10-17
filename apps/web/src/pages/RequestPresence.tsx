@@ -40,39 +40,20 @@ export default function RequestPresence() {
     }
     setSubmitting(true);
     try {
-      const { data: customer, error } = await supabase
-        .from("customers")
-        .insert({
-          first_name: form.first_name,
-          last_name: form.last_name,
-          email: form.email,
-          business_name: form.organization,
-          client_status: "lead_captured",
-        })
-        .select()
-        .single();
-      if (error) throw error;
-
-      const details = [
-        form.event_name ? `Event: ${form.event_name}` : null,
-        form.event_date ? `Date: ${form.event_date}` : null,
-        form.city ? `City: ${form.city}` : null,
-        form.message,
-      ]
-        .filter(Boolean)
-        .join("\n");
-
-      const { error: meetingError } = await supabase.from("meetings").insert({
-        customer_id: customer.id,
-        title: "Speaking request",
-        description: `[speaking] ${details}`,
-        meeting_date: form.event_date ? new Date(`${form.event_date}T12:00:00`).toISOString() : new Date().toISOString(),
-        duration_minutes: 30,
-        status: "pending",
-        booking_kind: "full_program_sales",
+      const { data, error } = await supabase.functions.invoke("request-presence", {
+        body: {
+          first_name: form.first_name.trim(),
+          last_name: form.last_name.trim(),
+          email: form.email.trim(),
+          organization: form.organization.trim(),
+          event_name: form.event_name.trim(),
+          event_date: form.event_date,
+          city: form.city.trim(),
+          message: form.message.trim(),
+        },
       });
-      if (meetingError) throw meetingError;
-
+      if (error) throw error;
+      if (data?.error) throw new Error(typeof data.error === "string" ? data.error : "Submission failed.");
       setSent(true);
     } catch (err) {
       console.error(err);
