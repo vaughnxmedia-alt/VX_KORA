@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { StructuredData } from "@/components/StructuredData";
 import { breadcrumbListSchema, personSchema } from "@/lib/structured-data";
 import { SectionHeader } from "@/components/public/SectionHeader";
@@ -7,7 +6,6 @@ import { ProcessSteps } from "@/components/public/ProcessSteps";
 import { CTASection } from "@/components/public/CTASection";
 import { firmProfile } from "@/content/firm";
 import { firmProcessSteps } from "@/content/process";
-import { Button } from "@/components/ui/button";
 
 export default function AboutPublic() {
   useEffect(() => {
@@ -79,9 +77,6 @@ export default function AboutPublic() {
                 </p>
               ))}
             </div>
-            <Button asChild variant="outline">
-              <Link to="/insights/the-brief">Read our analysis on The Brief</Link>
-            </Button>
           </div>
         </div>
       </section>
