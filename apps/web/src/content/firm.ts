@@ -61,7 +61,7 @@ export const aboutPage = {
   building: {
     eyebrow: "What We’re Building",
     paragraphs: [
-      "Thoughtful communications counsel shouldn’t be reserved for large budgets or in-house teams. Growing businesses deserve direction. Emerging leaders deserve preparation.",
+      "We work with in-house teams and with leaders who don’t have one yet. Growing businesses deserve direction. Emerging leaders deserve preparation. Established organizations deserve the same clarity.",
       "Whether the work is one decision or an ongoing partnership, the purpose is the same: communicate with intention, and build something worth believing in.",
       "Communication doesn’t begin when the world starts listening. It begins long before anyone hears a word.",
     ],
