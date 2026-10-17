@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 import { StructuredData } from "@/components/StructuredData";
 import { breadcrumbListSchema, personSchema } from "@/lib/structured-data";
 import { SectionHeader } from "@/components/public/SectionHeader";
@@ -76,6 +78,11 @@ export default function AboutPublic() {
               ))}
             </div>
           </div>
+        </div>
+        <div className="max-w-6xl mx-auto mt-10">
+          <Button asChild>
+            <Link to="/request-presence">Request Presence</Link>
+          </Button>
         </div>
       </section>
 

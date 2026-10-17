@@ -23,6 +23,7 @@ const InsightsSpamReport = React.lazy(() => import('./pages/InsightsSpamReport')
 const InsightsPRCourt = React.lazy(() => import('./pages/InsightsPRCourt'));
 const ContactPage = React.lazy(() => import('./pages/ContactPage'));
 const About = React.lazy(() => import('./pages/AboutPublic'));
+const RequestPresence = React.lazy(() => import('./pages/RequestPresence'));
 const PrivacyPolicy = React.lazy(() => import('./pages/PrivacyPolicy'));
 const TermsOfService = React.lazy(() => import('./pages/TermsOfService'));
 const DataDeletionPolicy = React.lazy(() => import('./pages/DataDeletionPolicy'));
@@ -412,6 +413,7 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="/consultation/campaign-retainer" element={<CampaignRetainerConsultation />} />
                 <Route path="/consultation/kora-platform" element={<KoraExternalRedirect path="/platform-consultation" />} />
                 <Route path="/about" element={<About />} />
+                <Route path="/request-presence" element={<RequestPresence />} />
                 <Route path="/privacy" element={<PrivacyPolicy />} />
                 <Route path="/terms" element={<TermsOfService />} />
                 <Route path="/data-deletion" element={<DataDeletionPolicy />} />
