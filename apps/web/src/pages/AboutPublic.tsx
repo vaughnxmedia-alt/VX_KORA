@@ -112,7 +112,7 @@ function FounderPortrait({ name, src }: { name: string; src: string }) {
       )}
       <figcaption className="mt-4 space-y-1 text-foreground">
         <p className="font-serif text-lg leading-snug">“Attention expires. Positioning compounds.”</p>
-        <p className="font-signature pt-1 text-[1.65rem] leading-snug text-primary">Jocelyn Vaughn</p>
+        <p className="font-signature -mt-1 text-[2.75rem] leading-none text-primary">Jocelyn Vaughn</p>
       </figcaption>
     </figure>
   );
