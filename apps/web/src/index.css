@@ -148,6 +148,10 @@ All colors MUST be HSL.
     @apply max-w-[680px] mx-auto px-4 sm:px-6;
   }
 
+  .font-signature {
+    font-family: "Great Vibes", cursive;
+  }
+
   .blog-editorial-title {
     @apply text-4xl md:text-5xl lg:text-[3.5rem] leading-[1.15] tracking-tight;
     font-family: 'Georgia', 'Times New Roman', serif;
