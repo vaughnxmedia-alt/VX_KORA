@@ -319,6 +319,10 @@ html.home-publication footer {
     top: 0;
   }
 
+  .spread-static {
+    position: relative;
+  }
+
   .spread + .spread {
     box-shadow: 0 -32px 48px -28px hsl(220 100% 15% / 0.38);
   }
@@ -375,6 +379,27 @@ html.home-publication footer {
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .work-photo {
+    animation: work-reveal 1.05s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@keyframes work-reveal {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .work-photo {
+    animation: none;
   }
 }
 

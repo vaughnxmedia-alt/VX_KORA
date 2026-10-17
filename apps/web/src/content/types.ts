@@ -26,6 +26,8 @@ export type CaseStudy = {
   id: string;
   slug: string;
   title: string;
+  /** Short line for the homepage portfolio. The full title stays on the case study itself. */
+  homeHeadline?: string;
   client: string;
   category: WorkCategory;
   excerpt: string;

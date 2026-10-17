@@ -24,13 +24,15 @@ export function HomeOffers() {
         </Link>
       </div>
 
-      <div className="mt-12 grid gap-10 lg:mt-16 lg:grid-cols-12 lg:gap-16">
-        <div role="tablist" aria-label="Ways to work together" className="lg:col-span-5">
-          {coreOffers.map((item, index) => {
-            const selected = item.id === offer.id;
-            return (
+      <div role="tablist" aria-label="Ways to work together" className="mt-12 lg:mt-16">
+        {coreOffers.map((item, index) => {
+          const selected = item.id === offer.id;
+          return (
+            <div
+              key={item.id}
+              className="grid items-start gap-4 border-b border-foreground/10 py-4 lg:grid-cols-12 lg:gap-16"
+            >
               <button
-                key={item.id}
                 type="button"
                 role="tab"
                 aria-selected={selected}
@@ -38,32 +40,35 @@ export function HomeOffers() {
                 onMouseEnter={() => setActiveId(item.id)}
                 onFocus={() => setActiveId(item.id)}
                 className={cn(
-                  "flex w-full items-baseline gap-4 border-b border-foreground/10 py-4 text-left transition-colors",
+                  "flex w-full items-baseline gap-4 py-1 text-left transition-colors lg:col-span-5",
                   selected ? "text-foreground" : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 <span className="font-sans text-xs tracking-[0.2em] text-gold-dark">0{index + 1}</span>
                 <span className="font-serif text-2xl leading-tight md:text-[1.7rem]">{item.title}</span>
               </button>
-            );
-          })}
-          <Link
-            to="/work-with-us"
-            className="mt-6 inline-flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground sm:hidden"
-          >
-            All offers
-            <span className="h-px w-8 bg-gold-dark" />
-          </Link>
-        </div>
-
-        <div role="tabpanel" className="flex flex-col justify-end gap-8 lg:col-span-6 lg:col-start-7">
-          <div key={offer.id} className="spread-panel space-y-6">
-            <p className="font-serif text-2xl leading-snug md:text-3xl">{offer.summary}</p>
-            <Button asChild size="lg" className="h-12 w-fit px-7 font-semibold">
-              <Link to={offer.ctaHref}>{offer.ctaLabel}</Link>
-            </Button>
-          </div>
-        </div>
+              <div className="lg:col-span-6 lg:col-start-7" role={selected ? "tabpanel" : undefined}>
+                {selected ? (
+                  <div key={item.id} className="spread-panel space-y-6 pt-1">
+                    <p className="font-serif text-2xl leading-snug text-gold-dark [text-shadow:0_0_1px_hsl(40_70%_42%),0_0_14px_hsl(43_92%_52%/0.95),0_0_32px_hsl(45_95%_58%/0.75)] md:text-3xl">
+                      {item.summary}
+                    </p>
+                    <Button asChild size="lg" className="h-12 w-fit px-7 font-semibold">
+                      <Link to={item.ctaHref}>{item.ctaLabel}</Link>
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          );
+        })}
+        <Link
+          to="/work-with-us"
+          className="mt-6 inline-flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground sm:hidden"
+        >
+          All offers
+          <span className="h-px w-8 bg-gold-dark" />
+        </Link>
       </div>
     </Spread>
   );

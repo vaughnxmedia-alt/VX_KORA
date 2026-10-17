@@ -9,6 +9,7 @@ export const caseStudies: CaseStudy[] = [
     id: "lifeline-earth-month",
     slug: "lifeline-earth-month-lamar",
     title: "Positioning a local plant-based brand for institutional visibility",
+    homeHeadline: "A campus could name the brand.",
     client: "Lifeline Healthy Eats",
     category: "events",
     excerpt:
@@ -33,6 +34,7 @@ export const caseStudies: CaseStudy[] = [
     id: "terry-bennett-hickey",
     slug: "terry-bennett-hickey-media-journey",
     title: "Clarifying a personal brand pivot into media and storytelling",
+    homeHeadline: "Authority, before the introduction.",
     client: "Terry Bennett-Hickey",
     category: "positioning",
     excerpt:
@@ -56,6 +58,7 @@ export const caseStudies: CaseStudy[] = [
     id: "409-media-mixer",
     slug: "409-media-mixer-attention-vs-clients",
     title: "When attention does not convert to trust",
+    homeHeadline: "Attention is not the same as trust.",
     client: "Regional brand ecosystem (409 Media Mixer)",
     category: "reputation",
     excerpt:
