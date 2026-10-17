@@ -51,8 +51,11 @@ export default function AboutPublic() {
 
       <section className="py-16 px-4 sm:px-6 border-b border-border">
         <div className="max-w-7xl mx-auto space-y-10">
-          <SectionHeader title="Our process" align="left" />
+          <SectionHeader title="The Firm’s Overarching Methodology" align="left" />
           <ProcessSteps steps={firmProcessSteps} />
+          <p className="max-w-3xl text-muted-foreground italic leading-relaxed">
+            Our process adapts to the engagement. Our commitment to thoughtful, strategic counsel does not.
+          </p>
         </div>
       </section>
 

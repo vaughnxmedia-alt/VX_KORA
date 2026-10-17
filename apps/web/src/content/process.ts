@@ -22,27 +22,27 @@ export const positioningPillars: PositioningPillar[] = [
 export const firmProcessSteps: ProcessStep[] = [
   {
     order: 1,
-    title: "Research",
+    title: "Discover",
     description: "Gather context: audience, market, history, and the stakes of the moment.",
   },
   {
     order: 2,
-    title: "Context",
+    title: "Assess",
     description: "Interpret what the organization is really communicating today—intentionally or not.",
   },
   {
     order: 3,
-    title: "Strategy",
+    title: "Strategize",
     description: "Decide what should be said, avoided, and prioritized before execution.",
   },
   {
     order: 4,
-    title: "Communication",
-    description: "Deploy messaging, media, and channels aligned to the strategy—not the reverse.",
+    title: "Advise",
+    description: "Counsel the decision—the message, the risk, and whether to speak at all.",
   },
   {
     order: 5,
-    title: "Evaluation",
+    title: "Evaluate",
     description: "Measure whether perception, trust, and outcomes moved—not vanity metrics alone.",
   },
 ];
