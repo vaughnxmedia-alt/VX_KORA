@@ -53,7 +53,7 @@ export default function AboutPublic() {
         <div className="max-w-7xl mx-auto space-y-10">
           <SectionHeader title="The Firm’s Overarching Methodology" align="left" />
           <ProcessSteps steps={firmProcessSteps} />
-          <p className="max-w-3xl text-muted-foreground italic leading-relaxed">
+          <p className="max-w-3xl italic leading-relaxed text-gold-dark [text-shadow:0_0_1px_hsl(40_70%_42%),0_0_14px_hsl(43_92%_52%/0.95),0_0_32px_hsl(45_95%_58%/0.75)]">
             Our process adapts to the engagement. Our commitment to thoughtful, strategic counsel does not.
           </p>
         </div>
