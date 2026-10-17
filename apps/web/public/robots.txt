@@ -1,8 +1,24 @@
 User-agent: Googlebot
 Allow: /
+Disallow: /hq
+Disallow: /dashboard
+Disallow: /portal
+Disallow: /join/
+Disallow: /auth
+Disallow: /email-confirmation
+Disallow: /signup-confirmation
+Disallow: /payment
 
 User-agent: Bingbot
 Allow: /
+Disallow: /hq
+Disallow: /dashboard
+Disallow: /portal
+Disallow: /join/
+Disallow: /auth
+Disallow: /email-confirmation
+Disallow: /signup-confirmation
+Disallow: /payment
 
 User-agent: OAI-SearchBot
 Allow: /
@@ -21,5 +37,14 @@ Allow: /
 
 User-agent: *
 Allow: /
+Disallow: /hq
+Disallow: /dashboard
+Disallow: /portal
+Disallow: /join/
+Disallow: /auth
+Disallow: /email-confirmation
+Disallow: /signup-confirmation
+Disallow: /payment
 
 Sitemap: https://www.jahknowspr.com/sitemap.xml
+Sitemap: https://jahknowspr.com/sitemap.xml

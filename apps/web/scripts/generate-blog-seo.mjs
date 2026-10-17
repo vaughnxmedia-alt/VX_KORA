@@ -340,63 +340,6 @@ function renderPostHtml(post, relatedPosts) {
 </html>`;
 }
 
-function renderSitemap(posts) {
-  const locationPaths = [
-    "/locations",
-    "/locations/texas",
-    "/locations/beaumont-tx",
-    "/locations/port-arthur-tx",
-    "/locations/orange-tx",
-    "/locations/houston-tx",
-    "/locations/dallas-tx",
-    "/locations/san-antonio-tx",
-    "/locations/austin-tx",
-  ];
-  const answerPaths = [
-    "/answers",
-    "/answers/pr-vs-marketing",
-    "/answers/what-is-brand-strategy",
-    "/answers/what-does-a-publicist-do",
-    "/answers/why-content-gets-attention-but-not-clients",
-    "/answers/how-to-get-media-coverage-in-texas",
-    "/answers/do-i-need-pr-or-marketing-first",
-    "/answers/what-is-authority-strategy",
-    "/answers/how-to-build-local-brand-authority",
-  ];
-  const servicePaths = [
-    "/work-with-me",
-    "/free-audit",
-    "/brand-strategy-session",
-    "/strategy-session",
-    "/consultation/creative-production",
-    "/consultation/campaign-retainer",
-  ];
-  const staticUrls = [
-    ["/", "1.0"],
-    ["/the-brief", "0.7"],
-    ...servicePaths.map((pathname) => [pathname, pathname === "/free-audit" ? "0.9" : "0.8"]),
-    ...locationPaths.map((pathname) => [pathname, pathname === "/locations/texas" ? "0.8" : "0.7"]),
-    ...answerPaths.map((pathname) => [pathname, pathname === "/answers" ? "0.8" : "0.7"]),
-  ];
-  const urls = staticUrls.map(([pathname, priority]) => `  <url>
-    <loc>${SITE_ORIGIN}${pathname === "/" ? "/" : pathname}</loc>
-    <priority>${priority}</priority>
-  </url>`);
-  for (const post of posts) {
-    const lastmod = String(post.updated_at || post.published_date || "").slice(0, 10);
-    urls.push(`  <url>
-    <loc>${SITE_ORIGIN}/the-brief/${encodeURIComponent(cleanSegment(post))}</loc>
-    ${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}
-    <priority>0.7</priority>
-  </url>`);
-  }
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${urls.join("\n")}
-</urlset>
-`;
-}
-
 async function main() {
   loadDotEnv();
   const supabaseUrl = (process.env.VITE_SUPABASE_URL || "").replace(/\/$/, "");
@@ -415,7 +358,6 @@ async function main() {
   if (!response.ok) throw new Error(`[blog-seo] Could not fetch blog posts: ${await response.text()}`);
 
   const posts = (await response.json()).filter(isLivePost);
-  fs.writeFileSync(path.join(PUBLIC_DIR, "sitemap.xml"), renderSitemap(posts));
   fs.rmSync(STATIC_BRIEF_DIR, { recursive: true, force: true });
 
   for (const post of posts) {
@@ -425,7 +367,7 @@ async function main() {
     fs.writeFileSync(path.join(directory, "index.html"), renderPostHtml(post, posts));
   }
 
-  console.log(`[blog-seo] Wrote sitemap and ${posts.length} static blog snapshots.`);
+  console.log(`[blog-seo] Wrote ${posts.length} static blog snapshots. Sitemap is served live from /sitemap.xml.`);
 }
 
 main().catch((error) => {
