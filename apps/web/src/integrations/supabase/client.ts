@@ -9,7 +9,23 @@ const SUPABASE_PUBLISHABLE_KEY = (
 ) as string | undefined;
 
 const isDev = import.meta.env.DEV;
-const hasRealConfig = Boolean(SUPABASE_URL?.trim() && SUPABASE_PUBLISHABLE_KEY?.trim());
+
+/** Treat .env.example placeholders as unset so local dev does not claim Supabase is configured. */
+function isLikelySupabaseEnvPlaceholder(
+  url: string | undefined,
+  key: string | undefined,
+): boolean {
+  const u = url?.trim() ?? "";
+  const k = key?.trim() ?? "";
+  if (!u || !k) return true;
+  if (/YOUR_PROJECT_REF|placeholder-not-configured/i.test(u)) return true;
+  if (/your_anon_public_key_here/i.test(k)) return true;
+  return false;
+}
+
+const hasRealConfig =
+  Boolean(SUPABASE_URL?.trim() && SUPABASE_PUBLISHABLE_KEY?.trim()) &&
+  !isLikelySupabaseEnvPlaceholder(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
 if (!hasRealConfig && !isDev) {
   throw new Error(
