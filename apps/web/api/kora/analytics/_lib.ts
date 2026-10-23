@@ -37,7 +37,8 @@ export type TrackEventName =
   | "backlink_click"
   | "client_portal_login"
   | "report_view"
-  | "report_download";
+  | "report_download"
+  | "brief_engagement";
 
 const EVENT_NAMES = new Set<TrackEventName>([
   "ad_click",
@@ -69,6 +70,7 @@ const EVENT_NAMES = new Set<TrackEventName>([
   "client_portal_login",
   "report_view",
   "report_download",
+  "brief_engagement",
 ]);
 
 const FORBIDDEN_KEY_PARTS = ["password", "token", "authorization", "card", "cvv", "ssn", "secret", "note", "message"];

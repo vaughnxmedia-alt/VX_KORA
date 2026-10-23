@@ -16,7 +16,7 @@ import {
   getDefaultOgImageAbsoluteUrl,
   isBlogRouteParamUuid,
 } from "@/lib/blog-share";
-import { trackBlogView } from "@/lib/kora-analytics";
+import { trackBriefCta, useBriefEngagement } from "@/lib/brief-analytics";
 
 type BlogPostType = {
   id: string;
@@ -290,6 +290,23 @@ const BlogPost = () => {
   const [isSaved, setIsSaved] = useState(false);
   const { toast } = useToast();
   const location = useLocation();
+  useBriefEngagement({
+    enabled: Boolean(post),
+    slug: post?.slug || id || null,
+    title: post?.title || null,
+    contentId: post?.id || null,
+  });
+
+  const onArticleCta = (ctaId: string, label: string, destination: string) => {
+    trackBriefCta({
+      ctaId,
+      label,
+      slug: post?.slug || id || null,
+      title: post?.title || null,
+      contentId: post?.id || null,
+    });
+    navigate(destination);
+  };
 
   const incrementViewCount = useCallback(async (postId: string) => {
     const viewKey = `blog_view_${postId}`;
@@ -341,15 +358,6 @@ const BlogPost = () => {
       const row = data as BlogPostType;
       setPost(row);
       incrementViewCount(row.id);
-      trackBlogView({
-        page_path: buildBlogPathSegment(row),
-        content_id: row.id,
-        content_type: "blog",
-        content_category: row.category,
-        blog_slug: row.slug || null,
-        funnel_id: "content_engagement",
-        funnel_step: "blog_view",
-      });
     }
     setLoading(false);
   }, [id, navigate, toast, incrementViewCount]);
@@ -735,7 +743,7 @@ const BlogPost = () => {
                   source={sponsorshipContent.first}
                   rehypePlugins={[...markdownPlugins]}
                 />
-                <SponsorHubInlineCta onClick={() => navigate(sponsorRequestPath)} />
+                <SponsorHubInlineCta onClick={() => onArticleCta("sponsor-hub", "Sponsor hub", sponsorRequestPath)} />
                 <MDEditor.Markdown
                   source={sponsorshipContent.rest}
                   rehypePlugins={[...markdownPlugins]}
@@ -748,7 +756,7 @@ const BlogPost = () => {
               />
             )}
             {isSponsorPost && !sponsorshipContent?.rest ? (
-              <SponsorHubInlineCta onClick={() => navigate(sponsorRequestPath)} />
+              <SponsorHubInlineCta onClick={() => onArticleCta("sponsor-hub", "Sponsor hub", sponsorRequestPath)} />
             ) : null}
           </div>
 
@@ -774,7 +782,7 @@ const BlogPost = () => {
           )}
 
           {isSponsorPost ? (
-            <SponsorHubArticleCta onClick={() => navigate(sponsorRequestPath)} />
+            <SponsorHubArticleCta onClick={() => onArticleCta("sponsor-hub", "Sponsor hub", sponsorRequestPath)} />
           ) : null}
 
           {/* Article End Treatment */}
@@ -832,7 +840,7 @@ const BlogPost = () => {
             <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">
               Clear explanations about PR vs. marketing, brand strategy, media coverage, content conversion, and local authority.
             </p>
-            <Button className="mt-5" variant="outline" onClick={() => navigate("/answers")}>
+            <Button className="mt-5" variant="outline" onClick={() => onArticleCta("answers", "Go to Answers", "/answers")}>
               Go to Answers
             </Button>
           </div>
@@ -910,7 +918,7 @@ const BlogPost = () => {
             <Button 
               variant="secondary" 
               size="lg" 
-              onClick={() => navigate("/free-audit")}
+              onClick={() => onArticleCta("free-audit", "Start Free Audit", "/free-audit")}
               className="text-lg px-8 py-6 font-bold rounded-full shadow-xl hover:scale-105 transition-transform"
             >
               Start Free Audit
@@ -918,7 +926,7 @@ const BlogPost = () => {
             <Button
               variant="outline"
               size="lg"
-              onClick={() => navigate("/brand-strategy-session")}
+              onClick={() => onArticleCta("strategy-session", "Book Strategy Session", "/brand-strategy-session")}
               className="border-background/40 bg-transparent text-background hover:bg-background hover:text-foreground text-lg px-8 py-6 font-bold rounded-full"
             >
               Book Strategy Session

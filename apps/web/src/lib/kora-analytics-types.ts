@@ -27,7 +27,8 @@ export type AnalyticsEventName =
   | "backlink_click"
   | "client_portal_login"
   | "report_view"
-  | "report_download";
+  | "report_download"
+  | "brief_engagement";
 
 export type FindingType =
   | "opportunity"

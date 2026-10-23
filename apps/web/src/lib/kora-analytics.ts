@@ -43,6 +43,7 @@ const EVENT_NAMES: Set<AnalyticsEventName> = new Set([
   "client_portal_login",
   "report_view",
   "report_download",
+  "brief_engagement",
 ]);
 
 function isBrowser(): boolean {

@@ -7,6 +7,7 @@ import { useEffect, useRef } from 'react';
 import { StructuredData } from '@/components/StructuredData';
 import { organizationSchema, websiteSchema } from '@/lib/structured-data';
 import { trackAIReferralVisit, trackPageView } from "@/lib/kora-analytics";
+import { briefTrackingFields, trackBriefGaPageView } from "@/lib/brief-analytics";
 import { scrollAppToTop } from "@/lib/scrollAppToTop";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +39,7 @@ function App() {
     location.pathname.startsWith("/free-audit") ||
     isHq;
   const mainRef = useRef<HTMLDivElement>(null);
+  const lastTrackedView = useRef<{ key: string; at: number }>({ key: "", at: 0 });
 
   useEffect(() => {
     scrollAppToTop();
@@ -45,39 +47,55 @@ function App() {
 
   useEffect(() => {
     const pagePath = location.pathname;
-    const contentType =
-      pagePath.startsWith("/the-brief")
-        ? "blog"
-        : pagePath.startsWith("/answers")
-          ? "ai_answer"
+    const viewKey = `${pagePath}${location.search}`;
+    const viewedAt = Date.now();
+    if (lastTrackedView.current.key === viewKey && viewedAt - lastTrackedView.current.at < 1500) return;
+    lastTrackedView.current = { key: viewKey, at: viewedAt };
+    const brief = briefTrackingFields(pagePath);
+    const contentType = brief
+      ? "the-brief"
+      : pagePath.startsWith("/answers")
+        ? "ai_answer"
         : pagePath.startsWith("/locations")
           ? "location_page"
-        : pagePath.startsWith("/free-audit")
-          ? "audit"
-          : pagePath.startsWith("/strategy-session") || pagePath.startsWith("/brand-strategy-session")
-            ? "strategy_session"
-            : pagePath.startsWith("/brand-blueprint")
-              ? "brand_blueprint"
-              : pagePath.startsWith("/dashboard")
-                ? "dashboard"
-                : "page";
+          : pagePath.startsWith("/free-audit")
+            ? "audit"
+            : pagePath.startsWith("/strategy-session") || pagePath.startsWith("/brand-strategy-session")
+              ? "strategy_session"
+              : pagePath.startsWith("/brand-blueprint")
+                ? "brand_blueprint"
+                : pagePath.startsWith("/dashboard")
+                  ? "dashboard"
+                  : "page";
 
     const aiReferralSource = detectAIReferralSource(document.referrer || "");
 
     trackPageView({
       page_path: pagePath,
+      page_title: document.title,
       content_type: contentType,
-      content_id:
-        pagePath.startsWith("/locations/") || pagePath.startsWith("/answers/")
+      content_id: brief
+        ? brief.content_id
+        : pagePath.startsWith("/locations/") || pagePath.startsWith("/answers/")
           ? pagePath.split("/").filter(Boolean)[1]
           : undefined,
+      blog_slug: brief?.blog_slug ?? undefined,
       metadata: {
         search: location.search || null,
         city_slug: pagePath.startsWith("/locations/") ? pagePath.split("/").filter(Boolean)[1] : null,
         answer_slug: pagePath.startsWith("/answers/") ? pagePath.split("/").filter(Boolean)[1] : null,
+        article_slug: brief?.blog_slug ?? null,
         ai_referral_source: aiReferralSource,
       },
     });
+
+    if (brief) {
+      trackBriefGaPageView({
+        pagePath,
+        title: document.title,
+        slug: brief.blog_slug,
+      });
+    }
 
     if (aiReferralSource) {
       trackAIReferralVisit({

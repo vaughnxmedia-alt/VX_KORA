@@ -99,10 +99,15 @@ export function HqContentListPage() {
             SPAM hub stays at /insights/spam-report. Engagement case studies are a separate internal record.
           </p>
         </div>
-        <Button onClick={() => navigate("/hq/content/new")}>
-          <Plus className="h-4 w-4 mr-1" />
-          New post
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => navigate("/hq/content/analytics")}>
+            Analytics
+          </Button>
+          <Button onClick={() => navigate("/hq/content/new")}>
+            <Plus className="h-4 w-4 mr-1" />
+            New post
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">

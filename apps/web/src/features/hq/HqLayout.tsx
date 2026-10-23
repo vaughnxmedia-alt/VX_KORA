@@ -4,6 +4,7 @@ import {
   Building2,
   Route,
   BookOpen,
+  BarChart3,
   Briefcase,
   Settings,
   UserCog,
@@ -41,6 +42,7 @@ const SERVICE: NavItem[] = [
 
 const EDITORIAL: NavItem[] = [
   { label: "The Brief", to: "/hq/content", icon: BookOpen, module: "content" },
+  { label: "Brief analytics", to: "/hq/content/analytics", icon: BarChart3, module: "content" },
   { label: "Case studies", to: "/hq/case-studies", icon: Briefcase, module: "content" },
 ];
 
@@ -78,7 +80,7 @@ function NavSection({
             <li key={item.to + item.label}>
               <NavLink
                 to={item.to}
-                end={item.to === "/hq" || item.to === "/hq/intelligence"}
+                end={item.to === "/hq" || item.to === "/hq/intelligence" || item.to === "/hq/content"}
                 onClick={onNavigate}
                 className={({ isActive }) =>
                   cn(

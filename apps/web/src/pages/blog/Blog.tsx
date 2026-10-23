@@ -19,6 +19,7 @@ import {
 } from "@/lib/blog-share";
 import { answerPages } from "@/data/answerPages";
 import { GUIDE_HUB_PATH } from "@/content/guides/beforeYouBuildTheBrand";
+import { useBriefEngagement } from "@/lib/brief-analytics";
 import {
   Pagination,
   PaginationContent,
@@ -135,6 +136,7 @@ const Blog = () => {
   const articlesPerPage = 6;
   const { categories: managedCategories } = useBlogCategories();
   const homepageShuffleRandom = useRef(Math.random);
+  useBriefEngagement({ enabled: true, title: "The Brief", contentId: "the-brief" });
 
   const fetchBlogPosts = useCallback(async () => {
       // Prefer The Brief series when content_type exists (HQ); fall back to all non-hidden posts
