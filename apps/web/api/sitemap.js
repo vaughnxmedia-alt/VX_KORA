@@ -12,6 +12,7 @@ const STATIC_PATHS = [
   ["/insights", "0.7"],
   ["/insights/spam-report", "0.7"],
   ["/events", "0.5"],
+  ["/experiences/make-your-business-make-sense", "0.6"],
   ["/free-audit", "0.7"],
   ["/answers", "0.7"],
   ["/locations", "0.6"],

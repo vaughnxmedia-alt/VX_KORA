@@ -532,12 +532,13 @@ export function canAccessHqModule(
     | "intelligence"
     | "journeys"
     | "team"
-    | "settings",
+    | "settings"
+    | "workshops",
 ): boolean {
   if (!role) return false;
   if (role === "owner") return true;
   if (role === "strategist") {
-    return ["dashboard", "crm", "clients", "tasks", "content", "intelligence", "journeys"].includes(module);
+    return ["dashboard", "crm", "clients", "tasks", "content", "intelligence", "journeys", "workshops"].includes(module);
   }
   if (role === "creative") {
     return ["dashboard", "tasks", "content", "clients", "intelligence", "journeys"].includes(module);

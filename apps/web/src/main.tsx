@@ -147,6 +147,9 @@ const HqTeamPage = React.lazy(() =>
 const HqSettingsPage = React.lazy(() =>
   import('@/features/hq/pages/HqOpsPages').then((m) => ({ default: m.HqSettingsPage })),
 );
+const HqWorkshopPage = React.lazy(() => import('@/features/hq/pages/HqWorkshopPage'));
+const MakeYourBusinessMakeSensePage = React.lazy(() => import('./pages/workshops/MakeYourBusinessMakeSense'));
+const WorkshopConfirmationPage = React.lazy(() => import('./pages/workshops/WorkshopConfirmation'));
 const CiModuleGate = React.lazy(() =>
   import('@/features/communications-intelligence/CiModuleGate').then((m) => ({ default: m.CiModuleGate })),
 );
@@ -431,6 +434,8 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="/answers" element={<AnswersHub />} />
                 <Route path="/answers/:answerSlug" element={<AnswerPageDetail />} />
                 <Route path="/events" element={<Events />} />
+                <Route path="/experiences/make-your-business-make-sense" element={<MakeYourBusinessMakeSensePage />} />
+                <Route path="/experiences/make-your-business-make-sense/confirmation" element={<WorkshopConfirmationPage />} />
                 <Route path="/kora" element={<KoraExternalRedirect />} />
                 <Route path="/kora/*" element={<KoraWildcardRedirect />} />
                 <Route path="/brand-blueprint" element={<BrandBlueprint />} />
@@ -456,6 +461,7 @@ createRoot(document.getElementById('root')!).render(
                   <Route path="content/:id" element={<HqContentEditorPage />} />
                   <Route path="team" element={<HqTeamPage />} />
                   <Route path="settings" element={<HqSettingsPage />} />
+                  <Route path="workshops/make-your-business-make-sense" element={<HqWorkshopPage />} />
                   <Route path="intelligence" element={<CiModuleGate />}>
                     <Route index element={<CiOpsDashboardPage />} />
                     <Route path="assessments" element={<CiAssessmentsDashboardPage />} />

@@ -34,6 +34,15 @@ verify_jwt = false
 [functions.square-telegram-subscription-payment]
 verify_jwt = false
 
+[functions.workshop-checkout]
+verify_jwt = false
+
+[functions.workshop-square-webhook]
+verify_jwt = false
+
+[functions.workshop-resend-confirmation]
+verify_jwt = true
+
 [functions.strategy-session-admin-confirm]
 verify_jwt = true
 

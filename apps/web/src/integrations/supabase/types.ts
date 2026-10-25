@@ -1891,6 +1891,147 @@ export type Database = {
         }
         Relationships: []
       }
+      workshop_events: {
+        Row: {
+          id: string
+          slug: string
+          title: string
+          host_name: string
+          format_label: string
+          audience_label: string
+          duration_minutes: number
+          starts_at: string | null
+          timezone: string | null
+          capacity: number | null
+          price_cents: number | null
+          currency: string
+          cancellation_terms: string | null
+          preparation_notes: string | null
+          zoom_url: string | null
+          registration_open: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          slug: string
+          title: string
+          host_name?: string
+          format_label?: string
+          audience_label?: string
+          duration_minutes?: number
+          starts_at?: string | null
+          timezone?: string | null
+          capacity?: number | null
+          price_cents?: number | null
+          currency?: string
+          cancellation_terms?: string | null
+          preparation_notes?: string | null
+          zoom_url?: string | null
+          registration_open?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          slug?: string
+          title?: string
+          host_name?: string
+          format_label?: string
+          audience_label?: string
+          duration_minutes?: number
+          starts_at?: string | null
+          timezone?: string | null
+          capacity?: number | null
+          price_cents?: number | null
+          currency?: string
+          cancellation_terms?: string | null
+          preparation_notes?: string | null
+          zoom_url?: string | null
+          registration_open?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      workshop_registrations: {
+        Row: {
+          id: string
+          event_id: string
+          confirmation_token: string
+          full_name: string
+          email: string
+          business_name: string
+          business_type: string
+          misunderstanding: string
+          marketing_consent: boolean
+          cancellation_acknowledged_at: string
+          status: string
+          hold_expires_at: string | null
+          idempotency_key: string
+          square_payment_id: string | null
+          amount_cents: number
+          currency: string
+          payment_note: string | null
+          confirmation_email_status: string
+          confirmation_email_attempted_at: string | null
+          confirmation_email_sent_at: string | null
+          confirmation_email_error: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          event_id: string
+          confirmation_token: string
+          full_name: string
+          email: string
+          business_name: string
+          business_type: string
+          misunderstanding: string
+          marketing_consent?: boolean
+          cancellation_acknowledged_at: string
+          status: string
+          hold_expires_at?: string | null
+          idempotency_key: string
+          square_payment_id?: string | null
+          amount_cents: number
+          currency?: string
+          payment_note?: string | null
+          confirmation_email_status?: string
+          confirmation_email_attempted_at?: string | null
+          confirmation_email_sent_at?: string | null
+          confirmation_email_error?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          event_id?: string
+          confirmation_token?: string
+          full_name?: string
+          email?: string
+          business_name?: string
+          business_type?: string
+          misunderstanding?: string
+          marketing_consent?: boolean
+          cancellation_acknowledged_at?: string
+          status?: string
+          hold_expires_at?: string | null
+          idempotency_key?: string
+          square_payment_id?: string | null
+          amount_cents?: number
+          currency?: string
+          payment_note?: string | null
+          confirmation_email_status?: string
+          confirmation_email_attempted_at?: string | null
+          confirmation_email_sent_at?: string | null
+          confirmation_email_error?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1898,6 +2039,8 @@ export type Database = {
     Functions: {
       get_user_role: { Args: { p_user_id: string }; Returns: string }
       increment_view_count: { Args: { post_id: string }; Returns: undefined }
+      workshop_event_public: { Args: { p_slug: string }; Returns: Json }
+      workshop_registration_status: { Args: { p_token: string }; Returns: Json }
       super_ops_auth_user_summary: {
         Args: { target_user_id: string }
         Returns: {

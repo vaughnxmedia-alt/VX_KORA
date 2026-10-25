@@ -13,6 +13,7 @@ import {
   Menu,
   X,
   Radar,
+  CalendarDays,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -47,6 +48,7 @@ const EDITORIAL: NavItem[] = [
 ];
 
 const OPERATIONS: NavItem[] = [
+  { label: "Workshop setup", to: "/hq/workshops/make-your-business-make-sense", icon: CalendarDays, module: "workshops" },
   { label: "Team", to: "/hq/team", icon: UserCog, module: "team" },
   { label: "Settings", to: "/hq/settings", icon: Settings, module: "settings" },
 ];
