@@ -17,6 +17,9 @@ import {
 
 const POPUP_INTERVAL_MS = 3 * 60 * 1000; // 3 minutes
 
+/** Survives React Strict Mode remounts so the arrival prompt counts once per page load. */
+let arrivalPromptCounted = false;
+
 const subscriberSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100, "Name must be less than 100 characters"),
   email: z.string().trim().email("Please enter a valid email").max(255, "Email must be less than 255 characters"),
@@ -42,11 +45,23 @@ export function SubscriberPopup() {
       }
     };
 
-    const startIntervalIfNeeded = () => {
+    const canPrompt = () => {
       const state = parseSubscriberPopupState();
-      if (state.subscribed || state.count >= SUBSCRIBER_POPUP_MAX_IMPRESSIONS) {
-        return;
+      return !state.subscribed && state.count < SUBSCRIBER_POPUP_MAX_IMPRESSIONS;
+    };
+
+    const showOnArrival = () => {
+      if (!canPrompt()) return;
+      if (!arrivalPromptCounted) {
+        arrivalPromptCounted = true;
+        const state = parseSubscriberPopupState();
+        writeSubscriberPopupState({ ...state, count: state.count + 1 });
       }
+      setOpen(true);
+    };
+
+    const startIntervalIfNeeded = () => {
+      if (!canPrompt()) return;
 
       intervalRef.current = setInterval(() => {
         const currentState = parseSubscriberPopupState();
@@ -81,9 +96,16 @@ export function SubscriberPopup() {
       }
     };
 
+    showOnArrival();
+
     void (async () => {
       await syncSuppressionFromSignup();
       if (cancelled) return;
+      if (!canPrompt()) {
+        setOpen(false);
+        clearTimer();
+        return;
+      }
       startIntervalIfNeeded();
     })();
 
@@ -127,11 +149,14 @@ export function SubscriberPopup() {
       if (data?.alreadySubscribed) {
         toast({
           title: "Already subscribed",
-          description: "This email is already on our list.",
+          description: "This email is already on The Brief list.",
         });
         suppressSubscriberPopupAsSignedUp();
         setOpen(false);
       } else {
+        if (data?.access_token) {
+          localStorage.setItem("theBriefAccessToken", data.access_token);
+        }
         suppressSubscriberPopupAsSignedUp();
         setThankYou(true);
       }
@@ -175,10 +200,10 @@ export function SubscriberPopup() {
         {thankYou ? (
           <div className="py-6 text-center space-y-3">
             <p className="text-2xl font-serif text-primary">
-              Thank you for subscribing<span className="text-gold">.</span>
+              You are subscribed to The Brief<span className="text-gold">.</span>
             </p>
             <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-              Check your inbox for a welcome note from JahKnowsPR. The Brief is live whenever you are ready.
+              Check your inbox for a welcome note. New editions of The Brief will arrive as they publish.
             </p>
             <Button type="button" className="mt-4" onClick={handleClose}>
               Close
@@ -188,11 +213,10 @@ export function SubscriberPopup() {
           <>
             <DialogHeader>
               <DialogTitle className="text-2xl font-serif text-primary">
-                Stay Informed<span className="text-gold">.</span>
+                Subscribe to The Brief<span className="text-gold">.</span>
               </DialogTitle>
               <DialogDescription className="text-muted-foreground">
-                Join our curated list for strategic insights on brand intelligence and public relations — and occasional
-                updates you can use for your brand.
+                Get new editions of The Brief in your inbox. Strategic notes on brand, reputation, and public relations.
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4 mt-4">
